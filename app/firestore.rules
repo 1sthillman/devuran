@@ -1,0 +1,185 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isSalonOwner(salonId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == salonId &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner', 'admin'];
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Media validation functions
+    function isValidMediaSize(mediaArray) {
+      // Her media item max 600KB (base64 encoded)
+      return mediaArray.size() <= 20 && 
+             mediaArray.hasAll(['id', 'type', 'base64', 'size', 'width', 'height', 'mimeType', 'uploadedAt']);
+    }
+    
+    function isValidVideoMedia(media) {
+      // Video max 15 saniye ve 500KB
+      return media.type == 'video' && 
+             media.duration <= 15 && 
+             media.size <= 512000 &&
+             media.keys().hasAll(['thumbnail']);
+    }
+    
+    function isValidImageMedia(media) {
+      // Image max 100KB
+      return media.type == 'image' && 
+             media.size <= 102400;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Salons collection
+    match /salons/{salonId} {
+      allow read: if true; // Public read
+      allow create: if isAuthenticated();
+      allow update: if isSalonOwner(salonId) || isAdmin();
+      allow delete: if isSalonOwner(salonId) || isAdmin();
+      
+      // Media validation on create/update
+      allow write: if (!request.resource.data.keys().hasAny(['media']) || 
+                       (request.resource.data.media is list && 
+                        request.resource.data.media.size() <= 20));
+    }
+    
+    // Services collection
+    match /services/{serviceId} {
+      allow read: if true; // Public read
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && 
+                               (exists(/databases/$(database)/documents/services/$(serviceId)) &&
+                                (isSalonOwner(resource.data.salonId) || isAdmin()));
+    }
+    
+    // Staff collection
+    match /staff/{staffId} {
+      allow read: if true; // Public read
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && 
+                               (exists(/databases/$(database)/documents/staff/$(staffId)) &&
+                                (isSalonOwner(resource.data.salonId) || isAdmin()));
+      
+      // Media validation
+      allow write: if (!request.resource.data.keys().hasAny(['media']) || 
+                       (request.resource.data.media is list && 
+                        request.resource.data.media.size() <= 10));
+    }
+    
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      // Public read for checking availability
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.userId;
+      allow update: if isAuthenticated() && 
+                       (exists(/databases/$(database)/documents/appointments/$(appointmentId)) &&
+                        (request.auth.uid == resource.data.userId || 
+                         isSalonOwner(resource.data.salonId) ||
+                         isAdmin()));
+      allow delete: if isAuthenticated() && 
+                       (exists(/databases/$(database)/documents/appointments/$(appointmentId)) &&
+                        (request.auth.uid == resource.data.userId || 
+                         isSalonOwner(resource.data.salonId) ||
+                         isAdmin()));
+    }
+    
+    // Queue collection
+    match /queue/{queueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.userId;
+      allow update: if isAuthenticated() && 
+                       (exists(/databases/$(database)/documents/queue/$(queueId)) &&
+                        (isSalonOwner(resource.data.salonId) || isAdmin()));
+      allow delete: if isAuthenticated() && 
+                       (exists(/databases/$(database)/documents/queue/$(queueId)) &&
+                        (request.auth.uid == resource.data.userId || 
+                         isSalonOwner(resource.data.salonId) ||
+                         isAdmin()));
+    }
+    
+    // Banned Users collection
+    match /bannedUsers/{banId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                       (isSalonOwner(request.resource.data.salonId) || isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (isSalonOwner(resource.data.salonId) || isAdmin());
+      allow update: if false;
+    }
+    
+    // Salon Customer Ratings collection
+    match /salonCustomerRatings/{ratingId} {
+      allow read: if isAuthenticated() && 
+                     (isSalonOwner(resource.data.salonId) || isAdmin());
+      allow create: if isAuthenticated() && 
+                       isSalonOwner(request.resource.data.salonId);
+      allow update: if false;
+      allow delete: if isAuthenticated() && 
+                       (isSalonOwner(resource.data.salonId) || isAdmin());
+    }
+    
+    // Reviews collection
+    match /reviews/{reviewId} {
+      allow read: if true; // Public read
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.userId;
+      allow update: if isOwner(resource.data.userId) || 
+                       isSalonOwner(resource.data.salonId) ||
+                       isAdmin();
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Media validation for reviews
+      allow write: if (!request.resource.data.keys().hasAny(['media']) || 
+                       (request.resource.data.media is list && 
+                        request.resource.data.media.size() <= 5));
+    }
+    
+    // Availability collection
+    match /availability/{availabilityId} {
+      allow read: if true; // Public read
+      allow write: if isAuthenticated() && 
+                      (exists(/databases/$(database)/documents/availability/$(availabilityId)) &&
+                       (isSalonOwner(resource.data.salonId) || isAdmin()));
+      allow create: if isAuthenticated();
+    }
+    
+    // User Sessions collection (for IP and device tracking)
+    match /userSessions/{sessionId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // Banned Users collection
+    match /bannedUsers/{banId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin();
+    }
+  }
+}

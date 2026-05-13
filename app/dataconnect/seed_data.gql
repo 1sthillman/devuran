@@ -1,0 +1,109 @@
+mutation CreateSeedData @transaction @auth(level: USER, insecureReason: "Seed data is for development purposes and can be created by any logged-in user.") {
+  user_insertMany(data: [
+    {
+      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      username: "john_doe",
+      email: "john.doe@example.com",
+      passwordHash: "hashedpassword1",
+      dateOfBirth: "1990-01-15",
+      gender: "Male",
+      displayName: "John Doe",
+      createdAt: "2023-01-01T10:00:00Z",
+      bio: "Software developer who loves hiking and tech.",
+      photoUrl: "https://example.com/john.jpg",
+      location: "San Francisco",
+      sexualOrientation: "Straight",
+      relationshipGoal: "Long-term"
+    },
+    {
+      id: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      username: "jane_smith",
+      email: "jane.smith@example.com",
+      passwordHash: "hashedpassword2",
+      dateOfBirth: "1992-05-20",
+      gender: "Female",
+      displayName: "Jane Smith",
+      createdAt: "2023-01-02T11:00:00Z",
+      bio: "Artist passionate about painting and travel.",
+      photoUrl: "https://example.com/jane.jpg",
+      location: "New York",
+      sexualOrientation: "Bisexual",
+      relationshipGoal: "Casual"
+    }
+  ])
+  interest_insertMany(data: [
+    {
+      id: "c3d4e5f6-a7b8-9012-3456-7890abcdef01",
+      name: "Hiking",
+      description: "Exploring nature trails and mountains."
+    },
+    {
+      id: "d4e5f6a7-b8c9-0123-4567-890abcdef012",
+      name: "Painting",
+      description: "Creative expression through various art forms."
+    },
+    {
+      id: "e5f6a7b8-c9d0-1234-5678-90abcdef0123",
+      name: "Traveling",
+      description: "Discovering new cultures and places."
+    },
+    {
+      id: "f6a7b8c9-d0e1-2345-6789-0abcdef01234",
+      name: "Technology",
+      description: "Keeping up with the latest gadgets and software."
+    }
+  ])
+  userInterest_insertMany(data: [
+    {
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      interestId: "c3d4e5f6-a7b8-9012-3456-7890abcdef01"
+    },
+    {
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      interestId: "f6a7b8c9-d0e1-2345-6789-0abcdef01234"
+    },
+    {
+      userId: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      interestId: "d4e5f6a7-b8c9-0123-4567-890abcdef012"
+    },
+    {
+      userId: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      interestId: "e5f6a7b8-c9d0-1234-5678-90abcdef0123"
+    }
+  ])
+  match_insertMany(data: [
+    {
+      id: "12345678-1234-1234-1234-1234567890ab",
+      user1Id: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      user2Id: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      createdAt: "2023-01-03T12:00:00Z"
+    }
+  ])
+  dateProposal_insertMany(data: [
+    {
+      proposerId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      matchId: "12345678-1234-1234-1234-1234567890ab",
+      proposedDateTime: "2023-01-10T18:00:00Z",
+      location: "Golden Gate Park",
+      activityDescription: "A relaxing hike",
+      status: "Pending",
+      notes: "Weather should be great!"
+    }
+  ])
+  message_insertMany(data: [
+    {
+      senderId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      receiverId: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      matchId: "12345678-1234-1234-1234-1234567890ab",
+      content: "Hey Jane, how about that hike next week?",
+      sentAt: "2023-01-04T10:00:00Z"
+    },
+    {
+      senderId: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      receiverId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      matchId: "12345678-1234-1234-1234-1234567890ab",
+      content: "Sounds good, John! Looking forward to it.",
+      sentAt: "2023-01-04T10:05:00Z"
+    }
+  ])
+}

@@ -1,0 +1,48 @@
+type User @table {
+  username: String!
+  email: String!
+  passwordHash: String!
+  dateOfBirth: Date!
+  gender: String!
+  displayName: String!
+  createdAt: Timestamp!
+  bio: String
+  photoUrl: String
+  location: String
+  sexualOrientation: String
+  relationshipGoal: String
+}
+
+type Interest @table {
+  name: String!
+  description: String
+}
+
+type UserInterest @table(key: ["user", "interest"]) {
+  user: User!
+  interest: Interest!
+}
+
+type Match @table {
+  user1: User!
+  user2: User!
+  createdAt: Timestamp!
+}
+
+type Message @table {
+  sender: User!
+  receiver: User!
+  match: Match!
+  content: String!
+  sentAt: Timestamp!
+}
+
+type DateProposal @table {
+  proposer: User!
+  match: Match!
+  proposedDateTime: Timestamp!
+  location: String!
+  activityDescription: String!
+  status: String!
+  notes: String
+}

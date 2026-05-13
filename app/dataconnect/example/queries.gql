@@ -1,0 +1,55 @@
+query GetUserProfile($id: UUID!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  user(id: $id) {
+    id
+    username
+    displayName
+    email
+    photoUrl
+    bio
+    gender
+    dateOfBirth
+    location
+    sexualOrientation
+    relationshipGoal
+    createdAt
+    interests_via_UserInterest {
+      name
+      description
+    }
+  }
+}
+
+query ListAllInterests @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  interests {
+    id
+    name
+    description
+  }
+}
+
+mutation CreateNewUser($username: String!, $email: String!, $passwordHash: String!, $dateOfBirth: Date!, $gender: String!, $displayName: String!) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  user_insert(data: {
+    username: $username,
+    email: $email,
+    passwordHash: $passwordHash,
+    dateOfBirth: $dateOfBirth,
+    gender: $gender,
+    displayName: $displayName,
+    createdAt_expr: "request.time"
+  }) {
+    id
+  }
+}
+
+mutation UpdateUserProfile($id: UUID!, $displayName: String, $bio: String, $photoUrl: String, $location: String, $sexualOrientation: String, $relationshipGoal: String) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  user_update(key: {id: $id}, data: {
+    displayName: $displayName,
+    bio: $bio,
+    photoUrl: $photoUrl,
+    location: $location,
+    sexualOrientation: $sexualOrientation,
+    relationshipGoal: $relationshipGoal
+  }) {
+    id
+  }
+}
