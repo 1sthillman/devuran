@@ -1,7 +1,5 @@
 {
   "projects": {
     "default": "ruloposs"
-  },
-  "targets": {},
-  "etags": {}
+  }
 }

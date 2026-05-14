@@ -33,6 +33,9 @@ dist-ssr
 # Vercel
 .vercel
 
+# Old app folder
+app/
+
 # Firebase
 .firebase
 firebase-debug.log
