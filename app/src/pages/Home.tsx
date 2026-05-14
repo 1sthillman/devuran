@@ -119,182 +119,147 @@ export function Home() {
   return (
     <div className="pb-8">
       {/* Hero Section */}
-      <section className="py-12 md:py-16 flex flex-col items-center text-center relative">
+      <section className="py-8 md:py-12 relative">
         <div
-          className="absolute inset-x-0 top-0 h-[55vh] pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[40vh] pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.03) 0%, transparent 60%)',
+            background: 'radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.04) 0%, transparent 50%)',
           }}
         />
 
-        <motion.h1
-          initial={{ opacity: 0, filter: 'blur(8px)', y: 20 }}
-          animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="font-display font-black text-4xl md:text-6xl text-[var(--chrome-white)] leading-tight max-w-3xl"
-        >
-          Her Anınız İçin
-          <br />
-          <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
-            Mükemmel Hizmet
-          </span>
-        </motion.h1>
+        <div className="max-w-7xl mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-8"
+          >
+            <h1 className="font-display font-black text-3xl md:text-5xl text-[var(--chrome-white)] leading-tight mb-3">
+              Her Anınız İçin{' '}
+              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
+                Mükemmel Hizmet
+              </span>
+            </h1>
+            <p className="font-body text-base text-[var(--muted-lead)] max-w-xl mx-auto">
+              Güzellikten organizasyona, tüm ihtiyaçlarınız için profesyonel hizmet
+            </p>
+          </motion.div>
 
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-6 font-body text-lg text-[var(--muted-lead)] max-w-2xl"
-        >
-          Güzellikten organizasyona, konaklamadan fotoğrafa kadar tüm ihtiyaçlarınız için profesyonel hizmet sağlayıcıları
-        </motion.p>
+          {/* Search Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="max-w-3xl mx-auto mb-6"
+          >
+            <div className="relative">
+              <Search size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--muted-lead)]" />
+              <input
+                type="text"
+                placeholder="Hizmet, işletme veya konum ara..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-14 pl-14 pr-5 rounded-2xl bg-white/[0.04] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-sm outline-none transition-all focus:border-[var(--liquid-chrome)] focus:bg-white/[0.06]"
+              />
+            </div>
+          </motion.div>
 
-        {/* Search */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="mt-8 w-full max-w-2xl px-4"
-        >
-          <div className="relative">
-            <Search
-              size={22}
-              className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--muted-lead)]"
-            />
-            <input
-              type="text"
-              placeholder="Hizmet, işletme veya konum ara..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-16 pl-16 pr-6 rounded-3xl bg-white/[0.04] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-base outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_32px_rgba(240,240,240,0.12)]"
-            />
-          </div>
-        </motion.div>
-
-        {/* Category Groups */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-8 w-full max-w-6xl px-4"
-        >
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Compact Category Pills */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="flex items-center gap-2 mb-4"
+          >
             <button
-              onClick={() => {
-                setActiveGroup('all');
-                setActiveCategory('all');
-              }}
+              onClick={requestLocation}
               className={cn(
-                "group relative p-4 rounded-2xl border transition-all duration-300",
-                activeGroup === 'all'
-                  ? "bg-gradient-to-br from-white/10 to-white/5 border-white/20"
-                  : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                "flex items-center gap-1.5 px-3 py-2 rounded-full border font-heading font-medium text-xs transition-all shrink-0",
+                sortByDistance
+                  ? "bg-white/10 border-white/20 text-[var(--chrome-white)]"
+                  : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10"
               )}
             >
-              <div className="flex flex-col items-center gap-2">
-                <div className={cn(
-                  "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                  activeGroup === 'all'
-                    ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20"
-                    : "bg-white/5 group-hover:bg-white/10"
-                )}>
-                  <Grid3x3 size={24} className="text-[var(--chrome-white)]" />
-                </div>
-                <span className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
-                  Tümü
-                </span>
-              </div>
+              <Navigation size={14} />
+              <span className="hidden sm:inline">{sortByDistance ? 'Yakınıma Göre' : 'Yakınımda'}</span>
             </button>
 
-            {categoryGroups.map((group) => {
-              const Icon = group.icon;
-              return (
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2">
                 <button
-                  key={group.id}
                   onClick={() => {
-                    setActiveGroup(group.id);
+                    setActiveGroup('all');
                     setActiveCategory('all');
                   }}
                   className={cn(
-                    "group relative p-4 rounded-2xl border transition-all duration-300",
-                    activeGroup === group.id
-                      ? "bg-gradient-to-br from-white/10 to-white/5 border-white/20"
-                      : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                    "px-4 py-2 rounded-full border font-heading font-medium text-xs transition-all whitespace-nowrap",
+                    activeGroup === 'all'
+                      ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30 text-[var(--chrome-white)]"
+                      : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10"
                   )}
                 >
-                  <div className="flex flex-col items-center gap-2">
-                    <div className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                      activeGroup === group.id
-                        ? `bg-gradient-to-br ${group.color}/20`
-                        : "bg-white/5 group-hover:bg-white/10"
-                    )}>
-                      <Icon size={24} className="text-[var(--chrome-white)]" />
-                    </div>
-                    <span className="font-heading font-semibold text-sm text-[var(--chrome-white)] text-center leading-tight">
-                      {group.name}
-                    </span>
-                  </div>
+                  Tümü
                 </button>
-              );
-            })}
-          </div>
-        </motion.div>
 
-        {/* Sub-categories */}
-        <AnimatePresence mode="wait">
-          {activeGroup !== 'all' && groupCategories.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-6 w-full max-w-6xl px-4 overflow-hidden"
-            >
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                {groupCategories.map((cat) => {
-                  const Icon = cat.icon;
+                {categoryGroups.map((group) => {
+                  const Icon = group.icon;
                   return (
                     <button
-                      key={cat.id}
-                      onClick={() => setActiveCategory(cat.id)}
+                      key={group.id}
+                      onClick={() => {
+                        setActiveGroup(group.id);
+                        setActiveCategory('all');
+                      }}
                       className={cn(
-                        "flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all whitespace-nowrap",
-                        activeCategory === cat.id
+                        "flex items-center gap-1.5 px-4 py-2 rounded-full border font-heading font-medium text-xs transition-all whitespace-nowrap",
+                        activeGroup === group.id
                           ? "bg-white/10 border-white/20 text-[var(--chrome-white)]"
-                          : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10 hover:text-[var(--silver-frost)]"
+                          : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10"
                       )}
                     >
-                      <Icon size={16} />
-                      <span className="font-heading font-medium text-sm">{cat.name}</span>
+                      <Icon size={14} />
+                      {group.name}
                     </button>
                   );
                 })}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </motion.div>
 
-        {/* Location Button */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.7 }}
-          className="mt-6"
-        >
-          <button
-            onClick={requestLocation}
-            className={cn(
-              "flex items-center gap-2 px-5 py-2.5 rounded-full border font-heading font-medium text-sm transition-all",
-              sortByDistance
-                ? "bg-white/10 border-white/20 text-[var(--chrome-white)]"
-                : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10 hover:text-[var(--silver-frost)]"
+          {/* Sub-categories - Compact Pills */}
+          <AnimatePresence mode="wait">
+            {activeGroup !== 'all' && groupCategories.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden mb-4"
+              >
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                  {groupCategories.map((cat) => {
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setActiveCategory(cat.id)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all whitespace-nowrap text-xs",
+                          activeCategory === cat.id
+                            ? "bg-white/8 border-white/15 text-[var(--chrome-white)]"
+                            : "bg-white/[0.01] border-white/[0.03] text-[var(--ash)] hover:border-white/8 hover:text-[var(--muted-lead)]"
+                        )}
+                      >
+                        <Icon size={12} />
+                        <span className="font-heading font-medium">{cat.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
             )}
-          >
-            <Navigation size={16} />
-            {sortByDistance ? 'Konuma Göre Sıralandı' : 'Konumuma Yakın'}
-          </button>
-        </motion.div>
+          </AnimatePresence>
+        </div>
       </section>
 
       {/* Results */}
