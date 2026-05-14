@@ -1,4 +1,5 @@
 import { type CategoryId } from '@/config/categories';
+import type { ReactElement } from 'react';
 
 interface CategoryIconProps {
   category: CategoryId;
@@ -7,7 +8,7 @@ interface CategoryIconProps {
 }
 
 export function CategoryIcon({ category, size = 48, className = '' }: CategoryIconProps) {
-  const iconMap: Record<CategoryId, JSX.Element> = {
+  const iconMap: Record<CategoryId, ReactElement> = {
     // Beauty & Personal Care
     kuafor: (
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
