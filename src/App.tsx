@@ -11,6 +11,7 @@ import { appointmentAutoCompleteService } from '@/services/appointmentAutoComple
 const Home = lazy(() => import('@/pages/Home').then(m => ({ default: m.Home })));
 const SalonDetail = lazy(() => import('@/pages/SalonDetail').then(m => ({ default: m.SalonDetail })));
 const Booking = lazy(() => import('@/pages/Booking').then(m => ({ default: m.Booking })));
+const BookingSuccess = lazy(() => import('@/pages/BookingSuccess').then(m => ({ default: m.BookingSuccess })));
 const Appointments = lazy(() => import('@/pages/Appointments').then(m => ({ default: m.Appointments })));
 const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login })));
 const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -95,6 +96,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <Booking />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/booking-success/:reservationId"
+              element={
+                <AnimatedRoute>
+                  <BookingSuccess />
                 </AnimatedRoute>
               }
             />

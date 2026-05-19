@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, User, CheckCircle2, ArrowLeft, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarPicker } from '../CalendarPicker';
 import { TimeSlotGrid } from '../TimeSlotGrid';
+import { availabilityService } from '@/services/availabilityService';
+import type { TimeSlot } from '@/services/availabilityService';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
@@ -33,6 +35,35 @@ export function SlotBookingWizard() {
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // Load available slots when date and staff change
+  useEffect(() => {
+    if (selectedDate && selectedStaffId && salon) {
+      loadAvailableSlots();
+    }
+  }, [selectedDate, selectedStaffId, salon]);
+
+  const loadAvailableSlots = async () => {
+    if (!selectedDate || !salon) return;
+    
+    setLoadingSlots(true);
+    try {
+      const date = new Date(selectedDate);
+      const slots = await availabilityService.getAvailableSlots({
+        businessId: salon.id,
+        date,
+        duration: totalDuration,
+        staffId: selectedStaffId || undefined
+      });
+      setAvailableSlots(slots);
+    } catch (error) {
+      console.error('Müsait saatler yüklenemedi:', error);
+      setAvailableSlots([]);
+    }
+    setLoadingSlots(false);
+  };
 
   const handleNext = () => {
     if (step === 1 && selectedServices.length === 0) {
@@ -212,11 +243,26 @@ export function SlotBookingWizard() {
                   Saat Seçin
                 </h3>
                 {selectedDate ? (
-                  <TimeSlotGrid
-                    slots={[]}
-                    selectedTime={selectedTime}
-                    onSelect={(time) => selectDateTime(selectedDate, time)}
-                  />
+                  loadingSlots ? (
+                    <div className="text-center py-8">
+                      <div className="w-8 h-8 border-4 border-white/10 border-t-white/60 rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-sm text-[var(--muted-lead)]">Müsait saatler yükleniyor...</p>
+                    </div>
+                  ) : availableSlots.length > 0 ? (
+                    <TimeSlotGrid
+                      slots={availableSlots.map(slot => ({
+                        time: slot.startTime,
+                        available: slot.available
+                      }))}
+                      selectedTime={selectedTime}
+                      onSelect={(time) => selectDateTime(selectedDate, time)}
+                    />
+                  ) : (
+                    <div className="text-center py-8 bg-[var(--slate-surface)] rounded-2xl">
+                      <p className="text-[var(--muted-lead)] mb-2">Bu tarihte müsait saat yok</p>
+                      <p className="text-sm text-[var(--muted-lead)]">Lütfen başka bir tarih seçin</p>
+                    </div>
+                  )
                 ) : (
                   <p className="text-[var(--muted-lead)]">Önce tarih seçin</p>
                 )}
