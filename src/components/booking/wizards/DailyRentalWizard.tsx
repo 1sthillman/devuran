@@ -91,7 +91,7 @@ export function DailyRentalWizard() {
 
     try {
       const reservationId = await submitReservation();
-      navigate(`/booking/success/${reservationId}`);
+      navigate(`/booking-success/${reservationId}`);
     } catch (error: any) {
       console.error('Rezervasyon hatası:', error);
     }

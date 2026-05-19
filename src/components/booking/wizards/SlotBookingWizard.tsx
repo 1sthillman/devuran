@@ -8,6 +8,8 @@ import { TimeSlotGrid } from '../TimeSlotGrid';
 import { availabilityService } from '@/services/availabilityService';
 import { queueService } from '@/services/queueService';
 import { useAuthStore } from '@/store/authStore';
+import { useFormValidation } from '@/hooks/useFormValidation';
+import { validation } from '@/utils/validation';
 import type { TimeSlot } from '@/services/availabilityService';
 
 export function SlotBookingWizard() {
@@ -42,6 +44,7 @@ export function SlotBookingWizard() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [showQueueOption, setShowQueueOption] = useState(false);
   const [joiningQueue, setJoiningQueue] = useState(false);
+  const { errors, validatePhone, validateEmail, validateName, hasErrors } = useFormValidation();
 
   // Load available slots when date and staff change
   useEffect(() => {
@@ -90,9 +93,15 @@ export function SlotBookingWizard() {
       alert('Lütfen tarih ve saat seçin');
       return;
     }
-    if (step === 4 && (!localName || !localPhone)) {
-      alert('Lütfen iletişim bilgilerini doldurun');
-      return;
+    if (step === 4) {
+      // Validasyon kontrolleri
+      const nameValid = validateName('name', localName);
+      const phoneValid = validatePhone('phone', localPhone);
+      const emailValid = localEmail ? validateEmail('email', localEmail) : true;
+
+      if (!nameValid || !phoneValid || !emailValid) {
+        return;
+      }
     }
 
     if (step < 4) {
@@ -372,27 +381,61 @@ export function SlotBookingWizard() {
                   İletişim Bilgileri
                 </h3>
                 <div className="space-y-4">
+                <div>
                   <input
                     type="text"
                     value={localName}
                     onChange={(e) => setLocalName(e.target.value)}
+                    onBlur={() => validateName('name', localName)}
                     placeholder="Ad Soyad"
-                    className="w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all focus:border-[var(--liquid-chrome)]"
+                    className={`w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all ${
+                      errors.name
+                        ? 'border-[var(--error)]'
+                        : 'border-[var(--obsidian-rim)] focus:border-[var(--liquid-chrome)]'
+                    }`}
                   />
+                  {errors.name && (
+                    <p className="text-sm text-[var(--error)] mt-1">{errors.name}</p>
+                  )}
+                </div>
+                <div>
                   <input
                     type="tel"
                     value={localPhone}
-                    onChange={(e) => setLocalPhone(e.target.value)}
-                    placeholder="Telefon"
-                    className="w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all focus:border-[var(--liquid-chrome)]"
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/\D/g, '');
+                      setLocalPhone(cleaned.slice(0, 10));
+                    }}
+                    onBlur={() => validatePhone('phone', localPhone)}
+                    placeholder="5XX XXX XX XX"
+                    maxLength={10}
+                    className={`w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all ${
+                      errors.phone
+                        ? 'border-[var(--error)]'
+                        : 'border-[var(--obsidian-rim)] focus:border-[var(--liquid-chrome)]'
+                    }`}
                   />
+                  {errors.phone && (
+                    <p className="text-sm text-[var(--error)] mt-1">{errors.phone}</p>
+                  )}
+                </div>
+                <div>
                   <input
                     type="email"
                     value={localEmail}
                     onChange={(e) => setLocalEmail(e.target.value)}
+                    onBlur={() => localEmail && validateEmail('email', localEmail)}
                     placeholder="E-posta (opsiyonel)"
-                    className="w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all focus:border-[var(--liquid-chrome)]"
+                    className={`w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all ${
+                      errors.email
+                        ? 'border-[var(--error)]'
+                        : 'border-[var(--obsidian-rim)] focus:border-[var(--liquid-chrome)]'
+                    }`}
                   />
+                  {errors.email && (
+                    <p className="text-sm text-[var(--error)] mt-1">{errors.email}</p>
+                  )}
+                </div>
                   <textarea
                     value={localNotes}
                     onChange={(e) => setLocalNotes(e.target.value)}
