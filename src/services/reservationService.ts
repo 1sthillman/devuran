@@ -12,6 +12,7 @@ import {
   runTransaction
 } from 'firebase/firestore';
 import { sanitizeObject, sanitizeInput, containsXSS } from '@/utils/sanitize';
+import { notificationService } from './notificationService';
 import type { 
   Reservation, 
   SlotReservation,
@@ -65,6 +66,27 @@ class ReservationService {
       transaction.set(ref, reservation);
     });
 
+    // Send notification
+    try {
+      const dateStr = this.getEventDate(reservation) || '';
+      const timeStr = reservation.type === 'slot' ? (reservation as SlotReservation).startTime : undefined;
+      
+      await notificationService.sendReservationCreated({
+        userId: reservation.userId,
+        userName: reservation.userName,
+        userEmail: reservation.userEmail,
+        userPhone: reservation.userPhone,
+        businessName: reservation.businessName,
+        reservationId: reservation.id,
+        date: dateStr,
+        time: timeStr,
+        totalAmount: reservation.pricing.totalAmount,
+      });
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+      // Don't fail the reservation if notification fails
+    }
+
     return reservation;
   }
 
@@ -104,11 +126,35 @@ class ReservationService {
   }
 
   async confirmReservation(reservationId: string): Promise<void> {
+    const reservation = await this.getReservation(reservationId);
+    if (!reservation) {
+      throw new Error('Rezervasyon bulunamadı');
+    }
+
     const ref = doc(db, this.collectionName, reservationId);
     await setDoc(ref, {
       status: 'confirmed',
       updatedAt: new Date().toISOString()
     }, { merge: true });
+
+    // Send notification
+    try {
+      const dateStr = this.getEventDate(reservation) || '';
+      const timeStr = reservation.type === 'slot' ? (reservation as SlotReservation).startTime : undefined;
+      
+      await notificationService.sendReservationConfirmed({
+        userId: reservation.userId,
+        userName: reservation.userName,
+        userEmail: reservation.userEmail,
+        userPhone: reservation.userPhone,
+        businessName: reservation.businessName,
+        reservationId: reservation.id,
+        date: dateStr,
+        time: timeStr,
+      });
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+    }
   }
 
   async cancelReservation(
