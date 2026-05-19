@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, User, CheckCircle2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarPicker } from '../CalendarPicker';
 import { TimeSlotGrid } from '../TimeSlotGrid';
 import { availabilityService } from '@/services/availabilityService';
+import { queueService } from '@/services/queueService';
+import { useAuthStore } from '@/store/authStore';
 import type { TimeSlot } from '@/services/availabilityService';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const {
     salon,
     selectedServices,
@@ -37,6 +40,8 @@ export function SlotBookingWizard() {
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [showQueueOption, setShowQueueOption] = useState(false);
+  const [joiningQueue, setJoiningQueue] = useState(false);
 
   // Load available slots when date and staff change
   useEffect(() => {
@@ -58,6 +63,13 @@ export function SlotBookingWizard() {
         staffId: selectedStaffId || undefined
       });
       setAvailableSlots(slots);
+      
+      // Eğer hiç müsait slot yoksa ve queue sistemi aktifse, sıraya alma seçeneğini göster
+      if (slots.length === 0 && queueService.canUseQueue(salon.category)) {
+        setShowQueueOption(true);
+      } else {
+        setShowQueueOption(false);
+      }
     } catch (error) {
       console.error('Müsait saatler yüklenemedi:', error);
       setAvailableSlots([]);
@@ -105,6 +117,35 @@ export function SlotBookingWizard() {
       console.error('Rezervasyon hatası:', error);
       alert('Rezervasyon oluşturulamadı. Lütfen tekrar deneyin.');
     }
+  };
+
+  const handleJoinQueue = async () => {
+    if (!user || !salon || !selectedStaffId) return;
+    
+    setJoiningQueue(true);
+    try {
+      await queueService.joinQueue({
+        userId: user.uid,
+        salonId: salon.id,
+        staffId: selectedStaffId,
+        customerName: localName || user.displayName || '',
+        customerPhone: localPhone || user.phone || '',
+        services: selectedServices.map(s => ({
+          id: s.id,
+          name: s.name,
+          price: s.price,
+          duration: s.duration
+        })),
+        notes: localNotes
+      });
+      
+      alert('Sıraya alındınız! Randevu iptal olduğunda size bildirim göndereceğiz.');
+      navigate('/appointments');
+    } catch (error) {
+      console.error('Sıraya alma hatası:', error);
+      alert('Sıraya eklenemedi. Lütfen tekrar deneyin.');
+    }
+    setJoiningQueue(false);
   };
 
   if (!salon) return null;
@@ -258,9 +299,35 @@ export function SlotBookingWizard() {
                       onSelect={(time) => selectDateTime(selectedDate, time)}
                     />
                   ) : (
-                    <div className="text-center py-8 bg-[var(--slate-surface)] rounded-2xl">
-                      <p className="text-[var(--muted-lead)] mb-2">Bu tarihte müsait saat yok</p>
-                      <p className="text-sm text-[var(--muted-lead)]">Lütfen başka bir tarih seçin</p>
+                    <div className="space-y-4">
+                      <div className="text-center py-8 bg-[var(--slate-surface)] rounded-2xl">
+                        <AlertCircle size={48} className="mx-auto mb-3 text-[var(--warning)]" />
+                        <p className="text-[var(--chrome-white)] font-semibold mb-2">Bu tarihte müsait saat yok</p>
+                        <p className="text-sm text-[var(--muted-lead)]">Lütfen başka bir tarih seçin</p>
+                      </div>
+                      
+                      {showQueueOption && (
+                        <div className="bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded-2xl p-4">
+                          <h4 className="font-heading font-semibold text-[var(--chrome-white)] mb-2">
+                            Sıraya Alınmak İster misiniz?
+                          </h4>
+                          <p className="text-sm text-[var(--muted-lead)] mb-4">
+                            Bir randevu iptal olduğunda size haber vereceğiz.
+                          </p>
+                          <button
+                            onClick={handleJoinQueue}
+                            disabled={joiningQueue || !localName || !localPhone}
+                            className="w-full h-12 rounded-full bg-[var(--warning)] hover:bg-[var(--warning)]/90 text-[var(--void)] font-heading font-bold transition-all disabled:opacity-50"
+                          >
+                            {joiningQueue ? 'Sıraya Alınıyor...' : 'Sıraya Al'}
+                          </button>
+                          {(!localName || !localPhone) && (
+                            <p className="text-xs text-[var(--muted-lead)] mt-2 text-center">
+                              Önce iletişim bilgilerinizi girin
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 ) : (

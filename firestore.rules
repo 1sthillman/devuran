@@ -13,173 +13,130 @@ service cloud.firestore {
     
     function isSalonOwner(salonId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == salonId &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner', 'admin'];
+             exists(/databases/$(database)/documents/salons/$(salonId)) &&
+             get(/databases/$(database)/documents/salons/$(salonId)).data.ownerId == request.auth.uid;
     }
     
     function isAdmin() {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
-    // Media validation functions
-    function isValidMediaSize(mediaArray) {
-      // Her media item max 600KB (base64 encoded)
-      return mediaArray.size() <= 20 && 
-             mediaArray.hasAll(['id', 'type', 'base64', 'size', 'width', 'height', 'mimeType', 'uploadedAt']);
-    }
-    
-    function isValidVideoMedia(media) {
-      // Video max 15 saniye ve 500KB
-      return media.type == 'video' && 
-             media.duration <= 15 && 
-             media.size <= 512000 &&
-             media.keys().hasAll(['thumbnail']);
-    }
-    
-    function isValidImageMedia(media) {
-      // Image max 100KB
-      return media.type == 'image' && 
-             media.size <= 102400;
-    }
-    
+
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
-    
+
     // Salons collection
     match /salons/{salonId} {
       allow read: if true; // Public read
       allow create: if isAuthenticated();
       allow update: if isSalonOwner(salonId) || isAdmin();
       allow delete: if isSalonOwner(salonId) || isAdmin();
-      
-      // Media validation on create/update
-      allow write: if (!request.resource.data.keys().hasAny(['media']) || 
-                       (request.resource.data.media is list && 
-                        request.resource.data.media.size() <= 20));
     }
-    
+
     // Services collection
     match /services/{serviceId} {
       allow read: if true; // Public read
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && 
-                               (exists(/databases/$(database)/documents/services/$(serviceId)) &&
-                                (isSalonOwner(resource.data.salonId) || isAdmin()));
+      allow write: if isAuthenticated() && 
+                      isSalonOwner(resource.data.salonId);
     }
-    
+
     // Staff collection
     match /staff/{staffId} {
       allow read: if true; // Public read
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && 
-                               (exists(/databases/$(database)/documents/staff/$(staffId)) &&
-                                (isSalonOwner(resource.data.salonId) || isAdmin()));
+      allow write: if isAuthenticated() && 
+                      isSalonOwner(resource.data.salonId);
+    }
+
+    // Reservations collection - NEW
+    match /reservations/{reservationId} {
+      // Read: Owner of reservation or business owner
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isSalonOwner(resource.data.businessId) ||
+        isAdmin()
+      );
       
-      // Media validation
-      allow write: if (!request.resource.data.keys().hasAny(['media']) || 
-                       (request.resource.data.media is list && 
-                        request.resource.data.media.size() <= 10));
-    }
-    
-    // Appointments collection
-    match /appointments/{appointmentId} {
-      // Public read for checking availability
-      allow read: if true;
+      // Create: Any authenticated user
       allow create: if isAuthenticated() && 
-                       request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() && 
-                       (exists(/databases/$(database)/documents/appointments/$(appointmentId)) &&
-                        (request.auth.uid == resource.data.userId || 
-                         isSalonOwner(resource.data.salonId) ||
-                         isAdmin()));
-      allow delete: if isAuthenticated() && 
-                       (exists(/databases/$(database)/documents/appointments/$(appointmentId)) &&
-                        (request.auth.uid == resource.data.userId || 
-                         isSalonOwner(resource.data.salonId) ||
-                         isAdmin()));
+                       isOwner(request.resource.data.userId);
+      
+      // Update: Business owner can update status, user can cancel
+      allow update: if isAuthenticated() && (
+        (isSalonOwner(resource.data.businessId) && 
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'updatedAt', 'pricing', 'internalNotes'])) ||
+        (isOwner(resource.data.userId) && 
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'updatedAt', 'notes']) &&
+         request.resource.data.status in ['cancelled_by_user'])
+      );
+      
+      // Delete: Only admin
+      allow delete: if isAdmin();
     }
-    
+
+    // Appointments collection (old system - keep for backward compatibility)
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isSalonOwner(resource.data.salonId) ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update: if isAuthenticated() && (
+        isSalonOwner(resource.data.salonId) || 
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isSalonOwner(resource.data.salonId) || isAdmin();
+    }
+
     // Queue collection
     match /queue/{queueId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
-                       request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() && 
-                       (exists(/databases/$(database)/documents/queue/$(queueId)) &&
-                        (isSalonOwner(resource.data.salonId) || isAdmin()));
-      allow delete: if isAuthenticated() && 
-                       (exists(/databases/$(database)/documents/queue/$(queueId)) &&
-                        (request.auth.uid == resource.data.userId || 
-                         isSalonOwner(resource.data.salonId) ||
-                         isAdmin()));
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isSalonOwner(resource.data.salonId) ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update: if isSalonOwner(resource.data.salonId);
+      allow delete: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isSalonOwner(resource.data.salonId) ||
+        isAdmin()
+      );
     }
-    
-    // Banned Users collection
-    match /bannedUsers/{banId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
-                       (isSalonOwner(request.resource.data.salonId) || isAdmin());
-      allow delete: if isAuthenticated() && 
-                       (isSalonOwner(resource.data.salonId) || isAdmin());
-      allow update: if false;
-    }
-    
-    // Salon Customer Ratings collection
-    match /salonCustomerRatings/{ratingId} {
-      allow read: if isAuthenticated() && 
-                     (isSalonOwner(resource.data.salonId) || isAdmin());
-      allow create: if isAuthenticated() && 
-                       isSalonOwner(request.resource.data.salonId);
-      allow update: if false;
-      allow delete: if isAuthenticated() && 
-                       (isSalonOwner(resource.data.salonId) || isAdmin());
-    }
-    
+
     // Reviews collection
     match /reviews/{reviewId} {
       allow read: if true; // Public read
-      allow create: if isAuthenticated() && 
-                       request.auth.uid == request.resource.data.userId;
-      allow update: if isOwner(resource.data.userId) || 
-                       isSalonOwner(resource.data.salonId) ||
-                       isAdmin();
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
-      
-      // Media validation for reviews
-      allow write: if (!request.resource.data.keys().hasAny(['media']) || 
-                       (request.resource.data.media is list && 
-                        request.resource.data.media.size() <= 5));
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isSalonOwner(resource.data.salonId)
+      );
+      allow delete: if isAdmin();
     }
-    
-    // Availability collection
-    match /availability/{availabilityId} {
-      allow read: if true; // Public read
-      allow write: if isAuthenticated() && 
-                      (exists(/databases/$(database)/documents/availability/$(availabilityId)) &&
-                       (isSalonOwner(resource.data.salonId) || isAdmin()));
-      allow create: if isAuthenticated();
-    }
-    
-    // User Sessions collection (for IP and device tracking)
-    match /userSessions/{sessionId} {
-      allow read: if isAuthenticated() && isAdmin();
-      allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
-    }
-    
-    // Banned Users collection
+
+    // Banned users collection
     match /bannedUsers/{banId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isSalonOwner(request.resource.data.salonId);
+    }
+
+    // Customer ratings collection
+    match /salonCustomerRatings/{ratingId} {
+      allow read: if isAuthenticated() && isSalonOwner(resource.data.salonId);
+      allow write: if isAuthenticated() && isSalonOwner(request.resource.data.salonId);
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
