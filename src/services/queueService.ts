@@ -10,6 +10,8 @@ import {
   deleteDoc,
   Timestamp 
 } from 'firebase/firestore';
+import { sanitizeObject, sanitizeInput } from '@/utils/sanitize';
+import { rateLimiter } from '@/utils/rateLimiter';
 import type { QueueEntry } from '@/types';
 
 // Sıra sisteminin aktif olduğu kategoriler
@@ -37,27 +39,35 @@ class QueueService {
     notes?: string;
   }): Promise<QueueEntry> {
     
+    // Security: Rate limiting
+    if (!rateLimiter.isAllowed('queue:join', params.userId)) {
+      throw new Error('Çok fazla istek. Lütfen bir dakika bekleyin.');
+    }
+    
+    // Security: Sanitize inputs
+    const sanitizedParams = sanitizeObject(params);
+    
     // Sıradaki pozisyonu hesapla
-    const currentQueue = await this.getQueue(params.salonId);
+    const currentQueue = await this.getQueue(sanitizedParams.salonId);
     const queuePosition = currentQueue.length + 1;
 
     // Toplam süre ve fiyat
-    const totalDuration = params.services.reduce((sum, s) => sum + s.duration, 0);
-    const totalPrice = params.services.reduce((sum, s) => sum + s.price, 0);
+    const totalDuration = sanitizedParams.services.reduce((sum, s) => sum + s.duration, 0);
+    const totalPrice = sanitizedParams.services.reduce((sum, s) => sum + s.price, 0);
 
     const queueEntry: QueueEntry = {
       id: doc(collection(db, this.collectionName)).id,
       appointmentId: '', // Randevuya dönüştürülünce doldurulur
-      userId: params.userId,
-      salonId: params.salonId,
-      staffId: params.staffId,
-      customerName: params.customerName,
-      customerPhone: params.customerPhone,
-      services: params.services,
+      userId: sanitizedParams.userId,
+      salonId: sanitizedParams.salonId,
+      staffId: sanitizedParams.staffId,
+      customerName: sanitizedParams.customerName,
+      customerPhone: sanitizedParams.customerPhone,
+      services: sanitizedParams.services,
       queuePosition,
       totalPrice,
       totalDuration,
-      notes: params.notes || '',
+      notes: sanitizedParams.notes || '',
       createdAt: new Date().toISOString(),
       notified: false
     };

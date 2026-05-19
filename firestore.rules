@@ -41,15 +41,23 @@ service cloud.firestore {
     // Services collection
     match /services/{serviceId} {
       allow read: if true; // Public read
-      allow write: if isAuthenticated() && 
-                      isSalonOwner(resource.data.salonId);
+      allow create: if isAuthenticated() && 
+                       isSalonOwner(request.resource.data.salonId);
+      allow update: if isAuthenticated() && 
+                       isSalonOwner(resource.data.salonId);
+      allow delete: if isAuthenticated() && 
+                       isSalonOwner(resource.data.salonId);
     }
 
     // Staff collection
     match /staff/{staffId} {
       allow read: if true; // Public read
-      allow write: if isAuthenticated() && 
-                      isSalonOwner(resource.data.salonId);
+      allow create: if isAuthenticated() && 
+                       isSalonOwner(request.resource.data.salonId);
+      allow update: if isAuthenticated() && 
+                       isSalonOwner(resource.data.salonId);
+      allow delete: if isAuthenticated() && 
+                       isSalonOwner(resource.data.salonId);
     }
 
     // Reservations collection - NEW

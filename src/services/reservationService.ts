@@ -11,6 +11,7 @@ import {
   Timestamp,
   runTransaction
 } from 'firebase/firestore';
+import { sanitizeObject, sanitizeInput, containsXSS } from '@/utils/sanitize';
 import type { 
   Reservation, 
   SlotReservation,
@@ -22,22 +23,34 @@ class ReservationService {
   private collectionName = 'reservations';
 
   async createReservation(data: Partial<Reservation>): Promise<Reservation> {
+    // Security: Sanitize all user inputs
+    const sanitizedData = sanitizeObject(data);
+    
+    // Security: Check for XSS attempts
+    if (sanitizedData.notes && containsXSS(sanitizedData.notes)) {
+      throw new Error('Geçersiz karakter tespit edildi');
+    }
+    
+    if (sanitizedData.userName && containsXSS(sanitizedData.userName)) {
+      throw new Error('Geçersiz isim formatı');
+    }
+    
     // Müsaitlik kontrolü
-    const isAvailable = await this.checkAvailability(data);
+    const isAvailable = await this.checkAvailability(sanitizedData);
     if (!isAvailable) {
       throw new Error('Seçilen tarih/saat müsait değil');
     }
 
     // Fiyat hesapla
-    const pricing = this.calculatePricing(data);
+    const pricing = this.calculatePricing(sanitizedData);
 
     // İptal politikası
-    const cancellationPolicy = this.getCancellationPolicy(data);
+    const cancellationPolicy = this.getCancellationPolicy(sanitizedData);
 
     // Rezervasyon oluştur
     const reservationId = doc(collection(db, this.collectionName)).id;
     const reservation: Reservation = {
-      ...data,
+      ...sanitizedData,
       id: reservationId,
       status: 'pending',
       createdAt: new Date().toISOString(),

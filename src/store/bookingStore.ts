@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { Service, Salon } from '@/types';
 import { reservationService } from '@/services/reservationService';
 import { useAuthStore } from './authStore';
+import { rateLimiter } from '@/utils/rateLimiter';
+import { sanitizeInput, sanitizePhone, sanitizeEmail } from '@/utils/sanitize';
 
 interface BookingState {
   // Ortak alanlar
@@ -181,10 +183,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   setCustomerInfo: (info) =>
     set({ 
-      customerName: info.name, 
-      customerPhone: info.phone,
-      customerEmail: info.email,
-      customerNotes: info.notes 
+      customerName: sanitizeInput(info.name), 
+      customerPhone: sanitizePhone(info.phone),
+      customerEmail: sanitizeEmail(info.email),
+      customerNotes: sanitizeInput(info.notes)
     }),
 
   setEventDetails: (details) => set({ ...details }),
@@ -248,6 +250,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     
     if (!user) {
       throw new Error('Giriş yapmalısınız');
+    }
+
+    // Security: Rate limiting
+    if (!rateLimiter.isAllowed('reservation:create', user.uid)) {
+      const resetTime = Math.ceil(rateLimiter.getResetTime('reservation:create', user.uid) / 1000);
+      throw new Error(`Çok fazla istek. Lütfen ${resetTime} saniye bekleyin.`);
     }
 
     set({ isSubmitting: true, error: null });
