@@ -78,7 +78,7 @@ export function SalonDetail() {
   }
 
   const handleBook = () => {
-    init(salon.id);
+    init(salon.id, salon);
     navigate(`/booking/${salon.id}`);
   };
 
