@@ -137,6 +137,220 @@ export interface BookingData {
   totalDuration: number;
 }
 
+// Rezervasyon Tipleri
+export type ReservationType = 'slot' | 'daily' | 'nightly' | 'project' | 'order';
+
+export type ReservationStatus = 
+  | 'pending'
+  | 'confirmed'
+  | 'deposit_paid'
+  | 'fully_paid'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled_by_user'
+  | 'cancelled_by_business'
+  | 'no_show'
+  | 'expired';
+
+// Ödeme Bilgileri
+export interface PaymentInfo {
+  basePrice: number;
+  extrasTotal: number;
+  discountAmount: number;
+  discountReason?: string;
+  taxAmount: number;
+  totalAmount: number;
+  depositRequired: boolean;
+  depositAmount: number;
+  depositPercentage: number;
+  depositPaidAt?: string;
+  depositPaymentId?: string;
+  finalAmount: number;
+  finalPaidAt?: string;
+  finalPaymentId?: string;
+  refundAmount?: number;
+  refundedAt?: string;
+  refundReason?: string;
+  currency: 'TRY' | 'USD' | 'EUR';
+}
+
+// İptal Politikası
+export interface CancellationPolicy {
+  allowed: boolean;
+  deadline: string;
+  rules: {
+    daysBeforeEvent: number;
+    refundPercentage: number;
+  }[];
+  penaltyAmount?: number;
+  noShowPenalty?: number;
+}
+
+// Temel Rezervasyon
+export interface BaseReservation {
+  id: string;
+  businessId: string;
+  businessName: string;
+  businessCategory: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  userEmail: string;
+  status: ReservationStatus;
+  type: ReservationType;
+  createdAt: string;
+  updatedAt: string;
+  notes?: string;
+  internalNotes?: string;
+  pricing: PaymentInfo;
+  cancellationPolicy: CancellationPolicy;
+}
+
+// Slot Bazlı (Kuaför, Fotoğraf)
+export interface SlotReservation extends BaseReservation {
+  type: 'slot';
+  date: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  staffId?: string;
+  staffName?: string;
+  services: {
+    id: string;
+    name: string;
+    duration: number;
+    price: number;
+  }[];
+  location?: 'studio' | 'outdoor' | 'home' | 'business';
+  address?: string;
+}
+
+// Günlük Kiralama (Salon, Etkinlik)
+export interface DailyRentalReservation extends BaseReservation {
+  type: 'daily';
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  setupTime?: string;
+  cleanupTime?: string;
+  venueType: string;
+  capacity: number;
+  package: {
+    id: string;
+    name: string;
+    includes: string[];
+    price: number;
+  };
+  extras: {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }[];
+  eventType: 'wedding' | 'engagement' | 'birthday' | 'corporate' | 'other';
+}
+
+// Gecelik Konaklama (Otel, Villa)
+export interface NightlyBookingReservation extends BaseReservation {
+  type: 'nightly';
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  roomType: string;
+  roomNumber?: string;
+  roomCount: number;
+  guests: {
+    adults: number;
+    children: number;
+    infants: number;
+  };
+  mealPlan?: 'none' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
+  extras: {
+    id: string;
+    name: string;
+    date?: string;
+    price: number;
+  }[];
+  specialRequests?: string;
+}
+
+// Proje Bazlı (Organizasyon)
+export interface ProjectReservation extends BaseReservation {
+  type: 'project';
+  eventDate: string;
+  eventType: 'wedding' | 'engagement' | 'proposal' | 'other';
+  venue?: string;
+  guestCount: number;
+  budget: {
+    min: number;
+    max: number;
+  };
+  package: {
+    id: string;
+    name: string;
+    tier: 'basic' | 'standard' | 'premium' | 'luxury';
+    includes: string[];
+    price: number;
+  };
+  meetings: {
+    id: string;
+    date: string;
+    type: 'initial' | 'planning' | 'tasting' | 'final';
+    status: 'scheduled' | 'completed' | 'cancelled';
+    notes?: string;
+  }[];
+  milestones: {
+    id: string;
+    name: string;
+    deadline: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    assignedTo?: string;
+  }[];
+  subServices: {
+    type: 'venue' | 'catering' | 'photography' | 'video' | 'music' | 'flowers' | 'decoration';
+    providerId?: string;
+    providerName?: string;
+    status: 'pending' | 'confirmed' | 'completed';
+    price: number;
+  }[];
+}
+
+// Sipariş Bazlı (Catering, Pasta)
+export interface OrderReservation extends BaseReservation {
+  type: 'order';
+  deliveryDate: string;
+  deliveryTime: string;
+  deliveryAddress: string;
+  orderType: 'catering' | 'cake' | 'dessert' | 'coffee_service';
+  items: {
+    id: string;
+    name: string;
+    quantity: number;
+    unit: 'piece' | 'portion' | 'kg' | 'person';
+    price: number;
+    customization?: string;
+  }[];
+  servingStyle?: 'buffet' | 'plated' | 'cocktail' | 'family_style';
+  equipment?: {
+    tables: number;
+    chairs: number;
+    servingStaff: number;
+  };
+  tastingSession?: {
+    date: string;
+    status: 'scheduled' | 'completed';
+  };
+}
+
+// Birleşik Rezervasyon Tipi
+export type Reservation = 
+  | SlotReservation 
+  | DailyRentalReservation 
+  | NightlyBookingReservation 
+  | ProjectReservation 
+  | OrderReservation;
+
+// Eski Appointment interface'i geriye dönük uyumluluk için
 export interface Appointment {
   id: string;
   userId: string;
@@ -158,15 +372,15 @@ export interface Appointment {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'upcoming';
   notes: string;
   whatsappNumber: string;
-  queuePosition?: number; // Sıra numarası (sıraya alındıysa)
-  isQueued?: boolean; // Sırada mı?
-  hasReview?: boolean; // Değerlendirme yapıldı mı?
-  reviewId?: string; // Değerlendirme ID'si
-  cancellationReason?: string; // İptal nedeni
-  cancelledBy?: 'customer' | 'salon'; // Kim iptal etti
-  cancelledAt?: string; // İptal tarihi
-  completedAt?: string; // Tamamlanma tarihi (erken bitirme için)
-  actualEndTime?: string; // Gerçek bitiş saati (erken bitirme için)
+  queuePosition?: number;
+  isQueued?: boolean;
+  hasReview?: boolean;
+  reviewId?: string;
+  cancellationReason?: string;
+  cancelledBy?: 'customer' | 'salon';
+  cancelledAt?: string;
+  completedAt?: string;
+  actualEndTime?: string;
 }
 
 export interface QueueEntry {
