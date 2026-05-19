@@ -23,6 +23,7 @@ import { WorkingHoursEditor } from '@/components/dashboard/WorkingHoursEditor';
 import { ServiceForm } from '@/components/dashboard/ServiceForm';
 import { SalonSetupForm } from '@/components/dashboard/SalonSetupForm';
 import { StaffForm } from '@/components/dashboard/StaffForm';
+import { PaymentSettingsForm } from '@/components/dashboard/PaymentSettingsForm';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
@@ -738,6 +739,31 @@ export function OwnerDashboard() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Payment Settings */}
+            <div className="obsidian-card p-6 rounded-3xl">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
+                  <DollarSign size={28} className="text-green-400" strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-2xl text-[var(--chrome-white)]">
+                    Ödeme Ayarları
+                  </h3>
+                  <p className="font-body text-sm text-[var(--muted-lead)] mt-1">
+                    Havale/EFT ile ödeme ayarlarını yapılandırın
+                  </p>
+                </div>
+              </div>
+              
+              <PaymentSettingsForm
+                settings={salon.paymentSettings || { bankTransferEnabled: false }}
+                onSave={async (paymentSettings) => {
+                  await salonsService.update(salon.id, { paymentSettings });
+                  await loadData();
+                }}
+              />
             </div>
 
             <WorkingHoursEditor

@@ -112,6 +112,17 @@ export interface Salon {
     allowQueue: boolean; // Sıra sistemi aktif mi?
     autoConfirmQueue: boolean; // Sıradan randevuya otomatik geçiş
   };
+  paymentSettings?: {
+    bankTransferEnabled: boolean;
+    bankAccounts?: {
+      bankName: string;
+      accountHolder: string;
+      iban: string;
+      accountNumber?: string;
+      branch?: string;
+    }[];
+    paymentInstructions?: string;
+  };
   capacity?: {
     enabled: boolean;
     maxCapacity?: number;
@@ -165,9 +176,11 @@ export interface PaymentInfo {
   depositPercentage: number;
   depositPaidAt?: string;
   depositPaymentId?: string;
+  depositPaymentMethod?: 'bank_transfer' | 'credit_card' | 'cash' | 'online';
   finalAmount: number;
   finalPaidAt?: string;
   finalPaymentId?: string;
+  finalPaymentMethod?: 'bank_transfer' | 'credit_card' | 'cash' | 'online';
   refundAmount?: number;
   refundedAt?: string;
   refundReason?: string;

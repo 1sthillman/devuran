@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, Calendar, Clock, MapPin, Phone, Mail, ArrowRight } from 'lucide-react';
 import { reservationService } from '@/services/reservationService';
-import type { Reservation } from '@/types';
+import { salonsService } from '@/services/firebaseService';
+import { PaymentInformation } from '@/components/booking/PaymentInformation';
+import type { Reservation, Salon } from '@/types';
 import { motion } from 'framer-motion';
 
 export function BookingSuccess() {
   const { reservationId } = useParams();
   const navigate = useNavigate();
   const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [salon, setSalon] = useState<Salon | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,6 +24,12 @@ export function BookingSuccess() {
     try {
       const data = await reservationService.getReservation(reservationId!);
       setReservation(data);
+      
+      // Load salon data for payment info
+      if (data) {
+        const salonData = await salonsService.getById(data.businessId);
+        setSalon(salonData);
+      }
     } catch (error) {
       console.error('Rezervasyon yüklenemedi:', error);
     }
@@ -210,6 +219,27 @@ export function BookingSuccess() {
               )}
             </p>
           </motion.div>
+
+          {/* Payment Information */}
+          {salon?.paymentSettings?.bankTransferEnabled && 
+           salon.paymentSettings.bankAccounts && 
+           salon.paymentSettings.bankAccounts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              className="mb-6"
+            >
+              <PaymentInformation
+                bankAccounts={salon.paymentSettings.bankAccounts}
+                paymentInstructions={salon.paymentSettings.paymentInstructions}
+                totalAmount={reservation.pricing.depositRequired 
+                  ? reservation.pricing.depositAmount 
+                  : reservation.pricing.totalAmount}
+                reservationId={reservation.id}
+              />
+            </motion.div>
+          )}
 
           {/* Actions */}
           <motion.div
