@@ -2,14 +2,16 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
+// SECURITY: No hardcoded credentials - all from environment variables
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDsX4JDds6Jj38TGO06J2DBPYr8ud2hQT8',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'ruloposs.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'ruloposs',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'ruloposs.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1035590394749',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:1035590394749:web:5a5e603e069749eee56214',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Validate Firebase config
@@ -17,28 +19,26 @@ const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'm
 const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
 
 if (missingFields.length > 0) {
-  console.error('❌ Missing Firebase config fields:', missingFields);
   throw new Error(`Firebase configuration incomplete. Missing: ${missingFields.join(', ')}`);
 }
 
-// Debug: Log config status (only in development)
-if (import.meta.env.DEV) {
-  console.log('✅ Firebase Config Loaded:', {
-    apiKey: firebaseConfig.apiKey.substring(0, 10) + '...',
-    authDomain: firebaseConfig.authDomain,
-    projectId: firebaseConfig.projectId,
-    storageBucket: firebaseConfig.storageBucket,
-  });
-}
-
 // Initialize Firebase
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase initialized successfully');
-} catch (error) {
-  console.error('❌ Firebase initialization failed:', error);
-  throw error;
+const app = initializeApp(firebaseConfig);
+
+// SECURITY: Initialize Firebase App Check for bot protection
+// This prevents unauthorized access from bots and automated scripts
+if (import.meta.env.PROD) {
+  try {
+    const appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (error) {
+    // App Check initialization failed - log only in development
+    if (import.meta.env.DEV) {
+      console.warn('App Check initialization failed:', error);
+    }
+  }
 }
 
 // Initialize services
