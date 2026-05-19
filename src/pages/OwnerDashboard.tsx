@@ -15,6 +15,11 @@ import {
   Settings,
   Plus,
   Save,
+  Star,
+  BarChart3,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppointmentManager } from '@/components/dashboard/AppointmentManager';
@@ -24,6 +29,9 @@ import { ServiceForm } from '@/components/dashboard/ServiceForm';
 import { SalonSetupForm } from '@/components/dashboard/SalonSetupForm';
 import { StaffForm } from '@/components/dashboard/StaffForm';
 import { PaymentSettingsForm } from '@/components/dashboard/PaymentSettingsForm';
+import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
+import { CustomerList } from '@/components/crm/CustomerList';
+import { ReviewList } from '@/components/reviews/ReviewList';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
@@ -34,10 +42,13 @@ import type { Appointment, Salon, Service, Staff } from '@/types';
 const sidebarItems = [
   { key: 'overview', label: 'Genel Bakis', icon: LayoutDashboard },
   { key: 'appointments', label: 'Randevular', icon: CalendarIcon },
+  { key: 'analytics', label: 'Analitik', icon: BarChart3 },
+  { key: 'customers', label: 'Musteriler', icon: UserCheck },
+  { key: 'reviews', label: 'Yorumlar', icon: Star },
   { key: 'services', label: 'Hizmetler', icon: Scissors },
   { key: 'staff', label: 'Personel', icon: Users },
   { key: 'settings', label: 'Ayarlar', icon: Settings },
-]; // Exactly 5 items for mobile navigation
+];
 
 export function OwnerDashboard() {
   const { isAuthenticated, isOwner, user } = useAuthStore();
@@ -53,6 +64,12 @@ export function OwnerDashboard() {
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [showSalonSetup, setShowSalonSetup] = useState(false);
+  const [expandedSettings, setExpandedSettings] = useState<Record<string, boolean>>({
+    salonInfo: false,
+    bookingSystem: true,
+    payment: false,
+    workingHours: false,
+  });
 
   useEffect(() => {
     if (user?.salonId) {
@@ -633,143 +650,283 @@ export function OwnerDashboard() {
           </div>
         )}
 
+        {/* ANALYTICS */}
+        {activeTab === 'analytics' && salon && (
+          <AnalyticsDashboard salonId={salon.id} />
+        )}
+
+        {/* CUSTOMERS */}
+        {activeTab === 'customers' && salon && (
+          <CustomerList salonId={salon.id} />
+        )}
+
+        {/* REVIEWS */}
+        {activeTab === 'reviews' && salon && (
+          <ReviewList salonId={salon.id} limit={50} showOwnerActions={true} />
+        )}
+
         {/* SETTINGS */}
         {activeTab === 'settings' && salon && (
-          <div className="space-y-6">
-            {/* Salon Bilgilerini Düzenle - Modern Card */}
+          <div className="space-y-4">
+            {/* Salon Bilgilerini Düzenle - Collapsible */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="obsidian-card overflow-hidden"
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                      <Settings size={28} className="text-purple-400" strokeWidth={2} />
-                    </div>
-                    <div>
-                      <h3 className="font-heading font-bold text-2xl text-[var(--chrome-white)]">
-                        Salon Bilgileri
-                      </h3>
-                      <p className="font-body text-sm text-[var(--muted-lead)] mt-1">
-                        İşletme bilgilerinizi görüntüleyin ve düzenleyin
-                      </p>
-                    </div>
+              <button
+                onClick={() => setExpandedSettings(prev => ({ ...prev, salonInfo: !prev.salonInfo }))}
+                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                    <Settings size={24} className="text-purple-400" strokeWidth={2} />
                   </div>
+                  <div className="text-left">
+                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
+                      Salon Bilgileri
+                    </h3>
+                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
+                      İşletme bilgilerinizi görüntüleyin ve düzenleyin
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setShowSalonSetup(true)}
-                    className="obsidian-card px-6 py-3 rounded-full flex items-center gap-2 hover:bg-white/5 transition-all active:scale-95 group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSalonSetup(true);
+                    }}
+                    className="obsidian-card px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/5 transition-all active:scale-95 group"
                   >
-                    <Settings size={18} className="text-[var(--liquid-chrome)] group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
-                    <span className="hidden sm:inline font-heading font-semibold text-sm text-[var(--chrome-white)]">Düzenle</span>
+                    <Settings size={16} className="text-[var(--liquid-chrome)] group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
+                    <span className="hidden sm:inline font-heading font-semibold text-xs text-[var(--chrome-white)]">Düzenle</span>
                   </button>
+                  {expandedSettings.salonInfo ? (
+                    <ChevronUp size={20} className="text-[var(--muted-lead)]" />
+                  ) : (
+                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                  )}
                 </div>
+              </button>
               
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                    <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-2">Salon Adı</p>
-                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-lg truncate">{salon.name}</p>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                    <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-2">Kategori</p>
-                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-lg capitalize">{salon.category}</p>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                    <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-2">Telefon</p>
-                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-lg">{salon.phone}</p>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                    <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-2">Şehir</p>
-                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-lg">{salon.address.city}</p>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                    <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-2">İlçe</p>
-                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-lg">{salon.address.district}</p>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                    <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-2">E-posta</p>
-                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-lg truncate">{salon.email || '-'}</p>
-                  </div>
-                </div>
-              </div>
+              <AnimatePresence>
+                {expandedSettings.salonInfo && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Salon Adı</p>
+                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base truncate">{salon.name}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Kategori</p>
+                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base capitalize">{salon.category}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Telefon</p>
+                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base">{salon.phone}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Şehir</p>
+                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base">{salon.address.city}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">İlçe</p>
+                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base">{salon.address.district}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">E-posta</p>
+                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base truncate">{salon.email || '-'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
-            {/* Randevu Açık/Kapalı Toggle */}
-            <div className="obsidian-card p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-heading font-semibold text-xl md:text-2xl text-[var(--chrome-white)] mb-2">
-                    Randevu Sistemi
-                  </h3>
-                  <p className="font-body text-sm md:text-base text-[var(--muted-lead)]">
-                    Randevu almayı anlık olarak açıp kapatabilirsiniz
-                  </p>
+            {/* Randevu Açık/Kapalı Toggle - Collapsible */}
+            <div className="obsidian-card overflow-hidden">
+              <button
+                onClick={() => setExpandedSettings(prev => ({ ...prev, bookingSystem: !prev.bookingSystem }))}
+                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
+                    <CalendarIcon size={24} className="text-green-400" strokeWidth={2} />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
+                      Randevu Sistemi
+                    </h3>
+                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
+                      Randevu almayı anlık olarak açıp kapatabilirsiniz
+                    </p>
+                  </div>
                 </div>
-                <button
-                  onClick={async () => {
-                    const newStatus = !salon.isAcceptingBookings;
-                    await salonsService.update(salon.id, { isAcceptingBookings: newStatus });
-                    await loadData();
-                  }}
-                  className={`relative w-20 h-10 rounded-full transition-all duration-300 flex-shrink-0 ${
-                    salon.isAcceptingBookings 
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-500/30' 
-                      : 'bg-[var(--slate-elevated)]'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-1 w-8 h-8 rounded-full bg-white shadow-lg transition-all duration-300 ${
-                      salon.isAcceptingBookings ? 'translate-x-10' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              <div className="mt-4 p-4 rounded-3xl bg-white/[0.03] border border-[var(--obsidian-rim)]">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                    salon.isAcceptingBookings ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                  }`} />
-                  <p className="font-body text-sm md:text-base text-[var(--silver-frost)]">
-                    Durum: {salon.isAcceptingBookings ? (
-                      <span className="text-green-400 font-semibold ml-2">Randevu Alınıyor</span>
-                    ) : (
-                      <span className="text-red-400 font-semibold ml-2">Randevu Kapalı</span>
-                    )}
-                  </p>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const newStatus = !salon.isAcceptingBookings;
+                      await salonsService.update(salon.id, { isAcceptingBookings: newStatus });
+                      await loadData();
+                    }}
+                    className={`relative w-16 h-8 rounded-full transition-all duration-300 flex-shrink-0 ${
+                      salon.isAcceptingBookings 
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-500/30' 
+                        : 'bg-[var(--slate-elevated)]'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all duration-300 ${
+                        salon.isAcceptingBookings ? 'translate-x-8' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  {expandedSettings.bookingSystem ? (
+                    <ChevronUp size={20} className="text-[var(--muted-lead)]" />
+                  ) : (
+                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                  )}
                 </div>
-              </div>
-            </div>
-
-            {/* Payment Settings */}
-            <div className="obsidian-card p-6 rounded-3xl">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
-                  <DollarSign size={28} className="text-green-400" strokeWidth={2} />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-2xl text-[var(--chrome-white)]">
-                    Ödeme Ayarları
-                  </h3>
-                  <p className="font-body text-sm text-[var(--muted-lead)] mt-1">
-                    Havale/EFT ile ödeme ayarlarını yapılandırın
-                  </p>
-                </div>
-              </div>
+              </button>
               
-              <PaymentSettingsForm
-                settings={salon.paymentSettings || { bankTransferEnabled: false }}
-                onSave={async (paymentSettings) => {
-                  await salonsService.update(salon.id, { paymentSettings });
-                  await loadData();
-                }}
-              />
+              <AnimatePresence>
+                {expandedSettings.bookingSystem && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
+                      <div className="mt-4 p-4 rounded-2xl bg-white/[0.03] border border-[var(--obsidian-rim)]">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            salon.isAcceptingBookings ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                          }`} />
+                          <p className="font-body text-sm text-[var(--silver-frost)]">
+                            Durum: {salon.isAcceptingBookings ? (
+                              <span className="text-green-400 font-semibold ml-2">Randevu Alınıyor</span>
+                            ) : (
+                              <span className="text-red-400 font-semibold ml-2">Randevu Kapalı</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            <WorkingHoursEditor
-              initialHours={salon.workingHours as any}
-              onSave={handleSaveWorkingHours}
-            />
+            {/* Payment Settings - Collapsible */}
+            <div className="obsidian-card overflow-hidden">
+              <button
+                onClick={() => setExpandedSettings(prev => ({ ...prev, payment: !prev.payment }))}
+                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
+                    <DollarSign size={24} className="text-green-400" strokeWidth={2} />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
+                      Ödeme Ayarları
+                    </h3>
+                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
+                      Havale/EFT ile ödeme ayarlarını yapılandırın
+                    </p>
+                  </div>
+                </div>
+                {expandedSettings.payment ? (
+                  <ChevronUp size={20} className="text-[var(--muted-lead)]" />
+                ) : (
+                  <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                )}
+              </button>
+              
+              <AnimatePresence>
+                {expandedSettings.payment && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
+                      <div className="mt-4">
+                        <PaymentSettingsForm
+                          settings={salon.paymentSettings || { bankTransferEnabled: false }}
+                          onSave={async (paymentSettings) => {
+                            await salonsService.update(salon.id, { paymentSettings });
+                            await loadData();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Working Hours - Collapsible */}
+            <div className="obsidian-card overflow-hidden">
+              <button
+                onClick={() => setExpandedSettings(prev => ({ ...prev, workingHours: !prev.workingHours }))}
+                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                    <Clock size={24} className="text-blue-400" strokeWidth={2} />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
+                      Çalışma Saatleri
+                    </h3>
+                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
+                      Haftalık çalışma saatlerinizi düzenleyin
+                    </p>
+                  </div>
+                </div>
+                {expandedSettings.workingHours ? (
+                  <ChevronUp size={20} className="text-[var(--muted-lead)]" />
+                ) : (
+                  <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                )}
+              </button>
+              
+              <AnimatePresence>
+                {expandedSettings.workingHours && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
+                      <div className="mt-4">
+                        <WorkingHoursEditor
+                          initialHours={salon.workingHours as any}
+                          onSave={handleSaveWorkingHours}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         )}
       </div>
@@ -840,6 +997,82 @@ export function OwnerDashboard() {
           }}
         />
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--slate-surface)]/95 backdrop-blur-xl border-t border-[var(--obsidian-rim)] pb-safe">
+        <div className="flex items-center justify-around px-2 py-3">
+          {sidebarItems.slice(0, 5).map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.key;
+            
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key)}
+                className={cn(
+                  'flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all min-w-[60px]',
+                  isActive
+                    ? 'bg-[var(--liquid-chrome)]/10'
+                    : 'hover:bg-white/5'
+                )}
+              >
+                <Icon
+                  size={20}
+                  className={cn(
+                    'transition-colors',
+                    isActive ? 'text-[var(--liquid-chrome)]' : 'text-[var(--muted-lead)]'
+                  )}
+                  strokeWidth={isActive ? 2.5 : 2}
+                />
+                <span
+                  className={cn(
+                    'font-heading text-[10px] font-medium transition-colors',
+                    isActive ? 'text-[var(--liquid-chrome)]' : 'text-[var(--muted-lead)]'
+                  )}
+                >
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+          
+          {/* More Menu for Additional Items */}
+          {sidebarItems.length > 5 && (
+            <div className="relative">
+              <button
+                onClick={() => {
+                  // Cycle through remaining tabs
+                  const currentIndex = sidebarItems.findIndex(i => i.key === activeTab);
+                  const nextIndex = currentIndex >= 5 ? (currentIndex + 1) % sidebarItems.length : 5;
+                  setActiveTab(sidebarItems[nextIndex].key);
+                }}
+                className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl hover:bg-white/5 transition-all min-w-[60px]"
+              >
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <div className="grid grid-cols-2 gap-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
+                  </div>
+                </div>
+                <span className="font-heading text-[10px] font-medium text-[var(--muted-lead)]">
+                  Daha
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add padding to main content for mobile nav */}
+      <style>{`
+        @media (max-width: 1024px) {
+          .flex-1.overflow-x-hidden {
+            padding-bottom: 80px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

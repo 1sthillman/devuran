@@ -1,6 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { StarRating } from '@/components/ui/StarRating';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { StaffCard } from '@/components/salon/StaffCard';
+import { SalonMap } from '@/components/salon/SalonMap';
+import { ReviewList } from '@/components/reviews/ReviewList';
 
 const categoryLabels: Record<string, string> = {
   kuafor: 'Kuaför',
@@ -8,16 +11,13 @@ const categoryLabels: Record<string, string> = {
   guzellik: 'Güzellik Merkezi',
   tirnak: 'Tırnak Salonu',
 };
-import { StaffCard } from '@/components/salon/StaffCard';
-import { ReviewCard } from '@/components/salon/ReviewCard';
-import { SalonMap } from '@/components/salon/SalonMap';
 import { ObsidianCard } from '@/components/ui/ObsidianCard';
 import { useBookingStore } from '@/store/bookingStore';
 import { useState, useEffect } from 'react';
 import { MapPin, Phone, MessageCircle, ChevronDown, ChevronUp, Instagram, Music, Youtube } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { salonsService, reviewsService, servicesService, staffService } from '@/services/firebaseService';
-import type { Salon, Review, Service, Staff } from '@/types';
+import { salonsService, servicesService, staffService } from '@/services/firebaseService';
+import type { Salon, Service, Staff } from '@/types';
 
 export function SalonDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +25,6 @@ export function SalonDetail() {
   const init = useBookingStore((s) => s.init);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [salon, setSalon] = useState<Salon | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,15 +42,13 @@ export function SalonDetail() {
     
     setLoading(true);
     try {
-      const [salonData, reviewsData, servicesData, staffData] = await Promise.all([
+      const [salonData, servicesData, staffData] = await Promise.all([
         salonsService.getById(id),
-        reviewsService.getBySalon(id),
         servicesService.getBySalon(id),
         staffService.getBySalon(id),
       ]);
       
       setSalon(salonData);
-      setReviews(reviewsData);
       setServices(servicesData);
       setStaff(staffData);
     } catch (error) {
@@ -280,11 +277,7 @@ export function SalonDetail() {
             {salon.stats.averageRating}
           </span>
         </div>
-        <div className="space-y-3">
-          {reviews.slice(0, 5).map((review) => (
-            <ReviewCard key={review.id} review={review} />
-          ))}
-        </div>
+        <ReviewList salonId={salon.id} limit={10} />
       </section>
 
       {/* Location */}

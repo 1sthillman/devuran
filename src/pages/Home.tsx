@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { SalonCard } from '@/components/salon/SalonCard';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
-import { Search, Navigation } from 'lucide-react';
+import { Search, Navigation, SlidersHorizontal, MapPin, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { salonsService, servicesService } from '@/services/firebaseService';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 import type { Salon, Service } from '@/types';
 import { categoryGroups, getCategoryById, getAllCategories, type CategoryId } from '@/config/categories';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ export function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const { user, isOwner } = useAuthStore();
 
   useEffect(() => {
@@ -115,85 +117,166 @@ export function Home() {
 
   return (
     <div className="pb-8">
-      {/* Hero Section */}
-      <section className="py-6 md:py-8 relative">
+      {/* Hero Section - Refined Design */}
+      <section className="py-6 md:py-8 relative overflow-hidden">
+        {/* Ambient Glow Effects */}
         <div
-          className="absolute inset-x-0 top-0 h-[30vh] pointer-events-none"
+          className="absolute top-[-60px] left-[-40px] w-[280px] h-[280px] rounded-full pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.03) 0%, transparent 50%)',
+            background: 'radial-gradient(circle, rgba(120, 80, 255, 0.18) 0%, transparent 70%)',
+          }}
+        />
+        <div
+          className="absolute top-[20px] right-[-60px] w-[200px] h-[200px] rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(220, 80, 180, 0.1) 0%, transparent 70%)',
           }}
         />
 
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
+          {/* Modern Logo & Greeting */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-6"
+            className="mb-6"
           >
-            <h1 className="font-display font-black text-2xl md:text-4xl text-[var(--chrome-white)] leading-tight mb-2">
-              Her Anınız İçin{' '}
-              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
-                Mükemmel Hizmet
-              </span>
-            </h1>
-            <p className="font-body text-sm text-[var(--muted-lead)] max-w-xl mx-auto">
-              Güzellikten organizasyona, tüm ihtiyaçlarınız için profesyonel hizmet
-            </p>
+            {/* Logo */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute top-[-40%] left-[-40%] w-[80%] h-[80%] rounded-full bg-white/15" />
+                <Calendar size={20} className="text-white relative z-10" strokeWidth={2.5} />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-baseline gap-0.5">
+                  <span className="font-display font-bold text-lg md:text-xl text-[var(--chrome-white)] tracking-tight">ran</span>
+                  <span className="font-display font-bold text-lg md:text-xl bg-gradient-to-r from-purple-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent tracking-tight">devu</span>
+                </div>
+                <span className="text-[9px] md:text-[10px] font-medium text-[var(--muted-lead)] uppercase tracking-wider">Hizmet Platformu</span>
+              </div>
+            </div>
+
+            {/* Greeting */}
+            <div className="mb-1">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs md:text-sm text-[var(--muted-lead)]">
+                  Merhaba{user?.displayName ? `, ${user.displayName}` : ''}
+                </p>
+                {userLocation && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20">
+                    <MapPin size={11} className="text-purple-400" />
+                    <span className="text-[10px] font-medium text-purple-300">{filteredSalons.length} işletme yakında</span>
+                  </div>
+                )}
+              </div>
+              <h1 className="font-display font-black text-3xl md:text-5xl text-[var(--chrome-white)] leading-tight tracking-tight">
+                Her anınız için{' '}
+                <span className="bg-gradient-to-r from-purple-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent">
+                  mükemmel
+                </span>
+                <br />hizmet
+              </h1>
+            </div>
           </motion.div>
 
-          {/* Search Bar */}
+          {/* Enhanced Search Bar */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="max-w-2xl mx-auto mb-5"
+            className="mb-5"
           >
             <div className="relative">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted-lead)]" />
-              <input
-                type="text"
-                placeholder="Hizmet, işletme veya konum ara..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 rounded-xl bg-white/[0.04] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-sm outline-none transition-all focus:border-[var(--liquid-chrome)] focus:bg-white/[0.06]"
-              />
+              {/* Outer border with gradient */}
+              <div className="rounded-full bg-gradient-to-r from-white/[0.08] to-white/[0.04] p-[1px]">
+                {/* Inner container */}
+                <div className="rounded-full bg-[var(--slate-surface)]/80 backdrop-blur-xl">
+                  <div className="flex items-center gap-3 px-4 py-3 md:py-3.5">
+                    {/* Search Icon */}
+                    <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                      <Search size={16} className="text-[var(--muted-lead)]" />
+                    </div>
+                    
+                    {/* Input */}
+                    <input
+                      type="text"
+                      placeholder="Hizmet, işletme veya konum ara..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 bg-transparent border-none outline-none text-sm text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body"
+                    />
+                    
+                    {/* Filter Button */}
+                    <button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold whitespace-nowrap hover:shadow-lg hover:shadow-purple-500/25 transition-all active:scale-95"
+                    >
+                      <SlidersHorizontal size={14} />
+                      <span className="hidden sm:inline">Filtre</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
 
-          {/* Modern Horizontal Category Scroll */}
+          {/* Location & Results Count */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="relative"
+            className="flex items-center gap-3 mb-4"
           >
-            {/* Location Button */}
-            <div className="flex items-center gap-3 mb-3">
-              <button
-                onClick={requestLocation}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-heading font-medium text-xs transition-all shrink-0",
-                  sortByDistance
-                    ? "bg-white/10 border-white/20 text-[var(--chrome-white)]"
-                    : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10"
-                )}
+            <button
+              onClick={requestLocation}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-heading font-medium text-xs transition-all shrink-0",
+                sortByDistance
+                  ? "bg-white/10 border-white/20 text-[var(--chrome-white)]"
+                  : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10"
+              )}
+            >
+              <Navigation size={12} />
+              <span>{sortByDistance ? 'Yakınıma Göre' : 'Yakınımda'}</span>
+            </button>
+            
+            <div className="h-4 w-px bg-white/5" />
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[var(--muted-lead)] font-body">Sonuçlar</span>
+              <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
+                {filteredSalons.length}
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Categories Section */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="mb-4"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-[var(--chrome-white)] tracking-tight">Kategoriler</span>
+              <button 
+                onClick={() => {
+                  setActiveGroup('all');
+                  setActiveCategory('all');
+                }}
+                className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
               >
-                <Navigation size={12} />
-                <span>{sortByDistance ? 'Yakınıma Göre' : 'Yakınımda'}</span>
+                Tümü
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
-              
-              <div className="h-4 w-px bg-white/5" />
-              
-              <p className="text-xs text-[var(--ash)] font-body">
-                {filteredSalons.length} işletme
-              </p>
             </div>
 
             {/* Category Pills - Horizontal Scroll */}
             <div className="relative">
-              <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-                <div className="flex gap-2 pb-2">
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-2 pb-2 px-1">
                   {/* All Button */}
                   <button
                     onClick={() => {
@@ -248,10 +331,6 @@ export function Home() {
                   })}
                 </div>
               </div>
-
-              {/* Fade edges */}
-              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[var(--void)] to-transparent pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--void)] to-transparent pointer-events-none" />
             </div>
 
             {/* Sub-categories - Compact Pills */}
@@ -264,7 +343,7 @@ export function Home() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden mt-2"
                 >
-                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4">
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-2 px-1">
                     {groupCategories.map((cat) => {
                       const Icon = cat.icon;
                       return (

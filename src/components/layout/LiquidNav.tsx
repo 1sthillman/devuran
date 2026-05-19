@@ -121,7 +121,7 @@ export function LiquidNav() {
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-14 z-50 w-56 obsidian-card p-2 shadow-2xl">
+                <div className="absolute right-0 top-14 z-50 w-56 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)]/95 backdrop-blur-xl border border-[var(--obsidian-rim)]">
                   <div className="px-3 py-2 border-b border-[var(--obsidian-rim)] mb-2">
                     <p className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
                       {user?.displayName}

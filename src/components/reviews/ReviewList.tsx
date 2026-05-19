@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Star, MessageSquare, ThumbsUp } from 'lucide-react';
+import { Star, MessageSquare, Reply, Send } from 'lucide-react';
 import { reviewService } from '@/services/reviewService';
+import { useAuthStore } from '@/store/authStore';
+import { useUIStore } from '@/store/uiStore';
+import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import type { Review } from '@/types';
 
 interface ReviewListProps {
   salonId: string;
   limit?: number;
+  showOwnerActions?: boolean;
 }
 
-export function ReviewList({ salonId, limit = 10 }: ReviewListProps) {
+export function ReviewList({ salonId, limit = 10, showOwnerActions = false }: ReviewListProps) {
+  const { isOwner } = useAuthStore();
+  const { addToast } = useUIStore();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
+  const [responseText, setResponseText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [stats, setStats] = useState<{
     averageRating: number;
     totalReviews: number;
@@ -49,6 +58,27 @@ export function ReviewList({ salonId, limit = 10 }: ReviewListProps) {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const handleSubmitResponse = async (reviewId: string) => {
+    if (!responseText.trim()) {
+      addToast('Lütfen yanıt yazın', 'warning');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await reviewService.addOwnerResponse(reviewId, responseText.trim());
+      addToast('Yanıtınız gönderildi', 'success');
+      setRespondingTo(null);
+      setResponseText('');
+      loadReviews(); // Reload to show the response
+    } catch (error) {
+      console.error('Yanıt gönderilemedi:', error);
+      addToast('Yanıt gönderilemedi', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -209,6 +239,65 @@ export function ReviewList({ salonId, limit = 10 }: ReviewListProps) {
                   <p className="font-body text-sm text-blue-300/90">
                     {review.ownerResponse}
                   </p>
+                </div>
+              )}
+
+              {/* Owner Response Form */}
+              {showOwnerActions && isOwner && !review.ownerResponse && (
+                <div className="mt-4">
+                  {respondingTo === review.id ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={responseText}
+                        onChange={(e) => setResponseText(e.target.value)}
+                        placeholder="Müşterinize yanıt yazın..."
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-2xl bg-[var(--slate-elevated)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body text-sm focus:outline-none focus:border-[var(--liquid-chrome)] resize-none"
+                        maxLength={500}
+                      />
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-body text-xs text-[var(--muted-lead)]">
+                          {responseText.length}/500
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setRespondingTo(null);
+                              setResponseText('');
+                            }}
+                            className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 text-[var(--chrome-white)] font-heading font-medium text-sm transition-all"
+                          >
+                            İptal
+                          </button>
+                          <ChromaticButton
+                            onClick={() => handleSubmitResponse(review.id)}
+                            disabled={submitting || !responseText.trim()}
+                            className="flex items-center gap-2 px-4 py-2 text-sm"
+                          >
+                            {submitting ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                <span>Gönderiliyor...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Send size={16} />
+                                <span>Gönder</span>
+                              </>
+                            )}
+                          </ChromaticButton>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setRespondingTo(review.id)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-heading font-medium text-sm transition-all"
+                    >
+                      <Reply size={16} />
+                      <span>Yanıtla</span>
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>
