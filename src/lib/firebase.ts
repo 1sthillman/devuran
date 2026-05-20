@@ -27,10 +27,10 @@ const app = initializeApp(firebaseConfig);
 
 // SECURITY: Initialize Firebase App Check for bot protection
 // This prevents unauthorized access from bots and automated scripts
-if (import.meta.env.PROD) {
+if (import.meta.env.PROD && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
   try {
     const appCheck = initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''),
+      provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
       isTokenAutoRefreshEnabled: true
     });
   } catch (error) {
