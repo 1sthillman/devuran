@@ -16,6 +16,7 @@ const Appointments = lazy(() => import('@/pages/Appointments').then(m => ({ defa
 const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login })));
 const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = lazy(() => import('@/pages/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
+const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
 
 // Loading component
 function PageLoader() {
@@ -136,6 +137,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <Dashboard />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <AnimatedRoute>
+                  <Profile />
                 </AnimatedRoute>
               }
             />

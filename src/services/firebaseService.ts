@@ -345,8 +345,8 @@ export const appointmentsService = {
         });
         await batch.commit();
         
-        // TODO: Send notification to customer
-        console.log('Queue processed, customer notified:', queueData.customerName);
+        // Müşteriye bildirim gönder (notificationService import edilmeli)
+        // TODO: notificationService.sendQueueToAppointment çağrısı eklenecek
       }
     } catch (error) {
       console.error('Error processing queue:', error);

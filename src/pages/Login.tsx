@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { useUIStore } from '@/store/uiStore';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { motion } from 'framer-motion';
@@ -8,6 +9,7 @@ import { Check } from 'lucide-react';
 
 export function Login() {
   const { isAuthenticated } = useAuthStore();
+  const { addToast } = useUIStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegister, setIsRegister] = useState(false);
@@ -106,12 +108,12 @@ export function Login() {
               RANDEVU
             </h1>
             <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mt-4">
-              {isRegister ? 'Hesap Olustur' : 'Hos Geldiniz'}
+              {isRegister ? 'Hesap Oluştur' : 'Hoş Geldiniz'}
             </h2>
             <p className="font-body text-[var(--muted-lead)] mt-2">
               {isRegister
-                ? 'Randevu almak icin kayit olun'
-                : 'Randevu almak icin giris yapin'}
+                ? 'Randevu almak için kayıt olun'
+                : 'Randevu almak için giriş yapın'}
             </p>
           </div>
 
@@ -126,7 +128,7 @@ export function Login() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Adiniz"
+                    placeholder="Adınız"
                     required
                     className="w-full h-[52px] px-4 rounded-2xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
                   />
@@ -134,7 +136,7 @@ export function Login() {
 
                 <div>
                   <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                    Telefon Numarasi
+                    Telefon Numarası
                   </label>
                   <input
                     type="tel"
@@ -162,7 +164,7 @@ export function Login() {
                     >
                       <div className="flex items-center justify-center gap-2">
                         {role === 'customer' && <Check size={16} />}
-                        <span>Musteri</span>
+                        <span>Müşteri</span>
                       </div>
                     </button>
                     <button
@@ -176,14 +178,14 @@ export function Login() {
                     >
                       <div className="flex items-center justify-center gap-2">
                         {role === 'owner' && <Check size={16} />}
-                        <span>Isletme</span>
+                        <span>İşletme</span>
                       </div>
                     </button>
                   </div>
                   <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
                     {role === 'customer' 
-                      ? 'Randevu almak ve salonlari kesfetmek icin' 
-                      : 'Salonunuzu yonetmek ve randevulari takip etmek icin'}
+                      ? 'Randevu almak ve salonları keşfetmek için' 
+                      : 'Salonunuzu yönetmek ve randevuları takip etmek için'}
                   </p>
                 </div>
               </>
@@ -205,7 +207,7 @@ export function Login() {
 
             <div>
               <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                Sifre
+                Şifre
               </label>
               <input
                 type="password"
@@ -231,18 +233,22 @@ export function Login() {
                     <p className="font-body text-sm text-[var(--chrome-white)]">
                       <button
                         type="button"
-                        onClick={() => {/* Terms modal */}}
+                        onClick={() => {
+                          addToast('Kullanım koşulları sayfası yakında eklenecektir', 'info');
+                        }}
                         className="text-[var(--liquid-chrome)] hover:underline"
                       >
-                        Kullanim Kosullari
+                        Kullanım Koşulları
                       </button>
                       {' '}ve{' '}
                       <button
                         type="button"
-                        onClick={() => {/* Privacy modal */}}
+                        onClick={() => {
+                          addToast('Gizlilik politikası sayfası yakında eklenecektir', 'info');
+                        }}
                         className="text-[var(--liquid-chrome)] hover:underline"
                       >
-                        Gizlilik Politikasi
+                        Gizlilik Politikası
                       </button>
                       'ni okudum ve kabul ediyorum
                     </p>
@@ -257,7 +263,7 @@ export function Login() {
               className="h-[52px]"
               disabled={isRegister && !acceptedTerms}
             >
-              {isRegister ? 'Kayit Ol' : 'Giris Yap'}
+              {isRegister ? 'Kayıt Ol' : 'Giriş Yap'}
             </ChromaticButton>
           </form>
 
@@ -292,17 +298,17 @@ export function Login() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Google ile {isRegister ? 'kayit ol' : 'giris yap'}
+            Google ile {isRegister ? 'kayıt ol' : 'giriş yap'}
           </button>
 
           {/* Toggle */}
           <p className="text-center mt-6 font-body text-sm text-[var(--muted-lead)]">
-            {isRegister ? 'Zaten hesabiniz var mi?' : 'Hesabiniz yok mu?'}{' '}
+            {isRegister ? 'Zaten hesabınız var mı?' : 'Hesabınız yok mu?'}{' '}
             <button
               onClick={() => setIsRegister(!isRegister)}
               className="text-[var(--silver-frost)] font-heading font-medium hover:underline"
             >
-              {isRegister ? 'Giris Yapin' : 'Kayit Olun'}
+              {isRegister ? 'Giriş Yapın' : 'Kayıt Olun'}
             </button>
           </p>
         </motion.div>

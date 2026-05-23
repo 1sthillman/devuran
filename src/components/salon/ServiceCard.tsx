@@ -6,9 +6,12 @@ interface ServiceCardProps {
   service: Service;
   selected?: boolean;
   onToggle?: (service: Service) => void;
+  salonCategory?: string;
 }
 
-export function ServiceCard({ service, selected, onToggle }: ServiceCardProps) {
+export function ServiceCard({ service, selected, onToggle, salonCategory }: ServiceCardProps) {
+  const showDuration = salonCategory && ['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salonCategory);
+  
   return (
     <button
       onClick={() => onToggle?.(service)}
@@ -34,7 +37,9 @@ export function ServiceCard({ service, selected, onToggle }: ServiceCardProps) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h4 className="font-body text-[15px] text-[var(--chrome-white)]">{service.name}</h4>
-        <p className="font-body text-[13px] text-[var(--muted-lead)]">{service.duration} dk</p>
+        {showDuration && (
+          <p className="font-body text-[13px] text-[var(--muted-lead)]">{service.duration} dk</p>
+        )}
       </div>
 
       {/* Price */}

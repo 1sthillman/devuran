@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { cn } from '@/lib/utils';
-import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [
@@ -15,6 +15,9 @@ const navLinks = [
 const ownerMenuItems = [
   { key: 'overview', label: 'Genel Bakis', icon: LayoutDashboard },
   { key: 'appointments', label: 'Randevular', icon: CalendarIcon },
+  { key: 'analytics', label: 'Analitik', icon: BarChart3 },
+  { key: 'customers', label: 'Musteriler', icon: UserCheck },
+  { key: 'reviews', label: 'Yorumlar', icon: Star },
   { key: 'services', label: 'Hizmetler', icon: Scissors },
   { key: 'staff', label: 'Personel', icon: Users },
   { key: 'settings', label: 'Ayarlar', icon: Settings },
@@ -42,8 +45,8 @@ export function LiquidNav() {
           RANDEVU
         </Link>
 
-        {/* Desktop Center Links */}
-        <div className="hidden md:flex items-center gap-1">
+        {/* Desktop Center Links - HIDDEN */}
+        <div className="hidden items-center gap-1">
           {allLinks.map((link) => {
             const isActive = location.pathname === link.path;
             const Icon = link.icon;
@@ -78,6 +81,7 @@ export function LiquidNav() {
           <div className="relative flex items-center gap-2">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
+              data-profile-button
               className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-white/5 transition-colors border border-transparent hover:border-[var(--obsidian-rim)]"
             >
               <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--slate-surface)] border border-[var(--obsidian-rim)]">
@@ -117,12 +121,12 @@ export function LiquidNav() {
               </button>
             )}
 
-            {/* Dropdown */}
+            {/* Dropdown - Maximum Opacity */}
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-14 z-50 w-56 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)]/95 backdrop-blur-xl border border-[var(--obsidian-rim)]">
-                  <div className="px-3 py-2 border-b border-[var(--obsidian-rim)] mb-2">
+                <div className="absolute right-0 top-14 z-50 w-64 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)] backdrop-blur-3xl border border-white/20">
+                  <div className="px-3 py-2 border-b border-white/20 mb-2">
                     <p className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
                       {user?.displayName}
                     </p>
@@ -152,7 +156,7 @@ export function LiquidNav() {
                             className={cn(
                               'w-full flex items-center gap-3 px-3 py-2.5 rounded-full text-sm transition-colors',
                               isActive
-                                ? 'text-[var(--chrome-white)] bg-white/10'
+                                ? 'text-[var(--chrome-white)] bg-gradient-to-r from-purple-500/20 to-pink-500/20'
                                 : 'text-[var(--silver-frost)] hover:bg-white/5'
                             )}
                           >
@@ -161,7 +165,7 @@ export function LiquidNav() {
                           </button>
                         );
                       })}
-                      <div className="border-t border-[var(--obsidian-rim)] my-2" />
+                      <div className="border-t border-white/20 my-2" />
                     </>
                   )}
                   
@@ -185,7 +189,7 @@ export function LiquidNav() {
                     </Link>
                   )}
                   
-                  <div className="border-t border-[var(--obsidian-rim)] my-2" />
+                  <div className="border-t border-white/20 my-2" />
                   
                   <button
                     onClick={() => {

@@ -108,8 +108,10 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
             coordinates: { lat: latitude, lng: longitude },
           },
         }));
+        setTempCoordinates({ lat: latitude, lng: longitude });
         setGettingLocation(false);
-        addToast('Konum başarıyla alındı', 'success');
+        setShowMapPicker(true); // Haritayı göster
+        addToast('Konum alındı. Haritada kontrol edin', 'success');
       },
       (error) => {
         console.error('Geolocation error:', error);
@@ -138,6 +140,20 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Telefon validation
+    const phoneRegex = /^5\d{9}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      addToast('Geçersiz telefon numarası. Lütfen 10 haneli numara girin (5XX XXX XX XX)', 'error');
+      return;
+    }
+    
+    // WhatsApp validation (opsiyonel ama girilmişse kontrol et)
+    if (formData.whatsappNumber && !phoneRegex.test(formData.whatsappNumber)) {
+      addToast('Geçersiz WhatsApp numarası. Lütfen 10 haneli numara girin (5XX XXX XX XX)', 'error');
+      return;
+    }
+    
     setLoading(true);
     try {
       await onSave({
@@ -161,7 +177,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
         >
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-display font-bold text-xl text-[var(--chrome-white)]">
-            {salon ? 'Salon Bilgilerini Düzenle' : 'Salonunuzu Olusturun'}
+            {salon ? 'İşletme Bilgilerini Düzenle' : 'İşletme Oluştur'}
           </h3>
           <button
             onClick={onClose}
@@ -179,14 +195,14 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="md:col-span-2">
                 <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
-                  Salon Adi *
+                  İşletme Adı *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  placeholder="Ornek: Guzellik Salonu"
+                  placeholder="Örnek: Güzellik Salonu, Bungalov Tesisi, Organizasyon Firması"
                   className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                 />
               </div>
@@ -227,11 +243,18 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, '');
+                    setFormData({ ...formData, phone: cleaned.slice(0, 10) });
+                  }}
                   required
                   placeholder="5XX XXX XX XX"
+                  maxLength={10}
                   className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                 />
+                <p className="text-xs text-[var(--muted-lead)] mt-1">
+                  10 haneli telefon numarası (5XX XXX XX XX)
+                </p>
               </div>
 
               <div>
@@ -241,8 +264,12 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                 <input
                   type="tel"
                   value={formData.whatsappNumber}
-                  onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, '');
+                    setFormData({ ...formData, whatsappNumber: cleaned.slice(0, 10) });
+                  }}
                   placeholder="5XX XXX XX XX"
+                  maxLength={10}
                   className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                 />
               </div>
@@ -262,14 +289,14 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
 
               <div className="md:col-span-2">
                 <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
-                  Aciklama
+                  Açıklama
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  placeholder="Salonunuz hakkinda kisa bir aciklama..."
-                  className="w-full px-4 py-3 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none"
+                  placeholder="İşletmeniz hakkında kısa bir açıklama..."
+                  className="w-full px-4 py-3 rounded-3xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none"
                 />
               </div>
             </div>
@@ -434,48 +461,46 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                 </div>
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     type="button"
                     onClick={handleGetLocation}
                     disabled={gettingLocation}
-                    className="h-12 px-4 rounded-full bg-[var(--liquid-chrome)]/10 border-2 border-[var(--liquid-chrome)]/30 text-[var(--chrome-white)] font-heading font-semibold text-sm hover:bg-[var(--liquid-chrome)]/20 hover:border-[var(--liquid-chrome)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="h-12 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-heading font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    <Navigation size={18} strokeWidth={2.5} />
-                    <span>{gettingLocation ? 'Alınıyor...' : 'Mevcut Konumumu Al'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempCoordinates(formData.address.coordinates);
-                      setShowMapPicker(true);
-                    }}
-                    className="h-12 px-4 rounded-full bg-[var(--success)]/10 border-2 border-[var(--success)]/30 text-[var(--chrome-white)] font-heading font-semibold text-sm hover:bg-[var(--success)]/20 hover:border-[var(--success)] transition-all active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    <Map size={18} strokeWidth={2.5} />
-                    <span>Haritadan İşaretle</span>
+                    {gettingLocation ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Konum Alınıyor...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Navigation size={18} strokeWidth={2.5} />
+                        <span>Konumumu Al ve Haritada Göster</span>
+                      </>
+                    )}
                   </button>
                 </div>
                 
                 <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
-                  Haritadan işletmenizin tam konumunu işaretleyin veya mevcut konumunuzu kullanın
+                  Butona tıklayın, konumunuz alınacak ve haritada gösterilecek. Haritada işaretleyerek düzeltebilirsiniz.
                 </p>
               </div>
             </div>
           </div>
 
           {/* Submit */}
-          <div className="flex gap-2.5 pt-2">
+          <div className="flex gap-3 pt-4 border-t border-white/5">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 rounded-full bg-[var(--void)] border-2 border-[var(--obsidian-rim)] text-[var(--silver-frost)] font-heading font-semibold text-sm hover:border-[var(--liquid-chrome)] hover:text-[var(--chrome-white)] transition-all active:scale-95"
+              className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[var(--silver-frost)] font-heading font-semibold text-sm hover:bg-white/10 hover:border-white/20 hover:text-[var(--chrome-white)] transition-all active:scale-95"
             >
               İptal
             </button>
-            <ChromaticButton type="submit" loading={loading} className="flex-1 flex items-center justify-center gap-2 px-6 py-3">
-              <Save size={16} strokeWidth={2.5} />
-              <span>{salon ? 'Değişiklikleri Kaydet' : 'Salon Oluştur'}</span>
+            <ChromaticButton type="submit" loading={loading} className="flex-1 flex items-center justify-center gap-2 px-8 py-3 shadow-lg shadow-purple-500/20">
+              <Save size={18} strokeWidth={2.5} />
+              <span>{salon ? 'Kaydet' : 'İşletme Oluştur'}</span>
             </ChromaticButton>
           </div>
         </form>

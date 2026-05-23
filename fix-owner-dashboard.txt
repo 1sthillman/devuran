@@ -1,0 +1,6 @@
+Değiştirilecek metinler:
+
+1. "Salonunuzu Olusturun" → "İşletmenizi Oluşturun"
+2. "Isletme panelinizi kullanmaya baslamak icin once salonunuzu olusturmaniz gerekiyor." → "İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor."
+3. "Salon Olustur" → "İşletme Oluştur"
+4. "Salon bilgilerinizi girdikten sonra randevu yonetimi, hizmet ekleme ve daha fazlasina erisebileceksiniz." → "İşletme bilgilerinizi girdikten sonra randevu yönetimi, hizmet ekleme ve daha fazlasına erişebileceksiniz."

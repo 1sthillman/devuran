@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
+import { useUIStore } from '@/store/uiStore';
 
 interface CancelAppointmentDialogProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export function CancelAppointmentDialog({
 }: CancelAppointmentDialogProps) {
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
+  const { addToast } = useUIStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -46,7 +48,7 @@ export function CancelAppointmentDialog({
     const finalReason = selectedReason === 'Diğer' ? customReason : selectedReason;
     
     if (!finalReason.trim()) {
-      alert('Lütfen bir iptal nedeni seçin veya yazın');
+      addToast('Lütfen bir iptal nedeni seçin veya yazın', 'warning');
       return;
     }
 

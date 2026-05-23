@@ -397,6 +397,10 @@ input Interest_Data {
   ✨ `_expr` server value variant of `name` (✨ Generated from Field `Interest`.`name` of type `String!`)
   """
   name_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Interest`.`userInterests_on_interest` of type `[UserInterest!]!`
+  """
+  userInterests_on_interest: [UserInterest_Data!]
 }
 """
 ✨ Generated filter input type for table 'Interest'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
@@ -596,6 +600,14 @@ input Match_Data {
   ✨ `_update` server value variant of `createdAt` (✨ Generated from Field `Match`.`createdAt` of type `Timestamp!`)
   """
   createdAt_update: [Timestamp_Update!] @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Match`.`dateProposals_on_match` of type `[DateProposal!]!`
+  """
+  dateProposals_on_match: [DateProposal_Data!]
+  """
+  ✨ Generated from Field `Match`.`messages_on_match` of type `[Message!]!`
+  """
+  messages_on_match: [Message_Data!]
 }
 """
 ✨ Generated filter input type for table 'Match'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
@@ -1214,6 +1226,30 @@ input User_Data {
   ✨ `_expr` server value variant of `username` (✨ Generated from Field `User`.`username` of type `String!`)
   """
   username_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `User`.`dateProposals_on_proposer` of type `[DateProposal!]!`
+  """
+  dateProposals_on_proposer: [DateProposal_Data!]
+  """
+  ✨ Generated from Field `User`.`matches_on_user1` of type `[Match!]!`
+  """
+  matches_on_user1: [Match_Data!]
+  """
+  ✨ Generated from Field `User`.`matches_on_user2` of type `[Match!]!`
+  """
+  matches_on_user2: [Match_Data!]
+  """
+  ✨ Generated from Field `User`.`messages_on_receiver` of type `[Message!]!`
+  """
+  messages_on_receiver: [Message_Data!]
+  """
+  ✨ Generated from Field `User`.`messages_on_sender` of type `[Message!]!`
+  """
+  messages_on_sender: [Message_Data!]
+  """
+  ✨ Generated from Field `User`.`userInterests_on_user` of type `[UserInterest!]!`
+  """
+  userInterests_on_user: [UserInterest_Data!]
 }
 """
 ✨ Generated filter input type for table 'User'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.

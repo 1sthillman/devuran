@@ -72,11 +72,12 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
   );
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto pt-16 sm:pt-20">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto pt-16 sm:pt-20 pb-24 sm:pb-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-3xl p-4 sm:p-6 my-4"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <h3 className="font-display font-bold text-lg sm:text-xl text-[var(--chrome-white)]">

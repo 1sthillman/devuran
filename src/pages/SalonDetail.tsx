@@ -199,7 +199,10 @@ export function SalonDetail() {
                   <div key={service.id} className="flex items-center justify-between px-4 py-3 border-t border-[var(--obsidian-rim)]">
                     <div>
                       <span className="font-body text-[15px] text-[var(--chrome-white)]">{service.name}</span>
-                      <span className="block font-body text-[13px] text-[var(--muted-lead)]">{service.duration} dk</span>
+                      {/* Sadece slot-based kategorilerde dakika göster */}
+                      {['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salon.category) && (
+                        <span className="block font-body text-[13px] text-[var(--muted-lead)]">{service.duration} dk</span>
+                      )}
                     </div>
                     <span className="font-mono font-medium text-[var(--silver-frost)]">{service.price} TL</span>
                   </div>

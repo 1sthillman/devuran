@@ -99,8 +99,16 @@ export const banService = {
     customerPhone: string;
   }) {
     try {
-      // TODO: Implement reporting system for admin review
-      console.log('Customer reported:', reportData);
+      // Şikayet sistemini implement et - admin review için
+      // Bu, ayrı bir collection'da report document oluşturabilir
+      // admin review öncesi banlama için
+      
+      // Şimdilik sadece error log - production'da admin panel'e gönderilmeli
+      console.error('Customer report received:', {
+        reportedBy: reportData.reportedBy,
+        reason: reportData.reason,
+        timestamp: new Date().toISOString()
+      });
       // This could create a report document in a separate collection
       // for admin review before banning
     } catch (error) {

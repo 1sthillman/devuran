@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, User, CheckCircle2, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
+import { useFormValidation } from '@/hooks/useFormValidation';
+import { useUIStore } from '@/store/uiStore';
+import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarPicker } from '../CalendarPicker';
+import { ModernCalendar } from '../ModernCalendar';
 import { TimeSlotGrid } from '../TimeSlotGrid';
 import { availabilityService } from '@/services/availabilityService';
-import { queueService } from '@/services/queueService';
 import { useAuthStore } from '@/store/authStore';
-import { useFormValidation } from '@/hooks/useFormValidation';
-import { validation } from '@/utils/validation';
 import type { TimeSlot } from '@/services/availabilityService';
+import { cn } from '@/lib/utils';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
@@ -35,18 +35,18 @@ export function SlotBookingWizard() {
     isSubmitting
   } = useBookingStore();
 
-  const [step, setStep] = useState(1);
+  const [activeStep, setActiveStep] = useState(1);
+  const [activeSubStep, setActiveSubStep] = useState<'date' | 'time' | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [localName, setLocalName] = useState(customerName || '');
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [showQueueOption, setShowQueueOption] = useState(false);
-  const [joiningQueue, setJoiningQueue] = useState(false);
-  const { errors, validatePhone, validateEmail, validateName, hasErrors } = useFormValidation();
+  const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
+  const { addToast } = useUIStore();
 
-  // Load available slots when date and staff change
   useEffect(() => {
     if (selectedDate && selectedStaffId && salon) {
       loadAvailableSlots();
@@ -66,52 +66,50 @@ export function SlotBookingWizard() {
         staffId: selectedStaffId || undefined
       });
       setAvailableSlots(slots);
-      
-      // Eğer hiç müsait slot yoksa ve queue sistemi aktifse, sıraya alma seçeneğini göster
-      if (slots.length === 0 && queueService.canUseQueue(salon.category)) {
-        setShowQueueOption(true);
-      } else {
-        setShowQueueOption(false);
-      }
     } catch (error) {
-      console.error('Müsait saatler yüklenemedi:', error);
       setAvailableSlots([]);
     }
     setLoadingSlots(false);
   };
 
-  const handleNext = () => {
-    if (step === 1 && selectedServices.length === 0) {
-      alert('Lütfen en az bir hizmet seçin');
-      return;
+  const handleStepComplete = (step: number) => {
+    if (!completedSteps.includes(step)) {
+      setCompletedSteps([...completedSteps, step]);
     }
-    if (step === 2 && !selectedStaffId) {
-      alert('Lütfen bir personel seçin');
-      return;
-    }
-    if (step === 3 && (!selectedDate || !selectedTime)) {
-      alert('Lütfen tarih ve saat seçin');
-      return;
-    }
-    if (step === 4) {
-      // Validasyon kontrolleri
-      const nameValid = validateName('name', localName);
-      const phoneValid = validatePhone('phone', localPhone);
-      const emailValid = localEmail ? validateEmail('email', localEmail) : true;
-
-      if (!nameValid || !phoneValid || !emailValid) {
-        return;
+    setTimeout(() => {
+      if (step < 4) {
+        setActiveStep(step + 1);
+        if (step === 3) setActiveSubStep(null);
       }
-    }
+    }, 100);
+  };
 
-    if (step < 4) {
-      setStep(step + 1);
-    } else {
-      handleSubmit();
-    }
+  const handleDateSelect = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    selectDateTime(dateStr, selectedTime || '');
+    setTimeout(() => setActiveSubStep('time'), 100);
+  };
+
+  const handleTimeSelect = (time: string) => {
+    selectDateTime(selectedDate || '', time);
+    setTimeout(() => setActiveSubStep(null), 100);
   };
 
   const handleSubmit = async () => {
+    const nameValid = validateName('name', localName);
+    const phoneValid = validatePhone('phone', localPhone);
+    const emailValid = localEmail ? validateEmail('email', localEmail) : true;
+
+    if (!nameValid || !phoneValid || !emailValid) {
+      addToast('Lütfen tüm bilgileri doğru girin', 'error');
+      return;
+    }
+
+    if (totalPrice <= 0) {
+      addToast('Fiyat hesaplanamadı', 'error');
+      return;
+    }
+    
     setCustomerInfo({
       name: localName,
       phone: localPhone,
@@ -121,361 +119,449 @@ export function SlotBookingWizard() {
 
     try {
       const reservationId = await submitReservation();
-      navigate(`/booking-success/${reservationId}`);
-    } catch (error) {
-      console.error('Rezervasyon hatası:', error);
-      alert('Rezervasyon oluşturulamadı. Lütfen tekrar deneyin.');
-    }
-  };
-
-  const handleJoinQueue = async () => {
-    if (!user || !salon || !selectedStaffId) return;
-    
-    setJoiningQueue(true);
-    try {
-      await queueService.joinQueue({
-        userId: user.uid,
-        salonId: salon.id,
-        staffId: selectedStaffId,
-        customerName: localName || user.displayName || '',
-        customerPhone: localPhone || user.phone || '',
-        services: selectedServices.map(s => ({
-          id: s.id,
-          name: s.name,
-          price: s.price,
-          duration: s.duration
-        })),
-        notes: localNotes
-      });
       
-      alert('Sıraya alındınız! Randevu iptal olduğunda size bildirim göndereceğiz.');
-      navigate('/appointments');
-    } catch (error) {
-      console.error('Sıraya alma hatası:', error);
-      alert('Sıraya eklenemedi. Lütfen tekrar deneyin.');
+      if (!reservationId) {
+        throw new Error('Rezervasyon ID alınamadı');
+      }
+      
+      addToast('Randevu başarıyla oluşturuldu!', 'success');
+      navigate(`/booking-success/${reservationId}`);
+    } catch (error: any) {
+      addToast(error.message || 'Randevu oluşturulamadı', 'error');
     }
-    setJoiningQueue(false);
   };
 
   if (!salon) return null;
 
-  return (
-    <div className="max-w-3xl mx-auto pb-24 px-4">
-      <div className="mb-8">
-        <h1 className="font-display font-bold text-3xl text-[var(--chrome-white)] mb-2">
-          Randevu Oluştur
-        </h1>
-        <p className="font-body text-[var(--muted-lead)]">{salon.name}</p>
-      </div>
-
-      <div className="flex items-center justify-between mb-8">
-        {[1, 2, 3, 4].map((s) => (
-          <div key={s} className="flex items-center flex-1">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                s <= step
-                  ? 'bg-[var(--liquid-chrome)] text-[var(--void)]'
-                  : 'bg-white/5 text-[var(--muted-lead)]'
-              }`}
-            >
-              {s}
-            </div>
-            {s < 4 && (
-              <div
-                className={`flex-1 h-1 mx-2 rounded transition-all ${
-                  s < step ? 'bg-[var(--liquid-chrome)]' : 'bg-white/5'
-                }`}
-              />
-            )}
+  // Hizmet kontrolü
+  if (!salon.services || salon.services.length === 0) {
+    return (
+      <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+        <div className="mb-6 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
+            <Sparkles size={16} className="text-purple-400" />
+            <span className="text-sm font-semibold text-purple-300">Randevu</span>
           </div>
-        ))}
+          <h1 className="font-display font-bold text-2xl bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-1">
+            {salon.name}
+          </h1>
+        </div>
+        <div className="text-center py-16">
+          <Scissors size={48} className="mx-auto text-[var(--muted-lead)] mb-4" />
+          <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)] mb-2">
+            Henüz Hizmet Eklenmemiş
+          </h3>
+          <p className="text-sm text-[var(--muted-lead)]">
+            Bu işletme henüz hizmet eklememiş. Lütfen daha sonra tekrar deneyin.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const steps = [
+    { id: 1, title: 'Hizmet Seçimi', icon: Scissors, gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' },
+    { id: 2, title: 'Personel', icon: User, gradient: 'from-amber-500 via-orange-500 to-red-500' },
+    { id: 3, title: 'Tarih & Saat', icon: Calendar, gradient: 'from-cyan-500 via-blue-500 to-indigo-500' },
+    { id: 4, title: 'İletişim', icon: Clock, gradient: 'from-emerald-500 via-teal-500 to-cyan-500' }
+  ];
+
+  return (
+    <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+      <div className="mb-6 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
+          <Sparkles size={16} className="text-purple-400" />
+          <span className="text-sm font-semibold text-purple-300">Randevu</span>
+        </div>
+        <h1 className="font-display font-bold text-2xl bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-1">
+          {salon.name}
+        </h1>
+        <p className="text-sm text-[var(--muted-lead)]">Premium rezervasyon deneyimi</p>
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={step}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          {step === 1 && (
-            <div className="space-y-3">
-              <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)] mb-4">
-                Hizmet Seçin
-              </h3>
-              {salon.services.map((service) => (
-                <button
-                  key={service.id}
-                  onClick={() => toggleService(service)}
-                  className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
-                    selectedServices.some((s) => s.id === service.id)
-                      ? 'border-[var(--liquid-chrome)] bg-[var(--liquid-chrome)]/10'
-                      : 'border-[var(--obsidian-rim)] bg-[var(--slate-surface)] hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-heading font-semibold text-[var(--chrome-white)]">
-                        {service.name}
-                      </h4>
-                      <p className="text-sm text-[var(--muted-lead)] mt-1">
-                        {service.duration} dk
-                      </p>
-                    </div>
-                    <p className="font-mono text-[var(--liquid-chrome)]">{service.price} TL</p>
-                  </div>
-                </button>
-              ))}
-              {selectedServices.length > 0 && (
-                <div className="obsidian-card p-4 bg-[var(--liquid-chrome)]/5 border-2 border-[var(--liquid-chrome)]/30 mt-4">
-                  <div className="flex justify-between">
-                    <span className="font-heading font-semibold text-[var(--chrome-white)]">
-                      Toplam
-                    </span>
-                    <span className="font-mono text-xl text-[var(--liquid-chrome)]">
-                      {totalPrice} TL
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+      <div className="space-y-3">
+        {steps.map((step) => {
+          const Icon = step.icon;
+          const isActive = activeStep === step.id;
+          const isCompleted = completedSteps.includes(step.id);
+          const canAccess = step.id === 1 || completedSteps.includes(step.id - 1);
 
-          {step === 2 && (
-            <div>
-              <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)] mb-4">
-                <User className="inline mr-2" size={20} />
-                Personel Seçin
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {salon.staff.map((staff) => (
-                  <button
-                    key={staff.id}
-                    onClick={() => selectStaff(staff.id)}
-                    className={`p-4 rounded-2xl border-2 transition-all ${
-                      selectedStaffId === staff.id
-                        ? 'border-[var(--liquid-chrome)] bg-[var(--liquid-chrome)]/10'
-                        : 'border-[var(--obsidian-rim)] bg-[var(--slate-surface)] hover:border-white/20'
-                    }`}
-                  >
-                    <img
-                      src={staff.photo}
-                      alt={staff.name}
-                      className="w-16 h-16 rounded-full mx-auto mb-2 object-cover"
-                    />
-                    <h4 className="font-heading font-semibold text-[var(--chrome-white)] text-center">
-                      {staff.name}
-                    </h4>
-                    <p className="text-sm text-[var(--muted-lead)] text-center">{staff.title}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)] mb-4">
-                  <Calendar className="inline mr-2" size={20} />
-                  Tarih Seçin
-                </h3>
-                <CalendarPicker
-                  selectedDate={selectedDate}
-                  onSelect={(date) => selectDateTime(date, selectedTime || '')}
-                  workingHours={salon.workingHours}
-                />
-              </div>
-              <div>
-                <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)] mb-4">
-                  <Clock className="inline mr-2" size={20} />
-                  Saat Seçin
-                </h3>
-                {selectedDate ? (
-                  loadingSlots ? (
-                    <div className="text-center py-8">
-                      <div className="w-8 h-8 border-4 border-white/10 border-t-white/60 rounded-full animate-spin mx-auto mb-2" />
-                      <p className="text-sm text-[var(--muted-lead)]">Müsait saatler yükleniyor...</p>
-                    </div>
-                  ) : availableSlots.length > 0 ? (
-                    <TimeSlotGrid
-                      slots={availableSlots.map(slot => ({
-                        time: slot.startTime,
-                        available: slot.available
-                      }))}
-                      selectedTime={selectedTime}
-                      onSelect={(time) => selectDateTime(selectedDate, time)}
-                    />
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="text-center py-8 bg-[var(--slate-surface)] rounded-2xl">
-                        <AlertCircle size={48} className="mx-auto mb-3 text-[var(--warning)]" />
-                        <p className="text-[var(--chrome-white)] font-semibold mb-2">Bu tarihte müsait saat yok</p>
-                        <p className="text-sm text-[var(--muted-lead)]">Lütfen başka bir tarih seçin</p>
+          return (
+            <div key={step.id}>
+              <button
+                onClick={() => canAccess && setActiveStep(step.id)}
+                disabled={!canAccess}
+                className={cn("w-full text-left transition-all duration-200", !canAccess && "opacity-40 cursor-not-allowed")}
+              >
+                <div className={cn(
+                  "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
+                  isActive 
+                    ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
+                    : isCompleted 
+                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
+                    : "border-white/[0.08] bg-white/[0.02]"
+                )}>
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                  )}
+                  
+                  <div className="relative flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
+                        isCompleted 
+                          ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30" 
+                          : isActive
+                          ? `bg-gradient-to-br ${step.gradient} shadow-lg shadow-purple-500/30`
+                          : "bg-white/5"
+                      )}>
+                        {isCompleted ? (
+                          <CheckCircle2 size={24} className="text-[var(--chrome-white)]" />
+                        ) : (
+                          <Icon size={24} className={isActive ? "text-white" : "text-white/40"} />
+                        )}
                       </div>
-                      
-                      {showQueueOption && (
-                        <div className="bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded-2xl p-4">
-                          <h4 className="font-heading font-semibold text-[var(--chrome-white)] mb-2">
-                            Sıraya Alınmak İster misiniz?
-                          </h4>
-                          <p className="text-sm text-[var(--muted-lead)] mb-4">
-                            Bir randevu iptal olduğunda size haber vereceğiz.
+                      <div>
+                        <h3 className={cn(
+                          "font-heading font-bold text-base transition-colors duration-200",
+                          isActive ? "text-white" : isCompleted ? "text-emerald-300" : "text-[var(--muted-lead)]"
+                        )}>
+                          {step.title}
+                        </h3>
+                        {isCompleted && !isActive && (
+                          <p className="text-xs text-emerald-400/80 mt-0.5 flex items-center gap-1">
+                            <CheckCircle2 size={12} />
+                            {step.id === 1 && `${selectedServices.length} hizmet`}
+                            {step.id === 2 && salon.staff.find(s => s.id === selectedStaffId)?.name}
+                            {step.id === 3 && `${selectedDate} - ${selectedTime}`}
+                            {step.id === 4 && 'Tamamlandı'}
                           </p>
-                          <button
-                            onClick={handleJoinQueue}
-                            disabled={joiningQueue || !localName || !localPhone}
-                            className="w-full h-12 rounded-full bg-[var(--warning)] hover:bg-[var(--warning)]/90 text-[var(--void)] font-heading font-bold transition-all disabled:opacity-50"
-                          >
-                            {joiningQueue ? 'Sıraya Alınıyor...' : 'Sıraya Al'}
-                          </button>
-                          {(!localName || !localPhone) && (
-                            <p className="text-xs text-[var(--muted-lead)] mt-2 text-center">
-                              Önce iletişim bilgilerinizi girin
-                            </p>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronDown 
+                      size={20} 
+                      className={cn(
+                        "transition-all duration-300",
+                        isActive ? "rotate-180 text-purple-300" : "text-[var(--muted-lead)]"
+                      )} 
+                    />
+                  </div>
+
+                  <AnimatePresence>
+                    {isActive && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-4 pb-4 space-y-3">
+                          {step.id === 1 && (
+                            <>
+                              {salon.services.map((service) => (
+                                <button
+                                  key={service.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleService(service);
+                                  }}
+                                  className={cn(
+                                    "w-full p-4 rounded-2xl border text-left transition-all duration-200",
+                                    selectedServices.some(s => s.id === service.id)
+                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                  )}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex-1">
+                                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
+                                        {service.name}
+                                      </h4>
+                                      <p className="text-xs text-[var(--muted-lead)]">{service.duration} dakika</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 ml-3">
+                                      <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                        {service.price}₺
+                                      </span>
+                                      {selectedServices.some(s => s.id === service.id) && (
+                                        <CheckCircle2 size={20} className="text-emerald-400" />
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                              {selectedServices.length > 0 && (
+                                <>
+                                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-[var(--muted-lead)]">Toplam</span>
+                                      <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                        {totalPrice}₺
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStepComplete(1);
+                                    }}
+                                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                  >
+                                    Devam Et
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+
+                          {step.id === 2 && (
+                            <>
+                              {(!salon.staff || salon.staff.length === 0) ? (
+                                <div className="text-center py-8">
+                                  <User size={32} className="mx-auto text-[var(--muted-lead)] mb-3" />
+                                  <p className="text-sm text-[var(--muted-lead)]">
+                                    Bu işletmede henüz personel bulunmuyor.
+                                  </p>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      selectStaff(null);
+                                      handleStepComplete(2);
+                                    }}
+                                    className="mt-4 px-6 h-10 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:shadow-2xl hover:shadow-amber-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                  >
+                                    Devam Et (Personel Seçmeden)
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                              {salon.staff.map((staff) => (
+                                <button
+                                  key={staff.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    selectStaff(staff.id);
+                                    handleStepComplete(2);
+                                  }}
+                                  className={cn(
+                                    "p-4 rounded-2xl border text-center transition-all duration-200",
+                                    selectedStaffId === staff.id
+                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                  )}
+                                >
+                                  <img
+                                    src={staff.photo}
+                                    alt={staff.name}
+                                    className="w-16 h-16 rounded-2xl mx-auto mb-3 object-cover ring-2 ring-white/10"
+                                  />
+                                  <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
+                                    {staff.name}
+                                  </h4>
+                                  <p className="text-xs text-[var(--muted-lead)]">{staff.title}</p>
+                                  {selectedStaffId === staff.id && (
+                                    <div className="mt-2 flex items-center justify-center gap-1 text-emerald-400">
+                                      <CheckCircle2 size={14} />
+                                      <span className="text-xs font-semibold">Seçildi</span>
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                              )}
+                            </>
+                          )}
+
+                          {step.id === 3 && (
+                            <>
+                              <div className={cn(
+                                "rounded-2xl border transition-all duration-200",
+                                activeSubStep === 'date' 
+                                  ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" 
+                                  : selectedDate 
+                                  ? "border-emerald-500/30 bg-emerald-500/5"
+                                  : "border-white/[0.06] bg-white/[0.02]"
+                              )}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveSubStep(activeSubStep === 'date' ? null : 'date');
+                                  }}
+                                  className="w-full p-3 flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Calendar size={18} className={selectedDate ? "text-emerald-400" : "text-purple-400"} />
+                                    <span className="font-semibold text-sm text-[var(--chrome-white)]">
+                                      {selectedDate || 'Tarih Seçin'}
+                                    </span>
+                                  </div>
+                                  {selectedDate && <CheckCircle2 size={18} className="text-emerald-400" />}
+                                </button>
+                                <AnimatePresence>
+                                  {activeSubStep === 'date' && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                    >
+                                      <div className="px-3 pb-3">
+                                        <ModernCalendar
+                                          selectedDate={selectedDate ? new Date(selectedDate) : null}
+                                          onSelect={handleDateSelect}
+                                          minDate={new Date()}
+                                          workingHours={salon.workingHours}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+
+                              {selectedDate && (
+                                <div className={cn(
+                                  "rounded-2xl border transition-all duration-200",
+                                  activeSubStep === 'time' 
+                                    ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" 
+                                    : selectedTime 
+                                    ? "border-emerald-500/30 bg-emerald-500/5"
+                                    : "border-white/[0.06] bg-white/[0.02]"
+                                )}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveSubStep(activeSubStep === 'time' ? null : 'time');
+                                    }}
+                                    className="w-full p-3 flex items-center justify-between"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Clock size={18} className={selectedTime ? "text-emerald-400" : "text-purple-400"} />
+                                      <span className="font-semibold text-sm text-[var(--chrome-white)]">
+                                        {selectedTime || 'Saat Seçin'}
+                                      </span>
+                                    </div>
+                                    {selectedTime && <CheckCircle2 size={18} className="text-emerald-400" />}
+                                  </button>
+                                  <AnimatePresence>
+                                    {activeSubStep === 'time' && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                      >
+                                        <div className="px-3 pb-3">
+                                          {loadingSlots ? (
+                                            <div className="text-center py-8">
+                                              <div className="w-8 h-8 border-2 border-white/10 border-t-[var(--liquid-chrome)] rounded-full animate-spin mx-auto" />
+                                            </div>
+                                          ) : availableSlots.length > 0 ? (
+                                            <TimeSlotGrid
+                                              slots={availableSlots.map(slot => ({
+                                                time: slot.startTime,
+                                                available: slot.available
+                                              }))}
+                                              selectedTime={selectedTime}
+                                              onSelect={handleTimeSelect}
+                                            />
+                                          ) : (
+                                            <div className="text-center py-6 text-sm text-[var(--muted-lead)]">
+                                              Bu tarihte müsait saat yok
+                                            </div>
+                                          )}
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              )}
+
+                              {selectedDate && selectedTime && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStepComplete(3);
+                                  }}
+                                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                >
+                                  Devam Et
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                          {step.id === 4 && (
+                            <>
+                              <input
+                                type="text"
+                                value={localName}
+                                onChange={(e) => setLocalName(e.target.value)}
+                                placeholder="Ad Soyad"
+                                className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                              />
+                              <input
+                                type="tel"
+                                value={localPhone}
+                                onChange={(e) => {
+                                  const cleaned = e.target.value.replace(/\D/g, '');
+                                  setLocalPhone(cleaned.slice(0, 10));
+                                }}
+                                placeholder="5XX XXX XX XX"
+                                maxLength={10}
+                                className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                              />
+                              <input
+                                type="email"
+                                value={localEmail}
+                                onChange={(e) => setLocalEmail(e.target.value)}
+                                placeholder="E-posta (opsiyonel)"
+                                className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                              />
+                              <textarea
+                                value={localNotes}
+                                onChange={(e) => setLocalNotes(e.target.value)}
+                                placeholder="Notlar (opsiyonel)"
+                                rows={2}
+                                className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                              />
+                              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
+                                  <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                    {totalPrice}₺
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSubmit();
+                                }}
+                                disabled={isSubmitting}
+                                className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:shadow-2xl hover:shadow-emerald-500/40 text-[var(--chrome-white)] font-heading font-bold text-lg transition-all duration-200 disabled:opacity-50 active:scale-[0.98]"
+                              >
+                                {isSubmitting ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Oluşturuluyor...</span>
+                                  </div>
+                                ) : (
+                                  'Randevu Oluştur'
+                                )}
+                              </button>
+                            </>
                           )}
                         </div>
-                      )}
-                    </div>
-                  )
-                ) : (
-                  <p className="text-[var(--muted-lead)]">Önce tarih seçin</p>
-                )}
-              </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </button>
             </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-6">
-              <div className="obsidian-card p-6">
-                <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)] mb-4">
-                  Rezervasyon Özeti
-                </h3>
-                <div className="space-y-3 text-[var(--silver-frost)]">
-                  <p>
-                    <span className="text-[var(--muted-lead)]">Hizmetler:</span>{' '}
-                    {selectedServices.map((s) => s.name).join(', ')}
-                  </p>
-                  <p>
-                    <span className="text-[var(--muted-lead)]">Personel:</span>{' '}
-                    {salon.staff.find((s) => s.id === selectedStaffId)?.name}
-                  </p>
-                  <p>
-                    <span className="text-[var(--muted-lead)]">Tarih:</span> {selectedDate}
-                  </p>
-                  <p>
-                    <span className="text-[var(--muted-lead)]">Saat:</span> {selectedTime}
-                  </p>
-                  <div className="border-t border-[var(--obsidian-rim)] pt-3 mt-3">
-                    <p className="font-mono text-2xl text-[var(--chrome-white)]">
-                      {totalPrice} TL
-                    </p>
-                    <p className="text-sm text-[var(--muted-lead)] mt-1">{totalDuration} dakika</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)] mb-4">
-                  İletişim Bilgileri
-                </h3>
-                <div className="space-y-4">
-                <div>
-                  <input
-                    type="text"
-                    value={localName}
-                    onChange={(e) => setLocalName(e.target.value)}
-                    onBlur={() => validateName('name', localName)}
-                    placeholder="Ad Soyad"
-                    className={`w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all ${
-                      errors.name
-                        ? 'border-[var(--error)]'
-                        : 'border-[var(--obsidian-rim)] focus:border-[var(--liquid-chrome)]'
-                    }`}
-                  />
-                  {errors.name && (
-                    <p className="text-sm text-[var(--error)] mt-1">{errors.name}</p>
-                  )}
-                </div>
-                <div>
-                  <input
-                    type="tel"
-                    value={localPhone}
-                    onChange={(e) => {
-                      const cleaned = e.target.value.replace(/\D/g, '');
-                      setLocalPhone(cleaned.slice(0, 10));
-                    }}
-                    onBlur={() => validatePhone('phone', localPhone)}
-                    placeholder="5XX XXX XX XX"
-                    maxLength={10}
-                    className={`w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all ${
-                      errors.phone
-                        ? 'border-[var(--error)]'
-                        : 'border-[var(--obsidian-rim)] focus:border-[var(--liquid-chrome)]'
-                    }`}
-                  />
-                  {errors.phone && (
-                    <p className="text-sm text-[var(--error)] mt-1">{errors.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <input
-                    type="email"
-                    value={localEmail}
-                    onChange={(e) => setLocalEmail(e.target.value)}
-                    onBlur={() => localEmail && validateEmail('email', localEmail)}
-                    placeholder="E-posta (opsiyonel)"
-                    className={`w-full h-12 px-4 rounded-2xl bg-[var(--slate-surface)] border-2 text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all ${
-                      errors.email
-                        ? 'border-[var(--error)]'
-                        : 'border-[var(--obsidian-rim)] focus:border-[var(--liquid-chrome)]'
-                    }`}
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-[var(--error)] mt-1">{errors.email}</p>
-                  )}
-                </div>
-                  <textarea
-                    value={localNotes}
-                    onChange={(e) => setLocalNotes(e.target.value)}
-                    placeholder="Notlar (opsiyonel)"
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body outline-none transition-all focus:border-[var(--liquid-chrome)] resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--void)]/80 backdrop-blur-lg border-t border-[var(--obsidian-rim)] z-50">
-        <div className="max-w-3xl mx-auto flex gap-3">
-          {step > 1 && (
-            <button
-              onClick={() => setStep(step - 1)}
-              className="px-6 h-12 rounded-full bg-white/5 hover:bg-white/10 text-[var(--chrome-white)] font-heading font-semibold transition-all flex items-center gap-2"
-            >
-              <ArrowLeft size={18} />
-              Geri
-            </button>
-          )}
-          <button
-            onClick={handleNext}
-            disabled={isSubmitting}
-            className="flex-1 h-12 rounded-full bg-[var(--liquid-chrome)] hover:bg-[var(--liquid-chrome)]/90 text-[var(--void)] font-heading font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <div className="w-5 h-5 border-2 border-[var(--void)]/30 border-t-[var(--void)] rounded-full animate-spin" />
-            ) : (
-              <>
-                {step === 4 ? 'Randevu Oluştur' : 'Devam Et'}
-                {step < 4 && <ArrowRight size={18} />}
-              </>
-            )}
-          </button>
-        </div>
+          );
+        })}
       </div>
     </div>
   );

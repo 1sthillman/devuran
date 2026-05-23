@@ -103,12 +103,18 @@ class ReservationService {
   async getUserReservations(userId: string): Promise<Reservation[]> {
     const q = query(
       collection(db, this.collectionName),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data() as Reservation);
+    const reservations = snapshot.docs.map(doc => doc.data() as Reservation);
+    
+    // Client-side sorting
+    return reservations.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
   }
 
   async getBusinessReservations(businessId: string, date?: string): Promise<Reservation[]> {
@@ -122,7 +128,14 @@ class ReservationService {
     }
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data() as Reservation);
+    const reservations = snapshot.docs.map(doc => doc.data() as Reservation);
+    
+    // Client-side sorting by createdAt
+    return reservations.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
   }
 
   async confirmReservation(reservationId: string): Promise<void> {
@@ -167,7 +180,18 @@ class ReservationService {
       throw new Error('Rezervasyon bulunamadı');
     }
 
-    // İptal edilebilir mi kontrol et
+    // İşletme her zaman iptal edebilir
+    if (cancelledBy === 'business') {
+      const ref = doc(db, this.collectionName, reservationId);
+      await setDoc(ref, {
+        status: 'cancelled_by_business',
+        updatedAt: new Date().toISOString(),
+        cancellationReason: reason
+      }, { merge: true });
+      return 0;
+    }
+
+    // Kullanıcı için iptal kontrolü
     if (!reservation.cancellationPolicy.allowed) {
       throw new Error('Bu rezervasyon iptal edilemez');
     }
@@ -184,11 +208,12 @@ class ReservationService {
     // Durumu güncelle
     const ref = doc(db, this.collectionName, reservationId);
     await setDoc(ref, {
-      status: cancelledBy === 'user' ? 'cancelled_by_user' : 'cancelled_by_business',
+      status: 'cancelled_by_user',
       updatedAt: new Date().toISOString(),
       'pricing.refundAmount': refundAmount,
       'pricing.refundedAt': new Date().toISOString(),
-      'pricing.refundReason': reason
+      'pricing.refundReason': reason,
+      cancellationReason: reason
     }, { merge: true });
 
     return refundAmount;
@@ -246,25 +271,47 @@ class ReservationService {
 
   private calculatePricing(data: Partial<Reservation>): PaymentInfo {
     let basePrice = 0;
+    let extrasTotal = 0;
 
     // Tip bazlı fiyat hesaplama
     if (data.type === 'slot') {
       const slotData = data as Partial<SlotReservation>;
       basePrice = slotData.services?.reduce((sum, s) => sum + s.price, 0) || 0;
+    } else if (data.type === 'nightly') {
+      // Nightly için totalPrice direkt kullan
+      const nightlyData = data as any;
+      basePrice = nightlyData.totalPrice || 0;
+      extrasTotal = nightlyData.extrasTotal || 0;
+    } else if (data.type === 'daily') {
+      // Daily için paket fiyatı + ekstralar
+      const dailyData = data as any;
+      basePrice = dailyData.totalPrice || dailyData.package?.price || 0;
+      extrasTotal = dailyData.extrasTotal || 0;
+    } else if (data.type === 'project') {
+      // Project için paket fiyatı
+      const projectData = data as any;
+      basePrice = projectData.totalPrice || projectData.package?.price || 0;
+    } else if (data.type === 'order') {
+      // Order için items toplamı
+      const orderData = data as any;
+      basePrice = orderData.totalPrice || 0;
     }
 
-    // Dinamik fiyatlandırma
-    basePrice = this.applyDynamicPricing(basePrice, data);
+    // Eğer hala 0 ise, genel totalPrice'ı kullan
+    if (basePrice === 0 && (data as any).totalPrice) {
+      basePrice = (data as any).totalPrice;
+    }
 
-    const tax = basePrice * 0.18; // KDV %18
-    const total = basePrice + tax;
+    // Fiyatlar stabil - dinamik fiyatlandırma yok
+    const tax = 0; // KDV dahil fiyat
+    const total = basePrice;
 
     // Depozit hesapla
     const depositInfo = this.calculateDeposit(data, total);
 
     return {
       basePrice,
-      extrasTotal: 0,
+      extrasTotal,
       discountAmount: 0,
       taxAmount: tax,
       totalAmount: total,
@@ -274,21 +321,6 @@ class ReservationService {
       finalAmount: total - depositInfo.amount,
       currency: 'TRY'
     };
-  }
-
-  private applyDynamicPricing(basePrice: number, data: Partial<Reservation>): number {
-    let price = basePrice;
-
-    // Hafta sonu fiyatlandırması
-    const date = this.getEventDate(data);
-    if (date) {
-      const dayOfWeek = new Date(date).getDay();
-      if (dayOfWeek === 6 || dayOfWeek === 0) {
-        price *= 1.25; // Cumartesi/Pazar %25 artış
-      }
-    }
-
-    return Math.round(price);
   }
 
   private calculateDeposit(data: Partial<Reservation>, totalAmount: number) {

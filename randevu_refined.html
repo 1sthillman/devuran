@@ -150,14 +150,6 @@
 .cta-btn::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);animation:shimmer 2.5s infinite;}
 @keyframes shimmer{0%{left:-100%;}60%,100%{left:100%;}}
 .cta-btn i{font-size:15px;}
-.bottom-nav{background:#0a0a0c;border-top:0.5px solid rgba(255,255,255,0.05);padding:12px 8px 28px;display:flex;justify-content:space-around;position:relative;}
-.bottom-nav::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:36px;height:3px;border-radius:0 0 3px 3px;background:linear-gradient(90deg,#7c3aed,#db2777);}
-.nb{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:52px;padding:2px 0;}
-.nb i{font-size:22px;color:rgba(255,255,255,0.2);}
-.nb span{font-size:9px;font-weight:500;color:rgba(255,255,255,0.2);letter-spacing:0.02em;}
-.nb.on i{color:#a78bfa;}
-.nb.on span{color:#a78bfa;}
-.nb-pip{width:4px;height:4px;border-radius:50%;background:linear-gradient(90deg,#7c3aed,#db2777);margin-top:1px;}
 </style>
 
 <h2 class="sr-only">Randevu next-gen refined tasarım</h2>
@@ -301,12 +293,6 @@
     </div>
   </div>
 
-  <div class="bottom-nav">
-    <div class="nb on"><i class="ti ti-compass" aria-hidden="true"></i><span>Keşfet</span><div class="nb-pip"></div></div>
-    <div class="nb"><i class="ti ti-calendar" aria-hidden="true"></i><span>Randevular</span></div>
-    <div class="nb"><i class="ti ti-search" aria-hidden="true"></i><span>Ara</span></div>
-    <div class="nb"><i class="ti ti-layout-dashboard" aria-hidden="true"></i><span>Panel</span></div>
-    <div class="nb"><i class="ti ti-user-circle" aria-hidden="true"></i><span>Profil</span></div>
-  </div>
+
 </div>
 </div>

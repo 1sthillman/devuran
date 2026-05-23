@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { appointmentsService, reviewsService } from '@/services/firebaseService';
+import { reservationService } from '@/services/reservationService';
 import { soundService } from '@/services/soundService';
 import type { Appointment } from '@/types';
 import { ReviewModal } from '@/components/review/ReviewModal';
@@ -28,33 +29,59 @@ export function Appointments() {
     }
   }, [user?.uid]);
 
-  useEffect(() => {
-    // Otomatik olarak geçmiş randevular için review modal aç - SADECE BİR KERE
-    if (appointments.length > 0 && filter === 'past' && !reviewModalAppointment) {
-      const unreviewed = appointments.find(apt => {
-        const aptDate = new Date(apt.date);
-        aptDate.setHours(0, 0, 0, 0);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return aptDate < today && !apt.hasReview && apt.status === 'completed';
-      });
-      
-      if (unreviewed) {
-        setReviewModalAppointment(unreviewed);
-      }
-    }
-  }, [appointments, filter, reviewModalAppointment]);
-
   const loadAppointments = async () => {
     if (!user?.uid) return;
     
     setLoading(true);
     try {
-      const data = await appointmentsService.getUserAppointments(user.uid);
-      setAppointments(data);
-    } catch (error) {
+      // Önce appointments'ı yükle
+      const appointmentsData = await appointmentsService.getUserAppointments(user.uid);
+      
+      // Sonra reservations'ı yükle
+      let reservationsData: any[] = [];
+      try {
+        reservationsData = await reservationService.getUserReservations(user.uid);
+      } catch (resError) {
+        console.error('Error loading reservations:', resError);
+        // Reservations yüklenemezse sadece appointments'ı göster
+      }
+      
+      // Reservations'ı appointments formatına çevir
+      const convertedReservations = reservationsData.map((res: any) => ({
+        id: res.id,
+        userId: res.userId,
+        salonId: res.businessId,
+        salonName: res.businessName,
+        staffId: res.staffId || '',
+        customerName: res.userName,
+        customerPhone: res.userPhone,
+        services: res.services || [],
+        date: res.date || res.eventDate || res.checkIn || res.deliveryDate || '',
+        time: res.startTime || res.deliveryTime || '00:00',
+        totalPrice: res.pricing?.totalAmount || res.totalPrice || 0,
+        totalDuration: res.duration || res.totalDuration || 0,
+        status: res.status === 'confirmed' || res.status === 'deposit_paid' || res.status === 'fully_paid' ? 'confirmed' : res.status,
+        notes: res.notes || '',
+        salonCover: '',
+        salonAddress: res.salonAddress || res.address || res.businessAddress || '',
+        staffName: '',
+        staffPhoto: '',
+        whatsappNumber: res.whatsappNumber || res.salonPhone || res.businessPhone || res.phone || '',
+        endTime: res.endTime || '',
+        createdAt: res.createdAt,
+        hasReview: res.hasReview || false,
+        _source: 'reservation' as const,
+      }));
+      
+      // Birleştir ve tarihe göre sırala
+      const allAppointments = [...appointmentsData, ...convertedReservations].sort((a, b) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+      
+      setAppointments(allAppointments);
+    } catch (error: any) {
       console.error('Error loading appointments:', error);
-      addToast('Randevular yuklenemedi', 'error');
+      addToast(error?.message || 'Randevular yuklenemedi', 'error');
     } finally {
       setLoading(false);
     }
@@ -68,7 +95,20 @@ export function Appointments() {
     if (!cancelDialogAppointment) return;
     
     try {
-      await appointmentsService.cancel(cancelDialogAppointment.id, reason, 'customer');
+      // Rezervasyon mu yoksa appointment mı kontrol et
+      const isReservation = cancelDialogAppointment._source === 'reservation';
+      
+      if (isReservation) {
+        // Reservations collection'dan iptal et
+        await reservationService.cancelReservation(
+          cancelDialogAppointment.id,
+          'user',
+          reason
+        );
+      } else {
+        // Appointments collection'dan iptal et
+        await appointmentsService.cancel(cancelDialogAppointment.id, reason, 'customer');
+      }
       
       // Play cancel sound
       soundService.playAppointmentCancelled();
@@ -76,9 +116,9 @@ export function Appointments() {
       addToast('Randevu iptal edildi', 'success');
       setCancelDialogAppointment(null);
       loadAppointments(); // Reload appointments
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cancelling appointment:', error);
-      addToast('Randevu iptal edilemedi', 'error');
+      addToast(error?.message || 'Randevu iptal edilemedi', 'error');
     }
   };
 
@@ -145,12 +185,12 @@ export function Appointments() {
   });
 
   return (
-    <div className="max-w-2xl mx-auto pb-8">
+    <div className="max-w-2xl mx-auto pb-24 px-4">
       <h1 className="font-display font-bold text-3xl text-[var(--chrome-white)]">
-        Randevularim
+        Randevularım
       </h1>
       <p className="font-body text-[var(--muted-lead)] mt-1">
-        Gecmis ve yaklasan randevulariniz
+        Geçmiş ve yaklaşan randevularınız
       </p>
 
       {/* Filter Tabs */}
@@ -164,7 +204,7 @@ export function Appointments() {
               : 'text-[var(--muted-lead)] hover:text-[var(--silver-frost)]'
           )}
         >
-          Yaklasan
+          Yaklaşan
         </button>
         <button
           onClick={() => setFilter('past')}
@@ -175,7 +215,7 @@ export function Appointments() {
               : 'text-[var(--muted-lead)] hover:text-[var(--silver-frost)]'
           )}
         >
-          Gecmis
+          Geçmiş
         </button>
       </div>
 
@@ -193,13 +233,13 @@ export function Appointments() {
               Henüz randevunuz yok
             </p>
             <p className="font-body text-sm text-[var(--muted-lead)] mt-1">
-              Premium salonlardan randevu almaya baslayin.
+              Premium salonlardan randevu almaya başlayın.
             </p>
             <Link
               to="/"
               className="inline-block mt-4 chromatic-btn px-6 h-11 text-sm"
             >
-              <span>Salon Kesfet</span>
+              <span>Salon Keşfet</span>
             </Link>
           </div>
         ) : (
@@ -280,7 +320,7 @@ export function Appointments() {
                   className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-[var(--error)] hover:underline"
                 >
                   <X size={14} />
-                  Iptal Et
+                  İptal Et
                 </button>
                 <button
                   onClick={() => handleWhatsApp(appointment.whatsappNumber)}

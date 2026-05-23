@@ -1,14 +1,16 @@
 import { useState, useMemo, useEffect } from 'react';
 import { SalonCard } from '@/components/salon/SalonCard';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
-import { Search, Navigation, SlidersHorizontal, MapPin, Calendar } from 'lucide-react';
+import { Search, Navigation, SlidersHorizontal, MapPin, Calendar, Home as HomeIcon, CalendarDays, LayoutGrid, User, X, DollarSign, Coins, Banknote, Gem } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { salonsService, servicesService } from '@/services/firebaseService';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useUIStore } from '@/store/uiStore';
 import type { Salon, Service } from '@/types';
 import { categoryGroups, getCategoryById, getAllCategories, type CategoryId } from '@/config/categories';
 import { cn } from '@/lib/utils';
+import { Link, useLocation } from 'react-router-dom';
 
 export function Home() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,7 +22,12 @@ export function Home() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const { addToast } = useUIStore();
+  const [selectedPriceRange, setSelectedPriceRange] = useState<'all' | 'budget' | 'mid' | 'premium'>('all');
+  const [selectedRating, setSelectedRating] = useState<number>(0);
   const { user, isOwner } = useAuthStore();
+  const location = useLocation();
 
   useEffect(() => {
     loadData();
@@ -42,7 +49,15 @@ export function Home() {
   };
 
   const requestLocation = () => {
+    if (sortByDistance) {
+      // Zaten aktifse kapat
+      setSortByDistance(false);
+      setUserLocation(null);
+      return;
+    }
+
     if ('geolocation' in navigator) {
+      setLocationLoading(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
@@ -50,9 +65,12 @@ export function Home() {
             lng: position.coords.longitude,
           });
           setSortByDistance(true);
+          setLocationLoading(false);
         },
         (error) => {
-          console.log('Konum izni verilmedi', error);
+          // Konum izni verilmedi - sessizce devam et
+          addToast('Konum izni gerekli. Lütfen tarayıcı ayarlarınızdan konum iznini açın.', 'warning');
+          setLocationLoading(false);
         }
       );
     }
@@ -92,7 +110,19 @@ export function Home() {
         s.category.toLowerCase().includes(query)
       );
 
-      return isAvailable && matchesCategory && matchesGroup && (matchesSearch || matchesService);
+      // Fiyat filtresi
+      let matchesPrice = true;
+      if (selectedPriceRange !== 'all' && salonServices.length > 0) {
+        const avgPrice = salonServices.reduce((sum, s) => sum + s.price, 0) / salonServices.length;
+        if (selectedPriceRange === 'budget') matchesPrice = avgPrice < 100;
+        else if (selectedPriceRange === 'mid') matchesPrice = avgPrice >= 100 && avgPrice < 300;
+        else if (selectedPriceRange === 'premium') matchesPrice = avgPrice >= 300;
+      }
+
+      // Puan filtresi
+      const matchesRating = selectedRating === 0 || (salon.stats?.averageRating || 0) >= selectedRating;
+
+      return isAvailable && matchesCategory && matchesGroup && (matchesSearch || matchesService) && matchesPrice && matchesRating;
     });
 
     if (sortByDistance && userLocation) {
@@ -108,7 +138,7 @@ export function Home() {
     }
 
     return filtered;
-  }, [searchQuery, activeCategory, activeGroup, salons, services, sortByDistance, userLocation]);
+  }, [searchQuery, activeCategory, activeGroup, salons, services, sortByDistance, userLocation, selectedPriceRange, selectedRating]);
 
   const currentGroup = activeGroup !== 'all' ? categoryGroups.find(g => g.id === activeGroup) : null;
   const groupCategories = currentGroup 
@@ -133,30 +163,14 @@ export function Home() {
           }}
         />
 
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
-          {/* Modern Logo & Greeting */}
+        <div className="max-w-[1400px] mx-auto px-4 relative z-10">
+          {/* Greeting */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="mb-6"
           >
-            {/* Logo */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute top-[-40%] left-[-40%] w-[80%] h-[80%] rounded-full bg-white/15" />
-                <Calendar size={20} className="text-white relative z-10" strokeWidth={2.5} />
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-baseline gap-0.5">
-                  <span className="font-display font-bold text-lg md:text-xl text-[var(--chrome-white)] tracking-tight">ran</span>
-                  <span className="font-display font-bold text-lg md:text-xl bg-gradient-to-r from-purple-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent tracking-tight">devu</span>
-                </div>
-                <span className="text-[9px] md:text-[10px] font-medium text-[var(--muted-lead)] uppercase tracking-wider">Hizmet Platformu</span>
-              </div>
-            </div>
-
-            {/* Greeting */}
             <div className="mb-1">
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-xs md:text-sm text-[var(--muted-lead)]">
@@ -229,25 +243,40 @@ export function Home() {
           >
             <button
               onClick={requestLocation}
+              disabled={locationLoading}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-heading font-medium text-xs transition-all shrink-0",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-heading font-medium text-xs transition-all shrink-0 active:scale-95",
                 sortByDistance
-                  ? "bg-white/10 border-white/20 text-[var(--chrome-white)]"
-                  : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10"
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 border-transparent text-white shadow-lg shadow-purple-500/25"
+                  : "bg-white/[0.02] border-white/5 text-[var(--muted-lead)] hover:border-white/10 hover:bg-white/5",
+                locationLoading && "opacity-50 cursor-not-allowed"
               )}
             >
-              <Navigation size={12} />
-              <span>{sortByDistance ? 'Yakınıma Göre' : 'Yakınımda'}</span>
+              {locationLoading ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Alınıyor...</span>
+                </>
+              ) : (
+                <>
+                  <Navigation size={12} className={sortByDistance ? "animate-pulse" : ""} />
+                  <span>{sortByDistance ? 'Yakınıma Göre ✓' : 'Yakınımda'}</span>
+                </>
+              )}
             </button>
             
-            <div className="h-4 w-px bg-white/5" />
-            
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[var(--muted-lead)] font-body">Sonuçlar</span>
-              <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
-                {filteredSalons.length}
-              </span>
-            </div>
+            {!sortByDistance && (
+              <>
+                <div className="h-4 w-px bg-white/5" />
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[var(--muted-lead)] font-body">Sonuçlar</span>
+                  <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
+                    {filteredSalons.length}
+                  </span>
+                </div>
+              </>
+            )}
           </motion.div>
 
           {/* Categories Section */}
@@ -257,22 +286,6 @@ export function Home() {
             transition={{ duration: 0.4, delay: 0.25 }}
             className="mb-4"
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-[var(--chrome-white)] tracking-tight">Kategoriler</span>
-              <button 
-                onClick={() => {
-                  setActiveGroup('all');
-                  setActiveCategory('all');
-                }}
-                className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
-              >
-                Tümü
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            </div>
-
             {/* Category Pills - Horizontal Scroll */}
             <div className="relative">
               <div className="overflow-x-auto scrollbar-hide">
@@ -370,12 +383,137 @@ export function Home() {
         </div>
       </section>
 
+      {/* Filter Panel */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowFilters(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="absolute bottom-0 left-0 right-0 bg-[var(--void)] rounded-t-3xl border-t border-white/10 max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-display font-bold text-xl text-[var(--chrome-white)]">
+                    Filtrele
+                  </h3>
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all"
+                  >
+                    <X size={20} className="text-[var(--muted-lead)]" />
+                  </button>
+                </div>
+
+                {/* Price Range */}
+                <div className="mb-6">
+                  <label className="block font-heading font-semibold text-sm text-[var(--chrome-white)] mb-3">
+                    Fiyat Aralığı
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'all', label: 'Tümü', IconComponent: DollarSign },
+                      { id: 'budget', label: 'Ekonomik', IconComponent: Coins, desc: '< 100₺' },
+                      { id: 'mid', label: 'Orta', IconComponent: Banknote, desc: '100-300₺' },
+                      { id: 'premium', label: 'Premium', IconComponent: Gem, desc: '> 300₺' },
+                    ].map((range) => {
+                      const Icon = range.IconComponent;
+                      return (
+                      <button
+                        key={range.id}
+                        onClick={() => setSelectedPriceRange(range.id as any)}
+                        className={cn(
+                          "p-3 rounded-2xl border-2 transition-all text-left",
+                          selectedPriceRange === range.id
+                            ? "border-purple-500 bg-purple-500/10"
+                            : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Icon size={18} className="text-[var(--liquid-chrome)]" strokeWidth={2} />
+                          <span className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
+                            {range.label}
+                          </span>
+                        </div>
+                        {range.desc && (
+                          <p className="text-xs text-[var(--muted-lead)] ml-7">{range.desc}</p>
+                        )}
+                      </button>
+                    );
+                    })}
+                  </div>
+                </div>
+
+                {/* Rating */}
+                <div className="mb-6">
+                  <label className="block font-heading font-semibold text-sm text-[var(--chrome-white)] mb-3">
+                    Minimum Puan
+                  </label>
+                  <div className="flex gap-2">
+                    {[0, 3, 4, 4.5].map((rating) => (
+                      <button
+                        key={rating}
+                        onClick={() => setSelectedRating(rating)}
+                        className={cn(
+                          "flex-1 px-4 py-3 rounded-2xl border-2 transition-all",
+                          selectedRating === rating
+                            ? "border-purple-500 bg-purple-500/10"
+                            : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                        )}
+                      >
+                        <div className="text-center">
+                          <div className="text-lg mb-1">
+                            {rating === 0 ? '⭐' : '⭐'.repeat(Math.floor(rating))}
+                          </div>
+                          <span className="text-xs font-heading font-semibold text-[var(--chrome-white)]">
+                            {rating === 0 ? 'Tümü' : `${rating}+`}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedPriceRange('all');
+                      setSelectedRating(0);
+                    }}
+                    className="flex-1 h-12 rounded-full bg-white/5 hover:bg-white/10 text-[var(--chrome-white)] font-heading font-semibold transition-all"
+                  >
+                    Temizle
+                  </button>
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="flex-1 h-12 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-heading font-bold transition-all hover:shadow-lg hover:shadow-purple-500/25"
+                  >
+                    Uygula
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Results */}
-      <section className="max-w-7xl mx-auto px-4 mt-6">
+      <section className="max-w-[1400px] mx-auto px-4 mt-6">
         {/* Loading */}
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {[...Array(8)].map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>
@@ -402,7 +540,7 @@ export function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6"
           >
             {filteredSalons.map((salon, index) => (
               <motion.div
@@ -417,6 +555,7 @@ export function Home() {
           </motion.div>
         )}
       </section>
+
     </div>
   );
 }

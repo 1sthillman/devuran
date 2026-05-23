@@ -1,4 +1,5 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
@@ -11,140 +12,102 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    function isSalonOwner(salonId) {
+    function isBusinessOwner(businessId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/salons/$(salonId)) &&
-             get(/databases/$(database)/documents/salons/$(salonId)).data.ownerId == request.auth.uid;
+             exists(/databases/$(database)/documents/salons/$(businessId)) &&
+             get(/databases/$(database)/documents/salons/$(businessId)).data.ownerId == request.auth.uid;
     }
     
-    function isAdmin() {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if false;
     }
-
-    // Salons collection
+    
+    // Salons collection - DAHA ESNEK
     match /salons/{salonId} {
-      allow read: if true; // Public read
-      allow create: if isAuthenticated();
-      allow update: if isSalonOwner(salonId) || isAdmin();
-      allow delete: if isSalonOwner(salonId) || isAdmin();
+      allow read: if true; // Herkes okuyabilir
+      allow create: if isAuthenticated(); // Giriş yapmış herkes oluşturabilir
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid || 
+        !exists(/databases/$(database)/documents/salons/$(salonId)) ||
+        resource.data.ownerId == null
+      );
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
-
+    
     // Services collection
     match /services/{serviceId} {
-      allow read: if true; // Public read
-      allow create: if isAuthenticated() && 
-                       isSalonOwner(request.resource.data.salonId);
-      allow update: if isAuthenticated() && 
-                       isSalonOwner(resource.data.salonId);
-      allow delete: if isAuthenticated() && 
-                       isSalonOwner(resource.data.salonId);
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
-
+    
     // Staff collection
     match /staff/{staffId} {
-      allow read: if true; // Public read
-      allow create: if isAuthenticated() && 
-                       isSalonOwner(request.resource.data.salonId);
-      allow update: if isAuthenticated() && 
-                       isSalonOwner(resource.data.salonId);
-      allow delete: if isAuthenticated() && 
-                       isSalonOwner(resource.data.salonId);
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
-
-    // Reservations collection - NEW
+    
+    // Reservations collection
     match /reservations/{reservationId} {
-      // Read: Owner of reservation or business owner
-      allow read: if isAuthenticated() && (
-        isOwner(resource.data.userId) || 
-        isSalonOwner(resource.data.businessId) ||
-        isAdmin()
-      );
-      
-      // Create: Any authenticated user
-      allow create: if isAuthenticated() && 
-                       isOwner(request.resource.data.userId);
-      
-      // Update: Business owner can update status, user can cancel
-      allow update: if isAuthenticated() && (
-        (isSalonOwner(resource.data.businessId) && 
-         request.resource.data.diff(resource.data).affectedKeys()
-           .hasOnly(['status', 'updatedAt', 'pricing', 'internalNotes'])) ||
-        (isOwner(resource.data.userId) && 
-         request.resource.data.diff(resource.data).affectedKeys()
-           .hasOnly(['status', 'updatedAt', 'notes']) &&
-         request.resource.data.status in ['cancelled_by_user'])
-      );
-      
-      // Delete: Only admin
-      allow delete: if isAdmin();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
-
-    // Appointments collection (old system - keep for backward compatibility)
-    match /appointments/{appointmentId} {
-      allow read: if isAuthenticated() && (
-        isOwner(resource.data.userId) || 
-        isSalonOwner(resource.data.salonId) ||
-        isAdmin()
-      );
-      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
-      allow update: if isAuthenticated() && (
-        isSalonOwner(resource.data.salonId) || 
-        isOwner(resource.data.userId)
-      );
-      allow delete: if isSalonOwner(resource.data.salonId) || isAdmin();
-    }
-
+    
     // Queue collection
     match /queue/{queueId} {
-      allow read: if isAuthenticated() && (
-        isOwner(resource.data.userId) || 
-        isSalonOwner(resource.data.salonId) ||
-        isAdmin()
-      );
-      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
-      allow update: if isSalonOwner(resource.data.salonId);
-      allow delete: if isAuthenticated() && (
-        isOwner(resource.data.userId) || 
-        isSalonOwner(resource.data.salonId) ||
-        isAdmin()
-      );
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
-
+    
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
     // Reviews collection
     match /reviews/{reviewId} {
-      allow read: if true; // Public read
-      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
-      allow update: if isAuthenticated() && (
-        isOwner(resource.data.userId) || 
-        isSalonOwner(resource.data.salonId)
-      );
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
-
-    // Banned users collection
-    match /bannedUsers/{banId} {
+    
+    // Working hours collection
+    match /workingHours/{hourId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
+    // Customers collection
+    match /customers/{customerId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isSalonOwner(request.resource.data.salonId);
-    }
-
-    // Customer ratings collection
-    match /salonCustomerRatings/{ratingId} {
-      allow read: if isAuthenticated() && isSalonOwner(resource.data.salonId);
-      allow write: if isAuthenticated() && isSalonOwner(request.resource.data.salonId);
-    }
-
-    // Default deny all other collections
-    match /{document=**} {
-      allow read, write: if false;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
     }
   }
 }

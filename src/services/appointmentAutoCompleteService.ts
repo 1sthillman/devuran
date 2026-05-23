@@ -17,7 +17,10 @@ class AppointmentAutoCompleteService {
       return;
     }
 
-    console.log('Starting appointment auto-complete service');
+    // Service başlatıldı - production'da bu log kalabilir
+    if (import.meta.env.DEV) {
+      console.log('Appointment auto-complete service started');
+    }
     
     // İlk kontrolü hemen yap
     this.checkAndCompleteAppointments();
@@ -35,7 +38,10 @@ class AppointmentAutoCompleteService {
     if (this.intervalId) {
       window.clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('Stopped appointment auto-complete service');
+      
+      if (import.meta.env.DEV) {
+        console.log('Appointment auto-complete service stopped');
+      }
     }
   }
 

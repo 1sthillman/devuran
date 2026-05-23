@@ -66,8 +66,7 @@ export function BookingSuccess() {
     switch (reservation.type) {
       case 'slot':
         return {
-          title: 'Randevu Oluşturuldu',
-          icon: '📅',
+          title: 'Randevunuz Oluşturuldu',
           details: [
             { icon: Calendar, label: 'Tarih', value: reservation.date },
             { icon: Clock, label: 'Saat', value: `${reservation.startTime} - ${reservation.endTime}` },
@@ -76,8 +75,7 @@ export function BookingSuccess() {
         };
       case 'daily':
         return {
-          title: 'Etkinlik Rezervasyonu Oluşturuldu',
-          icon: '🎉',
+          title: 'Rezervasyonunuz Oluşturuldu',
           details: [
             { icon: Calendar, label: 'Tarih', value: reservation.eventDate },
             { icon: MapPin, label: 'Mekan', value: reservation.businessName },
@@ -86,8 +84,7 @@ export function BookingSuccess() {
         };
       case 'nightly':
         return {
-          title: 'Konaklama Rezervasyonu Oluşturuldu',
-          icon: '🏨',
+          title: 'Rezervasyonunuz Oluşturuldu',
           details: [
             { icon: Calendar, label: 'Giriş', value: reservation.checkIn },
             { icon: Calendar, label: 'Çıkış', value: reservation.checkOut },
@@ -96,8 +93,7 @@ export function BookingSuccess() {
         };
       case 'project':
         return {
-          title: 'Organizasyon Rezervasyonu Oluşturuldu',
-          icon: '💍',
+          title: 'Rezervasyonunuz Oluşturuldu',
           details: [
             { icon: Calendar, label: 'Etkinlik Tarihi', value: reservation.eventDate },
             { icon: MapPin, label: 'Organizatör', value: reservation.businessName },
@@ -106,8 +102,7 @@ export function BookingSuccess() {
         };
       case 'order':
         return {
-          title: 'Sipariş Oluşturuldu',
-          icon: '🍰',
+          title: 'Siparişiniz Oluşturuldu',
           details: [
             { icon: Calendar, label: 'Teslimat Tarihi', value: reservation.deliveryDate },
             { icon: Clock, label: 'Teslimat Saati', value: reservation.deliveryTime },
@@ -144,12 +139,11 @@ export function BookingSuccess() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <div className="text-6xl mb-4">{info.icon}</div>
             <h1 className="font-display font-bold text-3xl text-[var(--chrome-white)] mb-2">
               {info.title}
             </h1>
             <p className="text-[var(--muted-lead)] mb-8">
-              Rezervasyon numaranız: <span className="font-mono text-[var(--liquid-chrome)]">#{reservation.id.slice(0, 8)}</span>
+              Rezervasyon No: <span className="font-mono text-[var(--liquid-chrome)]">#{reservation.id.slice(0, 8).toUpperCase()}</span>
             </p>
           </motion.div>
 
@@ -183,21 +177,11 @@ export function BookingSuccess() {
               ))}
               <div className="border-t border-[var(--obsidian-rim)] pt-3 mt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--muted-lead)]">Toplam Tutar</span>
-                  <span className="font-mono text-2xl text-[var(--liquid-chrome)]">
-                    {reservation.pricing.totalAmount.toLocaleString('tr-TR')} TL
+                  <span className="font-heading font-semibold text-[var(--chrome-white)]">Toplam Tutar</span>
+                  <span className="font-mono text-2xl font-bold text-[var(--liquid-chrome)]">
+                    {reservation.pricing?.totalAmount ? reservation.pricing.totalAmount.toLocaleString('tr-TR') : '0'} ₺
                   </span>
                 </div>
-                {reservation.pricing.depositRequired && (
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm text-[var(--muted-lead)]">
-                      Depozito (%{reservation.pricing.depositPercentage})
-                    </span>
-                    <span className="font-mono text-[var(--chrome-white)]">
-                      {reservation.pricing.depositAmount.toLocaleString('tr-TR')} TL
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           </motion.div>
@@ -207,39 +191,15 @@ export function BookingSuccess() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded-2xl p-4 mb-6"
+            className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 mb-6"
           >
-            <p className="text-sm text-[var(--warning)]">
-              {reservation.status === 'pending' && '⏳ Rezervasyonunuz onay bekliyor'}
-              {reservation.status === 'confirmed' && '✅ Rezervasyonunuz onaylandı'}
-              {reservation.pricing.depositRequired && !reservation.pricing.depositPaidAt && (
-                <span className="block mt-2">
-                  Depozito ödemesi için işletme sizinle iletişime geçecektir.
-                </span>
-              )}
+            <p className="text-sm text-blue-400 font-heading font-medium">
+              {reservation.status === 'pending' && 'Rezervasyonunuz işletme tarafından onaylanacaktır'}
+              {reservation.status === 'confirmed' && 'Rezervasyonunuz onaylandı'}
             </p>
           </motion.div>
 
-          {/* Payment Information */}
-          {salon?.paymentSettings?.bankTransferEnabled && 
-           salon.paymentSettings.bankAccounts && 
-           salon.paymentSettings.bankAccounts.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55 }}
-              className="mb-6"
-            >
-              <PaymentInformation
-                bankAccounts={salon.paymentSettings.bankAccounts}
-                paymentInstructions={salon.paymentSettings.paymentInstructions}
-                totalAmount={reservation.pricing.depositRequired 
-                  ? reservation.pricing.depositAmount 
-                  : reservation.pricing.totalAmount}
-                reservationId={reservation.id}
-              />
-            </motion.div>
-          )}
+          {/* Payment Information - Removed */}
 
           {/* Actions */}
           <motion.div

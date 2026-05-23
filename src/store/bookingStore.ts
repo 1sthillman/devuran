@@ -261,6 +261,14 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     set({ isSubmitting: true, error: null });
 
     try {
+      // Salon bilgilerini al
+      const salonData = state.salon!;
+      const whatsappNumber = (salonData as any).whatsapp || salonData.phone || '';
+      const salonCover = (salonData as any).cover || salonData.coverImage || '';
+      const salonAddress = typeof salonData.address === 'string' 
+        ? salonData.address 
+        : salonData.address?.full || '';
+
       let reservationData: any = {
         businessId: state.salonId!,
         businessName: state.salon!.name,
@@ -271,6 +279,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         userEmail: state.customerEmail,
         type: state.bookingType,
         notes: state.customerNotes,
+        // Salon bilgileri ekle
+        whatsappNumber,
+        salonCover,
+        salonAddress,
       };
 
       // Tip bazlı veri ekleme
@@ -294,29 +306,33 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           location: state.location,
           address: state.address,
         };
-      } else if (state.bookingType === 'daily') {
-        reservationData = {
-          ...reservationData,
-          eventDate: state.eventDate,
-          eventType: state.eventType,
-          venueType: state.venueType,
-          capacity: state.capacity,
-          package: state.selectedPackage,
-          extras: state.extras,
-        };
       } else if (state.bookingType === 'nightly') {
+        // Fiyat hesapla
+        const roomPrice = state.selectedPackage?.price || 0;
+        const nights = Math.ceil((new Date(state.checkOut!).getTime() - new Date(state.checkIn!).getTime()) / (1000 * 60 * 60 * 24));
+        const extrasTotal = state.extras?.reduce((sum: number, e: any) => sum + (e.price || 0), 0) || 0;
+        const totalPrice = state.totalPrice || (roomPrice * nights + extrasTotal);
+
         reservationData = {
           ...reservationData,
           checkIn: state.checkIn,
           checkOut: state.checkOut,
-          nights: Math.ceil((new Date(state.checkOut!).getTime() - new Date(state.checkIn!).getTime()) / (1000 * 60 * 60 * 24)),
+          nights,
           roomType: state.roomType,
-          roomCount: state.roomCount,
+          roomPrice,
+          mealPlan: null,
+          mealPricePerNight: 0,
           guests: state.guests,
-          mealPlan: state.mealPlan,
-          extras: state.extras,
+          extras: state.extras || [],
+          extrasTotal,
+          totalPrice,
         };
+        
+        // Fiyat bilgisini state'e de kaydet
+        set({ totalPrice });
       } else if (state.bookingType === 'project') {
+        const packagePrice = state.selectedPackage?.price || 0;
+        
         reservationData = {
           ...reservationData,
           eventDate: state.eventDate,
@@ -324,11 +340,18 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           guestCount: state.guestCount,
           budget: state.budget,
           package: state.selectedPackage,
+          totalPrice: packagePrice,
           meetings: [],
           milestones: [],
           subServices: [],
         };
+        
+        // Fiyat bilgisini state'e de kaydet
+        set({ totalPrice: packagePrice });
       } else if (state.bookingType === 'order') {
+        const orderTotal = state.orderItems.reduce((sum: number, item: any) => 
+          sum + (item.price * item.quantity), 0);
+        
         reservationData = {
           ...reservationData,
           deliveryDate: state.deliveryDate,
@@ -336,16 +359,46 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           deliveryAddress: state.deliveryAddress,
           orderType: state.salon!.category,
           items: state.orderItems,
+          totalPrice: orderTotal,
         };
+        
+        // Fiyat bilgisini state'e de kaydet
+        set({ totalPrice: orderTotal });
+      } else if (state.bookingType === 'daily') {
+        // Daily için paket fiyatı + ekstralar
+        const packagePrice = state.selectedPackage?.price || 0;
+        const extrasTotal = state.extras?.reduce((sum: number, e: any) => sum + (e.price || 0), 0) || 0;
+        const totalPrice = packagePrice + extrasTotal;
+        
+        reservationData = {
+          ...reservationData,
+          eventDate: state.eventDate,
+          eventType: state.eventType,
+          venueType: state.venueType,
+          capacity: state.capacity,
+          package: state.selectedPackage,
+          extras: state.extras || [],
+          extrasTotal,
+          totalPrice,
+        };
+        
+        // Fiyat bilgisini state'e de kaydet
+        set({ totalPrice });
       }
 
       const reservation = await reservationService.createReservation(reservationData);
       
-      set({ isSubmitting: false });
+      // Başarılı olduğundan emin ol
+      if (!reservation || !reservation.id) {
+        throw new Error('Rezervasyon oluşturulamadı');
+      }
+      
+      set({ isSubmitting: false, error: null });
       return reservation.id;
       
     } catch (error: any) {
-      set({ isSubmitting: false, error: error.message });
+      console.error('Rezervasyon hatası:', error);
+      set({ isSubmitting: false, error: error.message || 'Rezervasyon oluşturulamadı' });
       throw error;
     }
   },

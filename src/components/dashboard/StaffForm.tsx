@@ -342,9 +342,9 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
                 type="button"
                 onClick={handleDelete}
                 disabled={loading}
-                className="px-5 py-3 rounded-full bg-[var(--error)]/10 border-2 border-[var(--error)]/30 text-[var(--error)] font-heading font-semibold text-sm hover:bg-[var(--error)]/20 hover:border-[var(--error)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 rounded-xl bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/30 text-red-400 font-heading font-semibold text-sm hover:from-red-500/20 hover:to-red-600/20 hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                <Trash2 size={16} strokeWidth={2.5} />
+                <Trash2 size={18} strokeWidth={2.5} />
                 <span>Sil</span>
               </button>
             )}
@@ -352,12 +352,12 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 rounded-full bg-[var(--void)] border-2 border-[var(--obsidian-rim)] text-[var(--silver-frost)] font-heading font-semibold text-sm hover:border-[var(--liquid-chrome)] hover:text-[var(--chrome-white)] transition-all active:scale-95"
+              className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[var(--silver-frost)] font-heading font-semibold text-sm hover:bg-white/10 hover:border-white/20 hover:text-[var(--chrome-white)] transition-all active:scale-95"
             >
               İptal
             </button>
-            <ChromaticButton type="submit" loading={loading} className="flex items-center gap-2 px-6 py-3">
-              <Save size={16} strokeWidth={2.5} />
+            <ChromaticButton type="submit" loading={loading} className="flex items-center gap-2 px-8 py-3 shadow-lg shadow-purple-500/20">
+              <Save size={18} strokeWidth={2.5} />
               <span>Kaydet</span>
             </ChromaticButton>
           </div>

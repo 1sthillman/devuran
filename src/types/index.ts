@@ -10,6 +10,7 @@ export interface Service {
   staffIds: string[];
   image?: string; // Hizmet görseli
   isActive: boolean;
+  includes?: string[]; // Paket içeriği (paket hizmetleri için)
 }
 
 export interface Staff {
@@ -365,6 +366,7 @@ export type Reservation =
 
 // Eski Appointment interface'i geriye dönük uyumluluk için
 export interface Appointment {
+  _source?: 'reservation' | 'appointment'; // Kaynak belirteci
   id: string;
   userId: string;
   salonId: string;

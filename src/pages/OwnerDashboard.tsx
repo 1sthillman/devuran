@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useUIStore } from '@/store/uiStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppointmentManager } from '@/components/dashboard/AppointmentManager';
+import { ReservationManager } from '@/components/dashboard/ReservationManager';
 import { QueueManager } from '@/components/dashboard/QueueManager';
 import { WorkingHoursEditor } from '@/components/dashboard/WorkingHoursEditor';
 import { ServiceForm } from '@/components/dashboard/ServiceForm';
@@ -36,6 +38,7 @@ import { ImageUploader } from '@/components/ui/ImageUploader';
 import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { appointmentsService, salonsService, servicesService, staffService } from '@/services/firebaseService';
+import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
 import type { Appointment, Salon, Service, Staff } from '@/types';
 
@@ -54,8 +57,10 @@ export function OwnerDashboard() {
   const { isAuthenticated, isOwner, user } = useAuthStore();
   const { actualTheme } = useThemeStore();
   const { activeTab, setActiveTab } = useDashboardStore();
+  const { addToast } = useUIStore();
   const [salon, setSalon] = useState<Salon | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [reservations, setReservations] = useState<any[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,14 +90,42 @@ export function OwnerDashboard() {
     
     setLoading(true);
     try {
-      const [salonData, appointmentsData, servicesData, staffData] = await Promise.all([
+      const [salonData, reservationsData, servicesData, staffData] = await Promise.all([
         salonsService.getById(user.salonId),
-        appointmentsService.getSalonAppointments(user.salonId),
+        // DÜZELTME: reservations collection'ından oku
+        reservationService.getBusinessReservations(user.salonId),
         servicesService.getBySalon(user.salonId),
         staffService.getBySalon(user.salonId),
       ]);
 
       setSalon(salonData);
+      // Reservations'ı hem orijinal hem de appointments formatında sakla
+      setReservations(reservationsData);
+      
+      // Reservations'ı appointments formatına çevir (eski sistemle uyumluluk için)
+      const appointmentsData = reservationsData.map((res: any) => ({
+        id: res.id,
+        userId: res.userId,
+        salonId: res.businessId,
+        salonName: res.businessName,
+        staffId: res.staffId || '',
+        customerName: res.userName,
+        customerPhone: res.userPhone,
+        services: res.services || [],
+        date: res.date || res.eventDate || res.checkIn || res.deliveryDate || '',
+        time: res.startTime || res.deliveryTime || '00:00',
+        totalPrice: res.pricing?.totalAmount || res.totalPrice || 0,
+        totalDuration: res.duration || res.totalDuration || 0,
+        status: res.status,
+        notes: res.notes || '',
+        salonCover: (salonData as any)?.coverImage || '',
+        salonAddress: typeof salonData?.address === 'string' ? salonData.address : salonData?.address?.full || '',
+        staffName: '',
+        staffPhoto: '',
+        whatsappNumber: (salonData as any)?.whatsapp || '',
+        endTime: res.endTime || '',
+        createdAt: res.createdAt,
+      })) as Appointment[];
       setAppointments(appointmentsData);
       setServices(servicesData);
       setStaff(staffData);
@@ -135,7 +168,7 @@ export function OwnerDashboard() {
       setShowSalonSetup(false);
     } catch (error) {
       console.error('Error saving salon:', error);
-      alert('Salon kaydedilemedi. Lütfen tekrar deneyin.');
+      addToast('Salon kaydedilemedi. Lütfen tekrar deneyin.', 'error');
       throw error;
     }
   };
@@ -153,7 +186,7 @@ export function OwnerDashboard() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--liquid-chrome)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="font-body text-[var(--muted-lead)]">Yukleniyor...</p>
+          <p className="font-body text-[var(--muted-lead)]">Yükleniyor...</p>
         </div>
       </div>
     );
@@ -209,20 +242,20 @@ export function OwnerDashboard() {
               <Scissors size={40} className="text-[var(--liquid-chrome)]" />
             </div>
             <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-3">
-              Salonunuzu Olusturun
+              İşletmenizi Oluşturun
             </h2>
             <p className="font-body text-[var(--muted-lead)] mb-6">
-              Isletme panelinizi kullanmaya baslamak icin once salonunuzu olusturmaniz gerekiyor.
+              İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor.
             </p>
             <ChromaticButton
               onClick={() => setShowSalonSetup(true)}
               className="flex items-center gap-2 mx-auto"
             >
               <Plus size={20} />
-              <span>Salon Olustur</span>
+              <span>İşletme Oluştur</span>
             </ChromaticButton>
             <p className="font-body text-xs text-[var(--muted-lead)] mt-6">
-              Salon bilgilerinizi girdikten sonra randevu yonetimi, hizmet ekleme ve daha fazlasina erisebileceksiniz.
+              İşletme bilgilerinizi girdikten sonra randevu yönetimi, hizmet ekleme ve daha fazlasına erişebileceksiniz.
             </p>
           </motion.div>
         </div>
@@ -258,9 +291,10 @@ export function OwnerDashboard() {
         await servicesService.create(serviceData);
       }
       await loadData();
+      addToast('Hizmet başarıyla kaydedildi', 'success');
     } catch (error: any) {
       console.error('Error saving service:', error);
-      alert(error?.message || 'Hizmet kaydedilemedi. Lütfen tekrar deneyin.');
+      addToast(error?.message || 'Hizmet kaydedilemedi. Lütfen tekrar deneyin.', 'error');
       throw error;
     }
   };
@@ -269,9 +303,10 @@ export function OwnerDashboard() {
     try {
       await servicesService.delete(serviceId);
       await loadData();
+      addToast('Hizmet başarıyla silindi', 'success');
     } catch (error: any) {
       console.error('Error deleting service:', error);
-      alert(error?.message || 'Hizmet silinemedi. Lütfen tekrar deneyin.');
+      addToast(error?.message || 'Hizmet silinemedi. Lütfen tekrar deneyin.', 'error');
       throw error;
     }
   };
@@ -284,9 +319,10 @@ export function OwnerDashboard() {
         await staffService.create(staffData);
       }
       await loadData();
+      addToast('Personel başarıyla kaydedildi', 'success');
     } catch (error: any) {
       console.error('Error saving staff:', error);
-      alert(error?.message || 'Personel kaydedilemedi. Lütfen tekrar deneyin.');
+      addToast(error?.message || 'Personel kaydedilemedi. Lütfen tekrar deneyin.', 'error');
       throw error;
     }
   };
@@ -295,15 +331,18 @@ export function OwnerDashboard() {
     try {
       await staffService.delete(staffId);
       await loadData();
+      addToast('Personel başarıyla silindi', 'success');
     } catch (error: any) {
       console.error('Error deleting staff:', error);
-      alert(error?.message || 'Personel silinemedi. Lütfen tekrar deneyin.');
+      addToast(error?.message || 'Personel silinemedi. Lütfen tekrar deneyin.', 'error');
       throw error;
     }
   };
 
   return (
-    <div className="min-h-screen flex gap-6">
+    <>
+    <div className="min-h-screen pb-0">
+      <div className="flex flex-col lg:flex-row gap-6">
       {/* Salon Setup/Edit Modal */}
       {showSalonSetup && (
         <SalonSetupForm
@@ -352,53 +391,29 @@ export function OwnerDashboard() {
               <Scissors size={40} className="text-[var(--liquid-chrome)]" />
             </div>
             <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-3">
-              Salonunuzu Olusturun
+              İşletmenizi Oluşturun
             </h2>
             <p className="font-body text-[var(--muted-lead)] mb-6">
-              Isletme panelinizi kullanmaya baslamak icin once salonunuzu olusturmaniz gerekiyor.
+              İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor.
             </p>
             <ChromaticButton
               onClick={() => setShowSalonSetup(true)}
               className="flex items-center gap-2 mx-auto"
             >
               <Plus size={20} />
-              <span>Salon Olustur</span>
+              <span>İşletme Oluştur</span>
             </ChromaticButton>
             <p className="font-body text-xs text-[var(--muted-lead)] mt-6">
-              Salon bilgilerinizi girdikten sonra randevu yonetimi, hizmet ekleme ve daha fazlasina erisebileceksiniz.
+              İşletme bilgilerinizi girdikten sonra randevu yönetimi, hizmet ekleme ve daha fazlasına erişebileceksiniz.
             </p>
           </motion.div>
         </div>
       ) : (
         <>
-      {/* Sidebar - Desktop */}
-      <aside className="hidden lg:block w-60 flex-shrink-0">
-        <div className="sticky top-24">
-          <div className="obsidian-card p-3 space-y-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setActiveTab(item.key)}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-4 py-3 rounded-full font-heading font-medium text-sm transition-all',
-                    activeTab === item.key
-                      ? 'text-[var(--chrome-white)] bg-white/5'
-                      : 'text-[var(--muted-lead)] hover:text-[var(--silver-frost)]'
-                  )}
-                >
-                  <Icon size={18} />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
+      {/* Sidebar - REMOVED */}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-x-hidden">
+      <div className="flex-1 overflow-x-hidden w-full pb-24 lg:pb-0">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <h1 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
             {sidebarItems.find((i) => i.key === activeTab)?.label}
@@ -516,11 +531,16 @@ export function OwnerDashboard() {
         {/* APPOINTMENTS */}
         {activeTab === 'appointments' && salon && (
           <div className="space-y-6">
-            <AppointmentManager
-              appointments={appointments}
-              salonId={salon.id}
-              onRefresh={loadData}
-            />
+            {/* Yeni Rezervasyon Sistemi */}
+            <div className="obsidian-card p-6 rounded-3xl">
+              <h2 className="font-heading text-xl font-bold text-[var(--chrome-white)] mb-4">
+                Rezervasyon Yönetimi
+              </h2>
+              <ReservationManager
+                reservations={reservations}
+                onRefresh={loadData}
+              />
+            </div>
             
             {/* Queue Manager */}
             <div className="obsidian-card p-6 rounded-3xl">
@@ -568,9 +588,12 @@ export function OwnerDashboard() {
                         {service.category}
                       </p>
                       <div className="flex items-center gap-3 text-sm">
-                        <span className="font-mono text-[var(--silver-frost)]">
-                          {service.duration} dk
-                        </span>
+                        {/* Sadece slot-based kategorilerde dakika göster */}
+                        {salon && ['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salon.category) && (
+                          <span className="font-mono text-[var(--silver-frost)]">
+                            {service.duration} dk
+                          </span>
+                        )}
                         <span className="font-mono font-semibold text-[var(--chrome-white)]">
                           {service.price} TL
                         </span>
@@ -684,10 +707,10 @@ export function OwnerDashboard() {
                   </div>
                   <div className="text-left">
                     <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
-                      Salon Bilgileri
+                      İşletme Bilgileri
                     </h3>
                     <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
-                      İşletme bilgilerinizi görüntüleyin ve düzenleyin
+                      İşletme bilgilerinizi görüntüleyin ve düzenleyine bilgilerinizi görüntüleyin ve düzenleyin
                     </p>
                   </div>
                 </div>
@@ -722,7 +745,7 @@ export function OwnerDashboard() {
                     <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
                         <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Salon Adı</p>
+                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">İşletme Adı</p>
                           <p className="text-[var(--chrome-white)] font-heading font-semibold text-base truncate">{salon.name}</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
@@ -975,6 +998,7 @@ export function OwnerDashboard() {
         <ServiceForm
           service={selectedService || undefined}
           salonId={salon.id}
+          category={salon.category}
           onSave={handleSaveService}
           onDelete={selectedService ? handleDeleteService : undefined}
           onClose={() => {
@@ -998,82 +1022,52 @@ export function OwnerDashboard() {
         />
       )}
 
-      {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--slate-surface)]/95 backdrop-blur-xl border-t border-[var(--obsidian-rim)] pb-safe">
-        <div className="flex items-center justify-around px-2 py-3">
-          {sidebarItems.slice(0, 5).map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.key;
-            
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveTab(item.key)}
+      </div>
+    </div>
+    
+    {/* Mobile Bottom Navigation - Modern Oval Design */}
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
+      <div className="bg-gradient-to-r from-[var(--slate-surface)]/95 via-[var(--slate-surface)]/98 to-[var(--slate-surface)]/95 backdrop-blur-2xl rounded-full border border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.4)] p-2">
+        <div className="flex items-center justify-around gap-1">
+        {sidebarItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.key;
+          
+          return (
+            <button
+              key={item.key}
+              onClick={() => setActiveTab(item.key)}
+              className={cn(
+                'flex flex-col items-center gap-1.5 px-2.5 py-2 rounded-full transition-all duration-200 min-w-[56px]',
+                isActive 
+                  ? 'bg-gradient-to-br from-purple-500 via-pink-500 to-fuchsia-500 shadow-lg shadow-purple-500/40 scale-105' 
+                  : 'hover:bg-white/5 active:scale-95'
+              )}
+            >
+              <Icon
+                size={20}
                 className={cn(
-                  'flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all min-w-[60px]',
-                  isActive
-                    ? 'bg-[var(--liquid-chrome)]/10'
-                    : 'hover:bg-white/5'
+                  'transition-colors',
+                  isActive ? 'text-white' : 'text-[var(--muted-lead)]'
+                )}
+                strokeWidth={isActive ? 2.5 : 2}
+              />
+              <span
+                className={cn(
+                  'font-heading text-[8px] font-bold transition-colors uppercase tracking-wider',
+                  isActive ? 'text-white' : 'text-[var(--muted-lead)]'
                 )}
               >
-                <Icon
-                  size={20}
-                  className={cn(
-                    'transition-colors',
-                    isActive ? 'text-[var(--liquid-chrome)]' : 'text-[var(--muted-lead)]'
-                  )}
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                <span
-                  className={cn(
-                    'font-heading text-[10px] font-medium transition-colors',
-                    isActive ? 'text-[var(--liquid-chrome)]' : 'text-[var(--muted-lead)]'
-                  )}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-          
-          {/* More Menu for Additional Items */}
-          {sidebarItems.length > 5 && (
-            <div className="relative">
-              <button
-                onClick={() => {
-                  // Cycle through remaining tabs
-                  const currentIndex = sidebarItems.findIndex(i => i.key === activeTab);
-                  const nextIndex = currentIndex >= 5 ? (currentIndex + 1) % sidebarItems.length : 5;
-                  setActiveTab(sidebarItems[nextIndex].key);
-                }}
-                className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl hover:bg-white/5 transition-all min-w-[60px]"
-              >
-                <div className="w-5 h-5 flex items-center justify-center">
-                  <div className="grid grid-cols-2 gap-0.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--muted-lead)]" />
-                  </div>
-                </div>
-                <span className="font-heading text-[10px] font-medium text-[var(--muted-lead)]">
-                  Daha
-                </span>
-              </button>
-            </div>
-          )}
+                {item.label.length > 8 ? item.label.split(' ')[0] : item.label}
+              </span>
+            </button>
+          );
+        })}
         </div>
       </div>
-
-      {/* Add padding to main content for mobile nav */}
-      <style>{`
-        @media (max-width: 1024px) {
-          .flex-1.overflow-x-hidden {
-            padding-bottom: 80px;
-          }
-        }
-      `}</style>
     </div>
+    </>
   );
 }
+
 

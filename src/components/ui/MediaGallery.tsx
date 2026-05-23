@@ -17,11 +17,13 @@ export function MediaGallery({ media, className }: MediaGalleryProps) {
   const openLightbox = (index: number) => {
     setSelectedIndex(index);
     setIsPlaying(false);
+    document.body.style.overflow = 'hidden';
   };
 
   const closeLightbox = () => {
     setSelectedIndex(null);
     setIsPlaying(false);
+    document.body.style.overflow = '';
   };
 
   const goToPrevious = () => {
@@ -101,12 +103,20 @@ export function MediaGallery({ media, className }: MediaGalleryProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={closeLightbox}
-            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+            onClick={(e) => {
+              // Sadece backdrop'a tıklandığında kapat
+              if (e.target === e.currentTarget) {
+                closeLightbox();
+              }
+            }}
+            className="fixed inset-0 z-[99999] bg-black backdrop-blur-xl flex items-center justify-center p-4"
           >
             {/* Close Button */}
             <button
-              onClick={closeLightbox}
+              onClick={(e) => {
+                e.stopPropagation();
+                closeLightbox();
+              }}
               className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
             >
               <X className="w-6 h-6 text-white" />
