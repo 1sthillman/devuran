@@ -17,6 +17,7 @@ const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login }
 const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = lazy(() => import('@/pages/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
+const SuperAdminDashboard = lazy(() => import('@/pages/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 
 // Loading component
 function PageLoader() {
@@ -145,6 +146,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <Profile />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/super-admin"
+              element={
+                <AnimatedRoute>
+                  <SuperAdminDashboard />
                 </AnimatedRoute>
               }
             />

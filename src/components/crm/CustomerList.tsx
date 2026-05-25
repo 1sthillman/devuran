@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   Star,
@@ -11,8 +11,10 @@ import {
   MessageSquare,
   Crown,
   TrendingUp,
+  Ban,
 } from 'lucide-react';
 import { customerService, type Customer } from '@/services/customerService';
+import { CustomerDetailModal } from './CustomerDetailModal';
 
 interface CustomerListProps {
   salonId: string;
@@ -199,34 +201,44 @@ export function CustomerList({ salonId }: CustomerListProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="obsidian-card p-6 rounded-3xl hover:border-[var(--liquid-chrome)]/30 transition-colors cursor-pointer"
+              className="relative p-6 rounded-3xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/10 hover:border-[var(--liquid-chrome)]/40 hover:shadow-lg hover:shadow-purple-500/10 transition-all cursor-pointer active:scale-[0.98]"
               onClick={() => setSelectedCustomer(customer)}
             >
+              {/* Ban Badge */}
+              {customer.isBanned && (
+                <div className="absolute top-4 right-4">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30">
+                    <Ban size={12} className="text-red-400" />
+                    <span className="font-heading font-semibold text-xs text-red-400">Engelli</span>
+                  </div>
+                </div>
+              )}
+
               {/* Header */}
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                    <span className="font-heading font-bold text-lg text-purple-400">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <span className="font-heading font-bold text-xl text-white">
                       {customer.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div>
-                    <p className="font-heading font-semibold text-[var(--chrome-white)]">
+                    <p className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
                       {customer.name}
                     </p>
                     {customer.status === 'vip' && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Crown size={12} className="text-yellow-400" />
-                        <span className="font-body text-xs text-yellow-400">VIP</span>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+                        <Crown size={10} className="text-yellow-400" />
+                        <span className="font-heading font-semibold text-xs text-yellow-400">VIP</span>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {customer.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star size={14} className="fill-yellow-400 text-yellow-400" />
-                    <span className="font-mono text-sm text-yellow-400">
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/10">
+                    <Star size={12} className="fill-yellow-400 text-yellow-400" />
+                    <span className="font-mono text-xs font-bold text-yellow-400">
                       {customer.rating}
                     </span>
                   </div>
@@ -234,16 +246,16 @@ export function CustomerList({ salonId }: CustomerListProps) {
               </div>
 
               {/* Contact */}
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <Phone size={14} className="text-[var(--muted-lead)]" />
+              <div className="space-y-2 mb-5">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.02]">
+                  <Phone size={14} className="text-blue-400" />
                   <span className="font-mono text-sm text-[var(--chrome-white)]">
                     {customer.phone}
                   </span>
                 </div>
                 {customer.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail size={14} className="text-[var(--muted-lead)]" />
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.02]">
+                    <Mail size={14} className="text-purple-400" />
                     <span className="font-body text-sm text-[var(--chrome-white)] truncate">
                       {customer.email}
                     </span>
@@ -253,19 +265,19 @@ export function CustomerList({ salonId }: CustomerListProps) {
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="text-center p-2 rounded-xl bg-white/[0.02]">
+                <div className="text-center p-3 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
                   <p className="font-mono font-bold text-lg text-[var(--chrome-white)]">
                     {customer.totalAppointments}
                   </p>
                   <p className="font-body text-xs text-[var(--muted-lead)]">Randevu</p>
                 </div>
-                <div className="text-center p-2 rounded-xl bg-white/[0.02]">
+                <div className="text-center p-3 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
                   <p className="font-mono font-bold text-lg text-[var(--chrome-white)]">
                     {(customer.totalSpent / 1000).toFixed(1)}K
                   </p>
                   <p className="font-body text-xs text-[var(--muted-lead)]">Harcama</p>
                 </div>
-                <div className="text-center p-2 rounded-xl bg-white/[0.02]">
+                <div className="text-center p-3 rounded-2xl bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
                   <p className="font-mono font-bold text-lg text-[var(--chrome-white)]">
                     {customer.loyaltyPoints}
                   </p>
@@ -274,20 +286,20 @@ export function CustomerList({ salonId }: CustomerListProps) {
               </div>
 
               {/* Last Visit */}
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-body text-[var(--muted-lead)]">Son Ziyaret</span>
-                <span className="font-mono text-[var(--chrome-white)]">
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] mb-3">
+                <span className="font-body text-xs text-[var(--muted-lead)]">Son Ziyaret</span>
+                <span className="font-mono text-xs font-semibold text-[var(--chrome-white)]">
                   {formatDate(customer.lastVisit)}
                 </span>
               </div>
 
               {/* Tags */}
               {customer.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-3">
+                <div className="flex flex-wrap gap-1.5">
                   {customer.tags.slice(0, 3).map((tag) => (
                     <span
                       key={tag}
-                      className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-body text-xs"
+                      className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-heading font-semibold text-xs"
                     >
                       {tag}
                     </span>
@@ -298,6 +310,21 @@ export function CustomerList({ salonId }: CustomerListProps) {
           ))}
         </div>
       )}
+
+      {/* Customer Detail Modal */}
+      <AnimatePresence>
+        {selectedCustomer && (
+          <CustomerDetailModal
+            customer={selectedCustomer}
+            salonId={salonId}
+            onClose={() => setSelectedCustomer(null)}
+            onUpdate={() => {
+              loadCustomers();
+              loadStats();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

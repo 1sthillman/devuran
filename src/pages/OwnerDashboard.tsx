@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useDashboardStore } from '@/store/dashboardStore';
@@ -21,11 +22,14 @@ import {
   UserCheck,
   ChevronDown,
   ChevronUp,
+  Database,
+  X,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppointmentManager } from '@/components/dashboard/AppointmentManager';
 import { ReservationManager } from '@/components/dashboard/ReservationManager';
-import { QueueManager } from '@/components/dashboard/QueueManager';
+import { ModernQueueManager } from '@/components/dashboard/ModernQueueManager';
 import { WorkingHoursEditor } from '@/components/dashboard/WorkingHoursEditor';
 import { ServiceForm } from '@/components/dashboard/ServiceForm';
 import { SalonSetupForm } from '@/components/dashboard/SalonSetupForm';
@@ -37,13 +41,20 @@ import { ReviewList } from '@/components/reviews/ReviewList';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
+import { FloatingNavMenu } from '@/components/dashboard/FloatingNavMenu';
+import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus';
+import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
+import { SubscriptionGuard } from '@/components/subscription/SubscriptionGuard';
+import { SubscriptionOverviewCard } from '@/components/subscription/SubscriptionOverviewCard';
 import { appointmentsService, salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
-import type { Appointment, Salon, Service, Staff } from '@/types';
+import { subscriptionService } from '@/services/subscriptionService';
+import type { Appointment, Salon, Service, Staff, BusinessSubscription } from '@/types';
 
 const sidebarItems = [
   { key: 'overview', label: 'Genel Bakis', icon: LayoutDashboard },
+  { key: 'subscription', label: 'Abonelik', icon: CreditCard },
   { key: 'appointments', label: 'Randevular', icon: CalendarIcon },
   { key: 'analytics', label: 'Analitik', icon: BarChart3 },
   { key: 'customers', label: 'Musteriler', icon: UserCheck },
@@ -54,15 +65,17 @@ const sidebarItems = [
 ];
 
 export function OwnerDashboard() {
-  const { isAuthenticated, isOwner, user } = useAuthStore();
+  const { isAuthenticated, isOwner, user, isLoading: authLoading } = useAuthStore();
   const { actualTheme } = useThemeStore();
   const { activeTab, setActiveTab } = useDashboardStore();
   const { addToast } = useUIStore();
+  const location = useLocation();
   const [salon, setSalon] = useState<Salon | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [queueCount, setQueueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -75,20 +88,74 @@ export function OwnerDashboard() {
     payment: false,
     workingHours: false,
   });
+  const [subscription, setSubscription] = useState<BusinessSubscription | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  // Restore active tab from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabFromUrl = params.get('tab');
+    if (tabFromUrl && sidebarItems.some(item => item.key === tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [location.search, setActiveTab]);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const currentTab = params.get('tab');
+    if (currentTab !== activeTab) {
+      params.set('tab', activeTab);
+      window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+    }
+  }, [activeTab, location.pathname, location.search]);
 
   useEffect(() => {
     if (user?.salonId) {
       loadData();
+      loadSubscription();
+      // Queue count'u yükle
+      appointmentsService.getQueue(user.salonId).then(queue => {
+        setQueueCount(queue.length);
+      });
     } else if (user) {
       // User is owner but has no salon yet
       setLoading(false);
     }
   }, [user?.salonId, user]);
 
-  const loadData = async () => {
-    if (!user?.salonId) return;
+  const loadSubscription = async () => {
+    if (!user?.salonId) {
+      console.log('No salonId found for user:', user?.uid);
+      return;
+    }
     
+    console.log('Loading subscription for salonId:', user.salonId);
+    
+    try {
+      const sub = await subscriptionService.getBusinessSubscription(user.salonId);
+      console.log('Subscription loaded:', sub);
+      setSubscription(sub);
+      
+      // Check and update status
+      if (sub) {
+        await subscriptionService.checkAndUpdateSubscriptionStatus(user.salonId);
+      }
+    } catch (error) {
+      console.error('Error loading subscription:', error);
+      // Don't throw - just log the error
+    }
+  };
+
+  const loadData = async () => {
+    if (!user?.salonId) {
+      console.log('No salonId found for user:', user?.uid);
+      return;
+    }
+    
+    console.log('Loading data for salonId:', user.salonId);
     setLoading(true);
+    
     try {
       const [salonData, reservationsData, servicesData, staffData] = await Promise.all([
         salonsService.getById(user.salonId),
@@ -97,6 +164,13 @@ export function OwnerDashboard() {
         servicesService.getBySalon(user.salonId),
         staffService.getBySalon(user.salonId),
       ]);
+
+      console.log('Data loaded successfully:', { 
+        salon: !!salonData, 
+        reservations: reservationsData.length,
+        services: servicesData.length,
+        staff: staffData.length 
+      });
 
       setSalon(salonData);
       // Reservations'ı hem orijinal hem de appointments formatında sakla
@@ -129,6 +203,25 @@ export function OwnerDashboard() {
       setAppointments(appointmentsData);
       setServices(servicesData);
       setStaff(staffData);
+
+      // Update subscription usage stats
+      if (user?.salonId) {
+        try {
+          await subscriptionService.updateUsageStats(user.salonId, {
+            staffCount: staffData.length,
+            serviceCount: servicesData.length,
+            monthlyBookings: appointmentsData.filter(a => {
+              const appointmentDate = new Date(a.date);
+              const now = new Date();
+              return appointmentDate.getMonth() === now.getMonth() && 
+                     appointmentDate.getFullYear() === now.getFullYear();
+            }).length,
+          });
+        } catch (statsError) {
+          console.error('Error updating usage stats:', statsError);
+          // Don't fail the whole load if stats update fails
+        }
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -179,6 +272,18 @@ export function OwnerDashboard() {
 
   if (!isOwner) {
     return <Navigate to="/appointments" replace />;
+  }
+
+  // Show loading only during initial auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--liquid-chrome)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-body text-[var(--muted-lead)]">Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
@@ -264,23 +369,65 @@ export function OwnerDashboard() {
   }
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayApps = appointments.filter((a) => a.date === todayStr && a.status !== 'cancelled');
-  const pendingApps = appointments.filter((a) => a.status === 'pending');
+  
+  // Reservations'dan hesapla
+  const todayApps = reservations.filter((r: any) => {
+    const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+    const isToday = resDate === todayStr;
+    // Sadece confirmed ve pending status'leri say
+    const isActive = r.status === 'confirmed' || r.status === 'pending';
+    return isToday && isActive;
+  });
+  
   const weekStart = new Date();
+  weekStart.setHours(0, 0, 0, 0);
   const weekEnd = new Date();
   weekEnd.setDate(weekEnd.getDate() + 7);
-  const weekApps = appointments.filter((a) => {
-    const appDate = new Date(a.date);
-    return appDate >= weekStart && appDate <= weekEnd;
+  weekEnd.setHours(23, 59, 59, 999);
+  
+  const weekApps = reservations.filter((r: any) => {
+    const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+    if (!resDate) return false;
+    const appDate = new Date(resDate);
+    const inWeek = appDate >= weekStart && appDate <= weekEnd;
+    const isActive = r.status === 'confirmed' || r.status === 'pending';
+    return inWeek && isActive;
   });
-  const monthlyRevenue = appointments
-    .filter((a) => a.status === 'completed' && a.date.startsWith(new Date().toISOString().slice(0, 7)))
-    .reduce((sum, a) => sum + a.totalPrice, 0);
+  
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const monthlyRevenue = reservations
+    .filter((r: any) => {
+      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+      const isCompleted = r.status === 'completed' || r.status === 'confirmed';
+      const isThisMonth = resDate.startsWith(currentMonth);
+      return isCompleted && isThisMonth;
+    })
+    .reduce((sum: number, r: any) => {
+      const price = r.pricing?.totalAmount || r.totalPrice || 0;
+      return sum + price;
+    }, 0);
 
   const handleSaveWorkingHours = async (hours: any) => {
-    if (!salon) return;
-    await salonsService.update(salon.id, { workingHours: hours });
-    await loadData();
+    if (!salon) {
+      console.error('No salon found');
+      return;
+    }
+    try {
+      console.log('handleSaveWorkingHours called with:', hours);
+      console.log('Current user:', user);
+      console.log('Salon ID:', salon.id);
+      console.log('Salon ownerId:', salon.ownerId);
+      console.log('User UID:', user?.uid);
+      console.log('Match?', salon.ownerId === user?.uid);
+      
+      await salonsService.update(salon.id, { workingHours: hours });
+      console.log('Working hours updated in Firestore, reloading data...');
+      await loadData();
+      console.log('Data reloaded successfully');
+    } catch (error) {
+      console.error('Error in handleSaveWorkingHours:', error);
+      alert('Hata: Çalışma saatleri kaydedilemedi. Konsolu kontrol edin.');
+    }
   };
 
   const handleSaveService = async (serviceData: Omit<Service, 'id'>) => {
@@ -413,11 +560,15 @@ export function OwnerDashboard() {
       {/* Sidebar - REMOVED */}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-x-hidden w-full pb-24 lg:pb-0">
+      <div className="flex-1 overflow-x-hidden w-full pb-6 lg:pb-0">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <h1 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
-            {sidebarItems.find((i) => i.key === activeTab)?.label}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
+              {sidebarItems.find((i) => i.key === activeTab)?.label}
+            </h1>
+            {/* Floating Navigation Menu Button */}
+            <FloatingNavMenu activeTab={activeTab} onTabChange={setActiveTab} />
+          </div>
           {salon && (
             <p className="font-body text-sm text-[var(--muted-lead)] truncate max-w-[200px]">
               {salon.name}
@@ -428,13 +579,55 @@ export function OwnerDashboard() {
         {/* OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            {/* ⚠️ PENDING SUBSCRIPTION UYARISI */}
+            {subscription?.status === 'pending' && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-3xl border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/10 p-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <Clock size={24} className="text-amber-400" strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-heading font-bold text-lg text-amber-300 mb-2">
+                      ⏳ Abonelik Onayı Bekleniyor
+                    </h3>
+                    <p className="font-body text-sm text-amber-200/80 mb-3">
+                      Abonelik talebiniz oluşturuldu ve admin onayı bekleniyor. Onaylandıktan sonra:
+                    </p>
+                    <ul className="space-y-1.5 text-sm text-amber-200/70">
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <span>İşletmeniz anasayfada görünecek</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <span>Müşteriler randevu alabilecek</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <span>Tüm özellikler aktif olacak</span>
+                      </li>
+                    </ul>
+                    <p className="font-body text-xs text-amber-200/60 mt-3">
+                      Plan: <span className="font-semibold capitalize">{subscription.planType}</span> • 
+                      Fiyat: <span className="font-semibold">{subscription.price}₺</span> • 
+                      Periyot: <span className="font-semibold capitalize">{subscription.interval}</span>
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: "Bugunku Randevu", value: todayApps.length, icon: Clock, color: '#2DC24E', tab: 'appointments' },
-                { label: "Bekleyen Onay", value: pendingApps.length, icon: TrendingUp, color: '#E5A522', tab: 'appointments' },
+                { label: "Bekleyen Sıra", value: queueCount, icon: Users, color: '#E5A522', tab: 'appointments' },
                 { label: "Bu Hafta", value: weekApps.length, icon: CalendarIcon, color: '#60a5fa', tab: 'appointments' },
-                { label: "Bu Ay Gelir", value: `${monthlyRevenue.toLocaleString()} TL`, icon: DollarSign, color: '#c8c8d4', tab: 'overview' },
+                { label: "Bu Ay Gelir", value: `${monthlyRevenue.toLocaleString()}₺`, icon: DollarSign, color: '#c8c8d4', tab: 'analytics' },
               ].map((stat, i) => {
                 const Icon = stat.icon;
                 const backgroundGif = actualTheme === 'light'
@@ -447,7 +640,7 @@ export function OwnerDashboard() {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    onClick={() => stat.tab !== 'overview' && setActiveTab(stat.tab)}
+                    onClick={() => setActiveTab(stat.tab)}
                     className="relative overflow-hidden obsidian-card p-5 text-left hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer group"
                   >
                     {/* Animated Background */}
@@ -486,6 +679,14 @@ export function OwnerDashboard() {
                 );
               })}
             </div>
+
+            {/* Subscription Overview Card */}
+            {salon && (
+              <SubscriptionOverviewCard
+                businessId={salon.id}
+                onViewPlans={() => setShowSubscriptionModal(true)}
+              />
+            )}
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -531,26 +732,52 @@ export function OwnerDashboard() {
         {/* APPOINTMENTS */}
         {activeTab === 'appointments' && salon && (
           <div className="space-y-6">
-            {/* Yeni Rezervasyon Sistemi */}
-            <div className="obsidian-card p-6 rounded-3xl">
-              <h2 className="font-heading text-xl font-bold text-[var(--chrome-white)] mb-4">
-                Rezervasyon Yönetimi
-              </h2>
-              <ReservationManager
-                reservations={reservations}
-                onRefresh={loadData}
-              />
+            {/* Modern Rezervasyon Listesi */}
+            <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl p-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <CalendarIcon size={24} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h2 className="font-heading text-xl font-bold text-[var(--chrome-white)]">
+                      Rezervasyon Yönetimi
+                    </h2>
+                    <p className="text-sm text-[var(--muted-lead)]">
+                      Tüm rezervasyonlarınızı buradan yönetin
+                    </p>
+                  </div>
+                </div>
+                <ReservationManager
+                  reservations={reservations}
+                  onRefresh={loadData}
+                />
+              </div>
             </div>
             
-            {/* Queue Manager */}
-            <div className="obsidian-card p-6 rounded-3xl">
-              <h2 className="font-heading text-xl font-bold text-[var(--chrome-white)] mb-4">
-                Sıra Yönetimi
-              </h2>
-              <QueueManager
-                salonId={salon.id}
-                onRefresh={loadData}
-              />
+            {/* Modern Queue Manager */}
+            <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl p-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <Users size={24} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h2 className="font-heading text-xl font-bold text-[var(--chrome-white)]">
+                      Sıra Yönetimi
+                    </h2>
+                    <p className="text-sm text-[var(--muted-lead)]">
+                      Bekleyen müşterileri randevuya atayın
+                    </p>
+                  </div>
+                </div>
+                <ModernQueueManager
+                  salonId={salon.id}
+                  onRefresh={loadData}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -558,16 +785,18 @@ export function OwnerDashboard() {
         {/* SERVICES */}
         {activeTab === 'services' && (
           <div className="space-y-4">
-            <ChromaticButton
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 setSelectedService(null);
                 setShowServiceForm(true);
               }}
-              className="flex items-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-heading font-bold text-sm shadow-lg shadow-purple-500/30 transition-all flex items-center justify-center gap-2.5"
             >
-              <Plus size={16} />
+              <Plus size={20} strokeWidth={2.5} />
               <span>Yeni Hizmet Ekle</span>
-            </ChromaticButton>
+            </motion.button>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {services.map((service) => (
@@ -620,16 +849,18 @@ export function OwnerDashboard() {
         {/* STAFF */}
         {activeTab === 'staff' && (
           <div className="space-y-4">
-            <ChromaticButton
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 setSelectedStaff(null);
                 setShowStaffForm(true);
               }}
-              className="flex items-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-heading font-bold text-sm shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2.5"
             >
-              <Plus size={16} />
+              <Users size={20} strokeWidth={2.5} />
               <span>Yeni Personel Ekle</span>
-            </ChromaticButton>
+            </motion.button>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {staff.map((member) => (
@@ -675,12 +906,64 @@ export function OwnerDashboard() {
 
         {/* ANALYTICS */}
         {activeTab === 'analytics' && salon && (
-          <AnalyticsDashboard salonId={salon.id} />
+          <SubscriptionGuard
+            businessId={salon.id}
+            feature="advancedAnalytics"
+            onUpgrade={() => setShowSubscriptionModal(true)}
+          >
+            <AnalyticsDashboard salonId={salon.id} />
+          </SubscriptionGuard>
+        )}
+
+        {/* SUBSCRIPTION */}
+        {activeTab === 'subscription' && salon && (
+          <div className="space-y-6">
+            {/* Main Subscription Card */}
+            <SubscriptionOverviewCard
+              businessId={salon.id}
+              onViewPlans={() => setShowSubscriptionModal(true)}
+            />
+            
+            {/* Detailed Status */}
+            <div className="obsidian-card p-6">
+              <h3 className="text-xl font-bold text-[var(--chrome-white)] mb-4 flex items-center gap-2">
+                <CreditCard size={24} className="text-primary" />
+                Abonelik Detayları
+              </h3>
+              <SubscriptionStatus
+                businessId={salon.id}
+                onUpgrade={() => setShowSubscriptionModal(true)}
+              />
+            </div>
+            
+            {/* Plan Comparison */}
+            <div className="obsidian-card p-6">
+              <h3 className="text-xl font-bold text-[var(--chrome-white)] mb-2">
+                Paket Değiştir veya Yükselt
+              </h3>
+              <p className="text-sm text-[var(--muted-lead)] mb-6">
+                İhtiyaçlarınıza uygun paketi seçerek işletmenizi büyütün. Yıllık ödemelerde %20'ye varan indirimler.
+              </p>
+              <button
+                onClick={() => setShowSubscriptionModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-600 text-white rounded-xl font-heading font-semibold shadow-lg shadow-primary/30 transition-all hover:scale-105"
+              >
+                <TrendingUp size={20} strokeWidth={2.5} />
+                Tüm Paketleri Görüntüle
+              </button>
+            </div>
+          </div>
         )}
 
         {/* CUSTOMERS */}
         {activeTab === 'customers' && salon && (
-          <CustomerList salonId={salon.id} />
+          <SubscriptionGuard
+            businessId={salon.id}
+            feature="customerManagement"
+            onUpgrade={() => setShowSubscriptionModal(true)}
+          >
+            <CustomerList salonId={salon.id} />
+          </SubscriptionGuard>
         )}
 
         {/* REVIEWS */}
@@ -690,266 +973,247 @@ export function OwnerDashboard() {
 
         {/* SETTINGS */}
         {activeTab === 'settings' && salon && (
-          <div className="space-y-4">
-            {/* Salon Bilgilerini Düzenle - Collapsible */}
+          <div className="space-y-3">
+            {/* İşletme Bilgileri */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="obsidian-card overflow-hidden"
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl"
             >
-              <button
-                onClick={() => setExpandedSettings(prev => ({ ...prev, salonInfo: !prev.salonInfo }))}
-                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                    <Settings size={24} className="text-purple-400" strokeWidth={2} />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
-                      İşletme Bilgileri
-                    </h3>
-                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
-                      İşletme bilgilerinizi görüntüleyin ve düzenleyine bilgilerinizi görüntüleyin ve düzenleyin
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowSalonSetup(true);
-                    }}
-                    className="obsidian-card px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/5 transition-all active:scale-95 group"
-                  >
-                    <Settings size={16} className="text-[var(--liquid-chrome)] group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
-                    <span className="hidden sm:inline font-heading font-semibold text-xs text-[var(--chrome-white)]">Düzenle</span>
-                  </button>
-                  {expandedSettings.salonInfo ? (
-                    <ChevronUp size={20} className="text-[var(--muted-lead)]" />
-                  ) : (
-                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
-                  )}
-                </div>
-              </button>
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5 pointer-events-none" />
               
-              <AnimatePresence>
-                {expandedSettings.salonInfo && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">İşletme Adı</p>
-                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base truncate">{salon.name}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Kategori</p>
-                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base capitalize">{salon.category}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Telefon</p>
-                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base">{salon.phone}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">Şehir</p>
-                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base">{salon.address.city}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">İlçe</p>
-                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base">{salon.address.district}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-[var(--obsidian-rim)] hover:border-[var(--liquid-chrome)]/30 transition-colors">
-                          <p className="text-[var(--muted-lead)] text-xs font-heading font-medium uppercase tracking-wider mb-1.5">E-posta</p>
-                          <p className="text-[var(--chrome-white)] font-heading font-semibold text-base truncate">{salon.email || '-'}</p>
-                        </div>
-                      </div>
+              <div className="relative p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                      <Settings size={22} className="text-white" strokeWidth={2.5} />
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    <div>
+                      <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                        İşletme Bilgileri
+                      </h3>
+                      <p className="text-xs text-[var(--muted-lead)]">
+                        Temel bilgileriniz
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowSalonSetup(true)}
+                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2 transition-all active:scale-95 group"
+                  >
+                    <Settings size={14} className="text-purple-400 group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
+                    <span className="font-heading font-semibold text-xs text-[var(--chrome-white)]">Düzenle</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                    <p className="text-[var(--muted-lead)] text-[10px] font-heading font-medium uppercase tracking-wider mb-1">İşletme Adı</p>
+                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-sm truncate">{salon.name}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                    <p className="text-[var(--muted-lead)] text-[10px] font-heading font-medium uppercase tracking-wider mb-1">Kategori</p>
+                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-sm capitalize">{salon.category}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                    <p className="text-[var(--muted-lead)] text-[10px] font-heading font-medium uppercase tracking-wider mb-1">Telefon</p>
+                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-sm">{salon.phone}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                    <p className="text-[var(--muted-lead)] text-[10px] font-heading font-medium uppercase tracking-wider mb-1">E-posta</p>
+                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-sm truncate">{salon.email || '-'}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08] sm:col-span-2">
+                    <p className="text-[var(--muted-lead)] text-[10px] font-heading font-medium uppercase tracking-wider mb-1">Adres</p>
+                    <p className="text-[var(--chrome-white)] font-heading font-semibold text-sm">{salon.address.city}, {salon.address.district}</p>
+                  </div>
+                </div>
+              </div>
             </motion.div>
 
-            {/* Randevu Açık/Kapalı Toggle - Collapsible */}
-            <div className="obsidian-card overflow-hidden">
-              <button
-                onClick={() => setExpandedSettings(prev => ({ ...prev, bookingSystem: !prev.bookingSystem }))}
-                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
-                    <CalendarIcon size={24} className="text-green-400" strokeWidth={2} />
+            {/* Randevu Sistemi */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-emerald-500/5 pointer-events-none" />
+              
+              <div className="relative p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <CalendarIcon size={22} className="text-white" strokeWidth={2.5} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                        Randevu Sistemi
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className={`w-2 h-2 rounded-full ${
+                          salon.isAcceptingBookings ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                        }`} />
+                        <p className="text-xs text-[var(--muted-lead)]">
+                          {salon.isAcceptingBookings ? 'Randevu alınıyor' : 'Randevu kapalı'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
-                      Randevu Sistemi
-                    </h3>
-                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
-                      Randevu almayı anlık olarak açıp kapatabilirsiniz
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
                   <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const newStatus = !salon.isAcceptingBookings;
-                      await salonsService.update(salon.id, { isAcceptingBookings: newStatus });
-                      await loadData();
+                    onClick={async () => {
+                      try {
+                        console.log('Current user:', user);
+                        console.log('Salon ID:', salon.id);
+                        console.log('Salon ownerId:', salon.ownerId);
+                        console.log('User UID:', user?.uid);
+                        console.log('Match?', salon.ownerId === user?.uid);
+                        
+                        const newStatus = !salon.isAcceptingBookings;
+                        console.log('Toggling booking status to:', newStatus);
+                        await salonsService.update(salon.id, { isAcceptingBookings: newStatus });
+                        console.log('Booking status updated, reloading data...');
+                        await loadData();
+                        console.log('Data reloaded successfully');
+                      } catch (error) {
+                        console.error('Error toggling booking status:', error);
+                        alert('Hata: Randevu sistemi durumu değiştirilemedi. Konsolu kontrol edin.');
+                      }
                     }}
-                    className={`relative w-16 h-8 rounded-full transition-all duration-300 flex-shrink-0 ${
+                    className={`relative w-14 h-7 rounded-full transition-all duration-300 flex-shrink-0 ${
                       salon.isAcceptingBookings 
                         ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-500/30' 
-                        : 'bg-[var(--slate-elevated)]'
+                        : 'bg-white/10'
                     }`}
                   >
                     <div
-                      className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all duration-300 ${
-                        salon.isAcceptingBookings ? 'translate-x-8' : 'translate-x-1'
+                      className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-lg transition-all duration-300 ${
+                        salon.isAcceptingBookings ? 'translate-x-7' : 'translate-x-0.5'
                       }`}
                     />
                   </button>
-                  {expandedSettings.bookingSystem ? (
-                    <ChevronUp size={20} className="text-[var(--muted-lead)]" />
-                  ) : (
-                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
-                  )}
                 </div>
-              </button>
+              </div>
+            </motion.div>
+
+            {/* Ödeme Ayarları */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5 pointer-events-none" />
               
-              <AnimatePresence>
-                {expandedSettings.bookingSystem && (
+              <div className="relative">
+                <button
+                  onClick={() => setExpandedSettings(prev => ({ ...prev, payment: !prev.payment }))}
+                  className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                      <DollarSign size={22} className="text-white" strokeWidth={2.5} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                        Ödeme Ayarları
+                      </h3>
+                      <p className="text-xs text-[var(--muted-lead)]">
+                        Havale/EFT bilgileri
+                      </p>
+                    </div>
+                  </div>
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
+                    animate={{ rotate: expandedSettings.payment ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
                   >
-                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
-                      <div className="mt-4 p-4 rounded-2xl bg-white/[0.03] border border-[var(--obsidian-rim)]">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                            salon.isAcceptingBookings ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                          }`} />
-                          <p className="font-body text-sm text-[var(--silver-frost)]">
-                            Durum: {salon.isAcceptingBookings ? (
-                              <span className="text-green-400 font-semibold ml-2">Randevu Alınıyor</span>
-                            ) : (
-                              <span className="text-red-400 font-semibold ml-2">Randevu Kapalı</span>
-                            )}
-                          </p>
+                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                  </motion.div>
+                </button>
+                
+                <AnimatePresence>
+                  {expandedSettings.payment && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 border-t border-white/[0.08]">
+                        <div className="mt-4">
+                          <PaymentSettingsForm
+                            settings={salon.paymentSettings || { bankTransferEnabled: false }}
+                            onSave={async (paymentSettings) => {
+                              await salonsService.update(salon.id, { paymentSettings });
+                              await loadData();
+                            }}
+                          />
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
 
-            {/* Payment Settings - Collapsible */}
-            <div className="obsidian-card overflow-hidden">
-              <button
-                onClick={() => setExpandedSettings(prev => ({ ...prev, payment: !prev.payment }))}
-                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
-                    <DollarSign size={24} className="text-green-400" strokeWidth={2} />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
-                      Ödeme Ayarları
-                    </h3>
-                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
-                      Havale/EFT ile ödeme ayarlarını yapılandırın
-                    </p>
-                  </div>
-                </div>
-                {expandedSettings.payment ? (
-                  <ChevronUp size={20} className="text-[var(--muted-lead)]" />
-                ) : (
-                  <ChevronDown size={20} className="text-[var(--muted-lead)]" />
-                )}
-              </button>
+            {/* Çalışma Saatleri */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
               
-              <AnimatePresence>
-                {expandedSettings.payment && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
-                      <div className="mt-4">
-                        <PaymentSettingsForm
-                          settings={salon.paymentSettings || { bankTransferEnabled: false }}
-                          onSave={async (paymentSettings) => {
-                            await salonsService.update(salon.id, { paymentSettings });
-                            await loadData();
-                          }}
-                        />
-                      </div>
+              <div className="relative">
+                <button
+                  onClick={() => setExpandedSettings(prev => ({ ...prev, workingHours: !prev.workingHours }))}
+                  className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <Clock size={22} className="text-white" strokeWidth={2.5} />
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Working Hours - Collapsible */}
-            <div className="obsidian-card overflow-hidden">
-              <button
-                onClick={() => setExpandedSettings(prev => ({ ...prev, workingHours: !prev.workingHours }))}
-                className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-                    <Clock size={24} className="text-blue-400" strokeWidth={2} />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)]">
-                      Çalışma Saatleri
-                    </h3>
-                    <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
-                      Haftalık çalışma saatlerinizi düzenleyin
-                    </p>
-                  </div>
-                </div>
-                {expandedSettings.workingHours ? (
-                  <ChevronUp size={20} className="text-[var(--muted-lead)]" />
-                ) : (
-                  <ChevronDown size={20} className="text-[var(--muted-lead)]" />
-                )}
-              </button>
-              
-              <AnimatePresence>
-                {expandedSettings.workingHours && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-6 pb-6 border-t border-[var(--obsidian-rim)]">
-                      <div className="mt-4">
-                        <WorkingHoursEditor
-                          initialHours={salon.workingHours as any}
-                          onSave={handleSaveWorkingHours}
-                        />
-                      </div>
+                    <div className="text-left">
+                      <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                        Çalışma Saatleri
+                      </h3>
+                      <p className="text-xs text-[var(--muted-lead)]">
+                        Haftalık çalışma programı
+                      </p>
                     </div>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: expandedSettings.workingHours ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
                   </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                </button>
+                
+                <AnimatePresence>
+                  {expandedSettings.workingHours && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 border-t border-white/[0.08]">
+                        <div className="mt-4">
+                          <WorkingHoursEditor
+                            initialHours={salon.workingHours as any}
+                            onSave={handleSaveWorkingHours}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
           </div>
         )}
       </div>
@@ -993,7 +1257,7 @@ export function OwnerDashboard() {
         />
       )}
 
-      {/* Service Form Modal */}
+      {/* Service Form Bottom Sheet */}
       {showServiceForm && salon && (
         <ServiceForm
           service={selectedService || undefined}
@@ -1008,7 +1272,7 @@ export function OwnerDashboard() {
         />
       )}
 
-      {/* Staff Form Modal */}
+      {/* Staff Form Bottom Sheet */}
       {showStaffForm && salon && (
         <StaffForm
           staff={selectedStaff || undefined}
@@ -1022,48 +1286,21 @@ export function OwnerDashboard() {
         />
       )}
 
-      </div>
-    </div>
-    
-    {/* Mobile Bottom Navigation - Modern Oval Design */}
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
-      <div className="bg-gradient-to-r from-[var(--slate-surface)]/95 via-[var(--slate-surface)]/98 to-[var(--slate-surface)]/95 backdrop-blur-2xl rounded-full border border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.4)] p-2">
-        <div className="flex items-center justify-around gap-1">
-        {sidebarItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.key;
-          
-          return (
-            <button
-              key={item.key}
-              onClick={() => setActiveTab(item.key)}
-              className={cn(
-                'flex flex-col items-center gap-1.5 px-2.5 py-2 rounded-full transition-all duration-200 min-w-[56px]',
-                isActive 
-                  ? 'bg-gradient-to-br from-purple-500 via-pink-500 to-fuchsia-500 shadow-lg shadow-purple-500/40 scale-105' 
-                  : 'hover:bg-white/5 active:scale-95'
-              )}
-            >
-              <Icon
-                size={20}
-                className={cn(
-                  'transition-colors',
-                  isActive ? 'text-white' : 'text-[var(--muted-lead)]'
-                )}
-                strokeWidth={isActive ? 2.5 : 2}
-              />
-              <span
-                className={cn(
-                  'font-heading text-[8px] font-bold transition-colors uppercase tracking-wider',
-                  isActive ? 'text-white' : 'text-[var(--muted-lead)]'
-                )}
-              >
-                {item.label.length > 8 ? item.label.split(' ')[0] : item.label}
-              </span>
-            </button>
-          );
-        })}
-        </div>
+      {/* Subscription Modal */}
+      {showSubscriptionModal && salon && (
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          businessId={salon.id}
+          businessName={salon.name}
+          currentPlan={subscription?.planType}
+          onSuccess={() => {
+            loadSubscription();
+            loadData();
+          }}
+        />
+      )}
+
       </div>
     </div>
     </>

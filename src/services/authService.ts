@@ -14,6 +14,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { recordUserSession } from './sessionService';
+import { subscriptionService } from './subscriptionService';
 
 export interface UserProfile {
   uid: string;
@@ -63,6 +64,16 @@ export const authService = {
       // Record session
       await recordUserSession(user.uid, 'email');
 
+      // If owner, create trial subscription
+      if (role === 'owner') {
+        try {
+          await subscriptionService.createTrialSubscription(user.uid, displayName);
+        } catch (error) {
+          console.error('Error creating trial subscription:', error);
+          // Don't fail registration if subscription creation fails
+        }
+      }
+
       return { user, profile: userProfile };
     } catch (error: any) {
       console.error('Error registering user:', error);
@@ -96,7 +107,12 @@ export const authService = {
       const result = await signInWithPopup(auth, googleProvider);
       return await this.processGoogleUser(result.user);
     } catch (error: any) {
-      console.error('Error logging in with Google:', error);
+      // Suppress permission errors in production (expected for session recording)
+      if (error.code !== 'permission-denied') {
+        console.error('Error logging in with Google:', error);
+      } else if (import.meta.env.DEV) {
+        console.warn('Permission denied during login (expected):', error);
+      }
       
       // If popup blocked, try redirect as fallback
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
@@ -137,6 +153,16 @@ export const authService = {
 
     // Record session
     await recordUserSession(user.uid, 'google');
+
+    // If new owner, create trial subscription
+    if (isNewUser && profile.role === 'owner') {
+      try {
+        await subscriptionService.createTrialSubscription(user.uid, profile.displayName);
+      } catch (error) {
+        console.error('Error creating trial subscription:', error);
+        // Don't fail login if subscription creation fails
+      }
+    }
 
     return { user, profile, isNewUser };
   },

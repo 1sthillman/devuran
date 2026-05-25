@@ -11,6 +11,34 @@ export interface Service {
   image?: string; // Hizmet görseli
   isActive: boolean;
   includes?: string[]; // Paket içeriği (paket hizmetleri için)
+  
+  // Gelişmiş Fiyatlandırma
+  pricingRules?: {
+    basePrice: number; // Temel fiyat
+    perPerson?: number; // Kişi başı ek ücret (örn: +50₺/kişi)
+    perNight?: number; // Gece başı ek ücret (konaklama için)
+    minGuests?: number; // Minimum kişi sayısı
+    maxGuests?: number; // Maksimum kişi sayısı
+    seasonalPricing?: {
+      summer?: number; // Yaz sezonu fiyatı
+      winter?: number; // Kış sezonu fiyatı
+    };
+  };
+  
+  // Ek Hizmetler (Add-ons)
+  addOns?: ServiceAddOn[];
+}
+
+export interface ServiceAddOn {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  priceType: 'fixed' | 'per-person' | 'per-night'; // Sabit, kişi başı, gece başı
+  icon?: string; // Icon adı (lucide-react)
+  isActive: boolean;
+  isRequired?: boolean; // Zorunlu mu?
+  maxQuantity?: number; // Maksimum adet (örn: max 2 ekstra yatak)
 }
 
 export interface Staff {
@@ -68,6 +96,7 @@ export interface MediaItem {
 
 export interface Salon {
   id: string;
+  ownerId: string; // User ID of the salon owner
   name: string;
   slug: string;
   category: 
@@ -456,3 +485,15 @@ export interface Toast {
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
 }
+
+// Re-export subscription types
+export type {
+  SubscriptionPlanType,
+  SubscriptionInterval,
+  SubscriptionStatus,
+  PlanFeatures,
+  SubscriptionPlan,
+  BusinessSubscription,
+  SubscriptionHistory,
+  FeatureAccess,
+} from './subscription';

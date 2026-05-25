@@ -53,13 +53,38 @@ class AnalyticsService {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
 
-    // Get all appointments
-    const appointmentsQuery = query(
-      collection(db, 'appointments'),
-      where('salonId', '==', salonId)
+    // Get all reservations for this business
+    const reservationsQuery = query(
+      collection(db, 'reservations'),
+      where('businessId', '==', salonId)
     );
-    const appointmentsSnapshot = await getDocs(appointmentsQuery);
-    const appointments = appointmentsSnapshot.docs.map(doc => doc.data() as Appointment);
+    const reservationsSnapshot = await getDocs(reservationsQuery);
+    const reservations = reservationsSnapshot.docs.map(doc => doc.data() as Reservation);
+    
+    // Convert reservations to appointments format for compatibility
+    const appointments = reservations.map((res: any) => ({
+      id: res.id,
+      userId: res.userId,
+      salonId: res.businessId,
+      salonName: res.businessName,
+      salonCover: '',
+      salonAddress: '',
+      staffId: res.staffId || '',
+      staffName: res.staffName || '',
+      staffPhoto: '',
+      customerName: res.userName,
+      customerPhone: res.userPhone,
+      services: res.services || [],
+      date: res.date || res.eventDate || res.checkIn || res.deliveryDate || '',
+      time: res.startTime || res.deliveryTime || '00:00',
+      endTime: '',
+      totalPrice: res.pricing?.totalAmount || res.totalPrice || 0,
+      totalDuration: res.duration || res.totalDuration || 0,
+      status: res.status,
+      notes: res.notes || '',
+      whatsappNumber: '',
+      createdAt: res.createdAt,
+    })) as Appointment[];
 
     // Calculate revenue
     const revenue = this.calculateRevenue(appointments, todayStart, weekStart, monthStart, yearStart);
@@ -104,7 +129,10 @@ class AnalyticsService {
     monthStart: Date,
     yearStart: Date
   ) {
-    const completed = appointments.filter(a => a.status === 'completed');
+    // Sadece completed ve confirmed rezervasyonları say (iptal edilmemişler)
+    const completed = appointments.filter(a => 
+      a.status === 'completed' || a.status === 'confirmed'
+    );
 
     const today = completed
       .filter(a => new Date(a.date) >= todayStart)
@@ -142,19 +170,24 @@ class AnalyticsService {
     weekStart: Date,
     monthStart: Date
   ) {
-    const today = appointments.filter(a => new Date(a.date) >= todayStart).length;
-    const week = appointments.filter(a => new Date(a.date) >= weekStart).length;
-    const month = appointments.filter(a => new Date(a.date) >= monthStart).length;
-    const total = appointments.length;
+    // Sadece aktif rezervasyonları say (iptal edilmemişler)
+    const activeAppointments = appointments.filter(a => 
+      a.status === 'confirmed' || a.status === 'pending' || a.status === 'completed'
+    );
+    
+    const today = activeAppointments.filter(a => new Date(a.date) >= todayStart).length;
+    const week = activeAppointments.filter(a => new Date(a.date) >= weekStart).length;
+    const month = activeAppointments.filter(a => new Date(a.date) >= monthStart).length;
+    const total = activeAppointments.length;
 
     const byStatus: Record<string, number> = {};
-    appointments.forEach(a => {
+    activeAppointments.forEach(a => {
       byStatus[a.status] = (byStatus[a.status] || 0) + 1;
     });
 
     // Calculate trend
     const prevMonthStart = new Date(monthStart.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const prevMonth = appointments.filter(a => {
+    const prevMonth = activeAppointments.filter(a => {
       const date = new Date(a.date);
       return date >= prevMonthStart && date < monthStart;
     }).length;
@@ -165,15 +198,20 @@ class AnalyticsService {
   }
 
   private calculateCustomerStats(appointments: Appointment[], monthStart: Date) {
-    const uniqueCustomers = new Set(appointments.map(a => a.userId));
+    // Sadece aktif rezervasyonlardan müşteri say
+    const activeAppointments = appointments.filter(a => 
+      a.status === 'confirmed' || a.status === 'pending' || a.status === 'completed'
+    );
+    
+    const uniqueCustomers = new Set(activeAppointments.map(a => a.userId));
     const total = uniqueCustomers.size;
 
-    const monthlyAppointments = appointments.filter(a => new Date(a.date) >= monthStart);
+    const monthlyAppointments = activeAppointments.filter(a => new Date(a.date) >= monthStart);
     const monthlyCustomers = new Set(monthlyAppointments.map(a => a.userId));
 
     // New customers (first appointment this month)
     const newCustomers = Array.from(monthlyCustomers).filter(customerId => {
-      const customerAppointments = appointments.filter(a => a.userId === customerId);
+      const customerAppointments = activeAppointments.filter(a => a.userId === customerId);
       const firstAppointment = customerAppointments.sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       )[0];
@@ -185,7 +223,7 @@ class AnalyticsService {
     // Calculate trend
     const prevMonthStart = new Date(monthStart.getTime() - 30 * 24 * 60 * 60 * 1000);
     const prevMonthCustomers = new Set(
-      appointments
+      activeAppointments
         .filter(a => {
           const date = new Date(a.date);
           return date >= prevMonthStart && date < monthStart;
@@ -201,9 +239,14 @@ class AnalyticsService {
   }
 
   private calculateServiceStats(appointments: Appointment[]) {
+    // Sadece aktif rezervasyonlardan hizmet istatistikleri
+    const activeAppointments = appointments.filter(a => 
+      a.status === 'confirmed' || a.status === 'pending' || a.status === 'completed'
+    );
+    
     const serviceMap = new Map<string, { count: number; revenue: number }>();
 
-    appointments.forEach(appointment => {
+    activeAppointments.forEach(appointment => {
       appointment.services.forEach(service => {
         const existing = serviceMap.get(service.name) || { count: 0, revenue: 0 };
         serviceMap.set(service.name, {
@@ -225,6 +268,11 @@ class AnalyticsService {
   }
 
   private async calculateStaffStats(salonId: string, appointments: Appointment[]) {
+    // Sadece aktif rezervasyonlardan personel istatistikleri
+    const activeAppointments = appointments.filter(a => 
+      a.status === 'confirmed' || a.status === 'pending' || a.status === 'completed'
+    );
+    
     const staffMap = new Map<string, { 
       name: string; 
       appointments: number; 
@@ -232,7 +280,7 @@ class AnalyticsService {
       rating: number;
     }>();
 
-    appointments.forEach(appointment => {
+    activeAppointments.forEach(appointment => {
       const existing = staffMap.get(appointment.staffId) || {
         name: appointment.staffName,
         appointments: 0,
@@ -293,9 +341,14 @@ class AnalyticsService {
   }
 
   private calculateHourlyDistribution(appointments: Appointment[]) {
+    // Sadece aktif rezervasyonlardan saat dağılımı
+    const activeAppointments = appointments.filter(a => 
+      a.status === 'confirmed' || a.status === 'pending' || a.status === 'completed'
+    );
+    
     const distribution: Record<string, number> = {};
 
-    appointments.forEach(appointment => {
+    activeAppointments.forEach(appointment => {
       const hour = appointment.time.split(':')[0];
       distribution[hour] = (distribution[hour] || 0) + 1;
     });
@@ -304,11 +357,16 @@ class AnalyticsService {
   }
 
   private calculateDailyDistribution(appointments: Appointment[]) {
+    // Sadece aktif rezervasyonlardan günlük dağılım
+    const activeAppointments = appointments.filter(a => 
+      a.status === 'confirmed' || a.status === 'pending' || a.status === 'completed'
+    );
+    
     const distribution: Record<string, number> = {
       '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0,
     };
 
-    appointments.forEach(appointment => {
+    activeAppointments.forEach(appointment => {
       const day = new Date(appointment.date).getDay();
       distribution[day.toString()] = (distribution[day.toString()] || 0) + 1;
     });
@@ -319,8 +377,9 @@ class AnalyticsService {
   private calculateMonthlyRevenue(appointments: Appointment[]) {
     const monthlyData = new Map<string, { revenue: number; appointments: number }>();
 
+    // Sadece completed ve confirmed rezervasyonlardan aylık gelir
     appointments
-      .filter(a => a.status === 'completed')
+      .filter(a => a.status === 'completed' || a.status === 'confirmed')
       .forEach(appointment => {
         const date = new Date(appointment.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;

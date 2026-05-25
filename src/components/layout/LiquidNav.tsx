@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { cn } from '@/lib/utils';
-import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star } from 'lucide-react';
+import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [
@@ -13,11 +13,8 @@ const navLinks = [
 ];
 
 const ownerMenuItems = [
-  { key: 'overview', label: 'Genel Bakis', icon: LayoutDashboard },
+  { key: 'overview', label: 'Genel', icon: LayoutDashboard },
   { key: 'appointments', label: 'Randevular', icon: CalendarIcon },
-  { key: 'analytics', label: 'Analitik', icon: BarChart3 },
-  { key: 'customers', label: 'Musteriler', icon: UserCheck },
-  { key: 'reviews', label: 'Yorumlar', icon: Star },
   { key: 'services', label: 'Hizmetler', icon: Scissors },
   { key: 'staff', label: 'Personel', icon: Users },
   { key: 'settings', label: 'Ayarlar', icon: Settings },
@@ -31,6 +28,7 @@ export function LiquidNav() {
   const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
 
   const isOwner = user?.role === 'owner' || user?.role === 'admin';
+  const isSuperAdmin = user?.email === 'minifinise@gmail.com';
   const isOnDashboard = location.pathname === '/dashboard';
 
   const allLinks = isOwner
@@ -125,7 +123,7 @@ export function LiquidNav() {
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-14 z-50 w-64 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)] backdrop-blur-3xl border border-white/20">
+                <div className="absolute right-0 top-14 z-50 w-56 sm:w-64 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)] backdrop-blur-3xl border border-white/20 max-h-[80vh] overflow-y-auto">
                   <div className="px-3 py-2 border-b border-white/20 mb-2">
                     <p className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
                       {user?.displayName}
@@ -154,14 +152,14 @@ export function LiquidNav() {
                               setMenuOpen(false);
                             }}
                             className={cn(
-                              'w-full flex items-center gap-3 px-3 py-2.5 rounded-full text-sm transition-colors',
+                              'w-full flex items-center gap-2 px-3 py-2 rounded-full text-xs sm:text-sm transition-colors',
                               isActive
                                 ? 'text-[var(--chrome-white)] bg-gradient-to-r from-purple-500/20 to-pink-500/20'
                                 : 'text-[var(--silver-frost)] hover:bg-white/5'
                             )}
                           >
-                            <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
-                            {item.label}
+                            <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className="flex-shrink-0" />
+                            <span className="truncate">{item.label}</span>
                           </button>
                         );
                       })}
@@ -186,6 +184,17 @@ export function LiquidNav() {
                     >
                       <LayoutDashboard size={16} />
                       Isletme Paneli
+                    </Link>
+                  )}
+                  
+                  {isSuperAdmin && (
+                    <Link
+                      to="/super-admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 hover:from-purple-500/30 hover:to-pink-500/30 transition-colors"
+                    >
+                      <Shield size={16} />
+                      Super Admin Panel
                     </Link>
                   )}
                   

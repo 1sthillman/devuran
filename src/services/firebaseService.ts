@@ -37,6 +37,31 @@ export const appointmentsService = {
   // Create new appointment
   async create(appointmentData: Omit<Appointment, 'id'>) {
     try {
+      // ===== ABONELIK KONTROLÜ =====
+      // İşletmenin aktif aboneliği olmalı
+      const { subscriptionService } = await import('./subscriptionService');
+      const subscription = await subscriptionService.getBusinessSubscription(appointmentData.salonId);
+      
+      if (!subscription || subscription.status !== 'active') {
+        throw new Error('Bu işletme şu anda randevu kabul etmemektedir. Lütfen daha sonra tekrar deneyin.');
+      }
+      
+      // Süre kontrolü
+      const now = new Date();
+      const endDate = new Date(subscription.endDate);
+      if (now > endDate) {
+        throw new Error('Bu işletmenin aboneliği sona ermiştir. Randevu alınamaz.');
+      }
+      
+      // Aylık randevu limiti kontrolü
+      const plan = (await import('@/config/subscriptionPlans')).SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType);
+      if (plan && plan.features.maxMonthlyBookings !== 'unlimited') {
+        if (subscription.usage.monthlyBookings >= plan.features.maxMonthlyBookings) {
+          throw new Error('Bu işletme aylık randevu limitine ulaşmıştır. Lütfen daha sonra tekrar deneyin.');
+        }
+      }
+      // ===== ABONELIK KONTROLÜ SONU =====
+      
       // Validation: Check if slot is still available
       const isAvailable = await this.isSlotAvailable(
         appointmentData.salonId,
@@ -63,6 +88,12 @@ export const appointmentsService = {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
+      
+      // Randevu sayısını güncelle
+      await subscriptionService.updateUsageStats(appointmentData.salonId, {
+        monthlyBookings: subscription.usage.monthlyBookings + 1
+      });
+      
       return { id: docRef.id, ...appointmentData, endTime, status: 'confirmed' as const };
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -80,7 +111,14 @@ export const appointmentsService = {
       );
       const snapshot = await getDocs(q);
       return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Appointment));
-    } catch (error) {
+    } catch (error: any) {
+      // Permission errors are expected for users without appointments
+      if (error.code === 'permission-denied') {
+        if (import.meta.env.DEV) {
+          console.warn('Appointments permission denied (expected for new users)');
+        }
+        return []; // Return empty array instead of throwing
+      }
       console.error('Error fetching user appointments:', error);
       throw error;
     }
@@ -154,14 +192,47 @@ export const appointmentsService = {
         cancelledAt: new Date().toISOString(),
         updatedAt: Timestamp.now(),
       });
+
+      // Send notification to customer
+      try {
+        const { notificationService } = await import('./notificationService');
+        
+        // Get user data for notification
+        const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, appointment.userId));
+        const userData = userDoc.data();
+        
+        if (userData) {
+          await notificationService.sendReservationCancelled({
+            userId: appointment.userId,
+            userName: appointment.customerName,
+            userEmail: userData.email || '',
+            userPhone: appointment.customerPhone,
+            businessName: appointment.salonName,
+            reservationId: appointmentId,
+            cancelledBy: cancelledBy === 'customer' ? 'user' : 'business',
+            reason,
+          });
+        }
+      } catch (notificationError) {
+        console.error('Failed to send cancellation notification:', notificationError);
+        // Don't throw - appointment is still cancelled
+      }
       
       // Process queue - sıradaki kişiyi otomatik randevuya al
-      await this.processQueue(
-        appointment.salonId,
-        appointment.staffId,
-        appointment.date,
-        appointment.time
-      );
+      // Only process queue if cancelled by salon (customers don't have queue permissions)
+      if (cancelledBy === 'salon') {
+        try {
+          await this.processQueue(
+            appointment.salonId,
+            appointment.staffId,
+            appointment.date,
+            appointment.time
+          );
+        } catch (queueError) {
+          // Queue processing failed but appointment is still cancelled
+          console.error('Queue processing failed:', queueError);
+        }
+      }
     } catch (error) {
       console.error('Error cancelling appointment:', error);
       throw error;
@@ -258,9 +329,10 @@ export const appointmentsService = {
   async addToQueue(queueData: {
     userId: string;
     salonId: string;
-    staffId: string;
+    staffId?: string; // Opsiyonel
     customerName: string;
     customerPhone: string;
+    customerEmail?: string;
     customerAvatar?: string;
     services: { id: string; name: string; price: number; duration: number }[];
     preferredDate?: string;
@@ -270,11 +342,10 @@ export const appointmentsService = {
     notes: string;
   }) {
     try {
-      // Get current queue position
+      // Get current queue position for this salon
       const q = query(
         collection(db, COLLECTIONS.QUEUE),
-        where('salonId', '==', queueData.salonId),
-        where('staffId', '==', queueData.staffId)
+        where('salonId', '==', queueData.salonId)
       );
       const snapshot = await getDocs(q);
       const queuePosition = snapshot.size + 1;
@@ -386,7 +457,7 @@ export const appointmentsService = {
   },
 
   // Assign queue entry to time slot
-  async assignQueueToSlot(queueId: string, date: string, time: string) {
+  async assignQueueToSlot(queueId: string, date: string, time: string, staffId?: string) {
     try {
       const queueRef = doc(db, COLLECTIONS.QUEUE, queueId);
       const queueSnap = await getDoc(queueRef);
@@ -401,7 +472,7 @@ export const appointmentsService = {
       const appointmentData = {
         userId: queueData.userId,
         salonId: queueData.salonId,
-        staffId: queueData.staffId,
+        staffId: staffId || queueData.staffId, // Yeni staffId veya mevcut
         customerName: queueData.customerName,
         customerPhone: queueData.customerPhone,
         services: queueData.services,
@@ -496,7 +567,7 @@ export const appointmentsService = {
       
       await batch.commit();
     } catch (error) {
-      console.error('Error auto-completing appointments:', error);
+      // Sessizce geç - müşteri tarafında permission hatası bekleniyor
     }
   },
 };
@@ -504,11 +575,46 @@ export const appointmentsService = {
 // ==================== SALONS ====================
 
 export const salonsService = {
-  // Get all salons
+  // Get all salons (sadece aktif aboneliği olanlar)
   async getAll() {
     try {
       const snapshot = await getDocs(collection(db, COLLECTIONS.SALONS));
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Salon));
+      const allSalons = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Salon));
+      
+      if (allSalons.length === 0) {
+        return [];
+      }
+      
+      // Tüm abonelikleri tek seferde çek (daha hızlı)
+      const { subscriptionService } = await import('./subscriptionService');
+      const subscriptionsSnapshot = await getDocs(collection(db, 'subscriptions'));
+      
+      // Abonelikleri businessId'ye göre map'e çevir
+      const subscriptionMap = new Map<string, any>();
+      subscriptionsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const existing = subscriptionMap.get(data.businessId);
+        
+        // En yeni aboneliği tut
+        if (!existing || new Date(data.createdAt) > new Date(existing.createdAt)) {
+          subscriptionMap.set(data.businessId, data);
+        }
+      });
+      
+      // Sadece aktif aboneliği olanları filtrele
+      const now = new Date();
+      const salonsWithActiveSubscription = allSalons.filter(salon => {
+        const subscription = subscriptionMap.get(salon.id);
+        
+        if (!subscription || subscription.status !== 'active') {
+          return false;
+        }
+        
+        const endDate = new Date(subscription.endDate);
+        return now <= endDate;
+      });
+      
+      return salonsWithActiveSubscription;
     } catch (error) {
       console.error('Error fetching salons:', error);
       throw error;
@@ -591,6 +697,30 @@ export const servicesService = {
   // Create service
   async create(serviceData: Omit<Service, 'id'>) {
     try {
+      // ===== ABONELIK VE LİMİT KONTROLÜ =====
+      const { subscriptionService } = await import('./subscriptionService');
+      
+      // Mevcut hizmet sayısını al
+      const currentServicesQuery = query(
+        collection(db, COLLECTIONS.SERVICES),
+        where('salonId', '==', serviceData.salonId),
+        where('isActive', '==', true)
+      );
+      const currentServicesSnapshot = await getDocs(currentServicesQuery);
+      const currentServiceCount = currentServicesSnapshot.size;
+      
+      // Limit kontrolü
+      const limitCheck = await subscriptionService.checkLimit(
+        serviceData.salonId,
+        'services',
+        currentServiceCount
+      );
+      
+      if (!limitCheck.hasAccess) {
+        throw new Error(limitCheck.reason || 'Hizmet ekleme limitine ulaşıldı. Planınızı yükseltmeniz gerekiyor.');
+      }
+      // ===== ABONELIK KONTROLÜ SONU =====
+      
       // Validation
       if (!serviceData.name || serviceData.name.trim().length === 0) {
         throw new Error('Hizmet adı boş olamaz');
@@ -603,6 +733,12 @@ export const servicesService = {
       }
       
       const docRef = await addDoc(collection(db, COLLECTIONS.SERVICES), serviceData);
+      
+      // Hizmet sayısını güncelle
+      await subscriptionService.updateUsageStats(serviceData.salonId, {
+        serviceCount: currentServiceCount + 1
+      });
+      
       return { id: docRef.id, ...serviceData };
     } catch (error) {
       console.error('Error creating service:', error);
@@ -650,6 +786,39 @@ export const staffService = {
   // Create staff member
   async create(staffData: Omit<Staff, 'id'>) {
     try {
+      // ===== ABONELIK VE LİMİT KONTROLÜ =====
+      const { subscriptionService } = await import('./subscriptionService');
+      const limitCheck = await subscriptionService.checkLimit(
+        staffData.salonId,
+        'staff',
+        0 // Mevcut sayı, create'te 0'dan başlıyoruz
+      );
+      
+      if (!limitCheck.hasAccess) {
+        throw new Error(limitCheck.reason || 'Personel ekleme limitine ulaşıldı. Planınızı yükseltmeniz gerekiyor.');
+      }
+      
+      // Mevcut personel sayısını al
+      const currentStaffQuery = query(
+        collection(db, COLLECTIONS.STAFF),
+        where('salonId', '==', staffData.salonId),
+        where('isActive', '==', true)
+      );
+      const currentStaffSnapshot = await getDocs(currentStaffQuery);
+      const currentStaffCount = currentStaffSnapshot.size;
+      
+      // Limit kontrolü tekrar yap
+      const finalCheck = await subscriptionService.checkLimit(
+        staffData.salonId,
+        'staff',
+        currentStaffCount
+      );
+      
+      if (!finalCheck.hasAccess) {
+        throw new Error(finalCheck.reason || 'Personel ekleme limitine ulaşıldı.');
+      }
+      // ===== ABONELIK KONTROLÜ SONU =====
+      
       // Validation
       if (!staffData.name || staffData.name.trim().length === 0) {
         throw new Error('Personel adı boş olamaz');
@@ -677,6 +846,12 @@ export const staffService = {
       }
       
       const docRef = await addDoc(collection(db, COLLECTIONS.STAFF), staffData);
+      
+      // Personel sayısını güncelle
+      await subscriptionService.updateUsageStats(staffData.salonId, {
+        staffCount: currentStaffCount + 1
+      });
+      
       return { id: docRef.id, ...staffData };
     } catch (error) {
       console.error('Error creating staff:', error);

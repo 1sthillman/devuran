@@ -15,9 +15,21 @@ import { appointmentsService } from '@/services/firebaseService';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 
 export function Dashboard() {
-  const { isAuthenticated, isOwner } = useAuthStore();
+  const { isAuthenticated, isOwner, isLoading: authLoading } = useAuthStore();
   const { appointments } = useAppointmentsStore();
   const [loading, setLoading] = useState(false);
+
+  // Show loading during auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--liquid-chrome)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-body text-[var(--muted-lead)]">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Redirect owners to their dashboard
   if (isOwner) {

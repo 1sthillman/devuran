@@ -3,14 +3,17 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors, ArrowLeft, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
 import { TimeSlotGrid } from '../TimeSlotGrid';
+import { AlternativeSuggestions } from '../AlternativeSuggestions';
+import { WorkingHoursDisplay } from '../WorkingHoursDisplay';
+import { QueueJoinButton } from '../QueueJoinButton';
 import { availabilityService } from '@/services/availabilityService';
 import { useAuthStore } from '@/store/authStore';
 import type { TimeSlot } from '@/services/availabilityService';
-import { cn } from '@/lib/utils';
+import { cn, formatDateToString } from '@/lib/utils';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
@@ -47,26 +50,65 @@ export function SlotBookingWizard() {
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
 
+  // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
+    if (user && activeStep === 4) {
+      // Sadece boşsa doldur, kullanıcı değiştirmişse üzerine yazma
+      if (!localName && user.displayName) {
+        setLocalName(user.displayName);
+      }
+      if (!localPhone && user.phone) {
+        // Telefon numarasını temizle (başındaki +90 veya 0'ı kaldır)
+        const cleanPhone = user.phone.replace(/^\+90/, '').replace(/^0/, '');
+        setLocalPhone(cleanPhone);
+      }
+      if (!localEmail && user.email) {
+        setLocalEmail(user.email);
+      }
+    }
+  }, [user, activeStep]);
+
+  useEffect(() => {
+    // Personel seçimi zorunlu - sadece personel seçiliyse slot yükle
     if (selectedDate && selectedStaffId && salon) {
       loadAvailableSlots();
+    } else if (selectedDate && !selectedStaffId) {
+      // Personel seçilmemişse slotları temizle
+      setAvailableSlots([]);
     }
-  }, [selectedDate, selectedStaffId, salon]);
+  }, [selectedDate, selectedStaffId, salon, totalDuration]);
 
   const loadAvailableSlots = async () => {
-    if (!selectedDate || !salon) return;
+    if (!selectedDate || !salon || !selectedStaffId) {
+      console.log('Slot yükleme için gerekli bilgiler eksik:', { selectedDate, selectedStaffId });
+      return;
+    }
     
     setLoadingSlots(true);
     try {
       const date = new Date(selectedDate);
+      
+      console.log('Slot yükleniyor:', {
+        businessId: salon.id,
+        date: selectedDate,
+        staffId: selectedStaffId,
+        duration: totalDuration
+      });
+      
+      // Personel seçimi zorunlu - sadece seçili personelin slotlarını al
       const slots = await availabilityService.getAvailableSlots({
         businessId: salon.id,
         date,
-        duration: totalDuration,
-        staffId: selectedStaffId || undefined
+        duration: totalDuration || 30,
+        staffId: selectedStaffId, // Zorunlu
+        workingHours: salon.workingHours,
+        staff: undefined // Personel seçimi zorunlu olduğu için liste gerekmez
       });
+      
+      console.log(`${slots.length} müsait slot bulundu`);
       setAvailableSlots(slots);
     } catch (error) {
+      console.error('Slot yükleme hatası:', error);
       setAvailableSlots([]);
     }
     setLoadingSlots(false);
@@ -85,9 +127,10 @@ export function SlotBookingWizard() {
   };
 
   const handleDateSelect = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
     selectDateTime(dateStr, selectedTime || '');
-    setTimeout(() => setActiveSubStep('time'), 100);
+    // Tarih seçildiğinde saat seçim alanını otomatik aç
+    setActiveSubStep('time');
   };
 
   const handleTimeSelect = (time: string) => {
@@ -106,7 +149,17 @@ export function SlotBookingWizard() {
     }
 
     if (totalPrice <= 0) {
-      addToast('Fiyat hesaplanamadı', 'error');
+      addToast('Lütfen hizmet seçin ve fiyat bilgisini kontrol edin', 'error');
+      return;
+    }
+
+    if (!selectedDate || !selectedTime) {
+      addToast('Lütfen tarih ve saat seçin', 'error');
+      return;
+    }
+
+    if (!selectedStaffId) {
+      addToast('Lütfen personel seçin', 'error');
       return;
     }
     
@@ -121,13 +174,15 @@ export function SlotBookingWizard() {
       const reservationId = await submitReservation();
       
       if (!reservationId) {
-        throw new Error('Rezervasyon ID alınamadı');
+        throw new Error('Rezervasyon oluşturulamadı. Lütfen tekrar deneyin.');
       }
       
       addToast('Randevu başarıyla oluşturuldu!', 'success');
       navigate(`/booking-success/${reservationId}`);
     } catch (error: any) {
-      addToast(error.message || 'Randevu oluşturulamadı', 'error');
+      console.error('Rezervasyon hatası:', error);
+      const errorMessage = error.message || 'Randevu oluşturulamadı. Lütfen bilgilerinizi kontrol edip tekrar deneyin.';
+      addToast(errorMessage, 'error');
     }
   };
 
@@ -177,6 +232,7 @@ export function SlotBookingWizard() {
           {salon.name}
         </h1>
         <p className="text-sm text-[var(--muted-lead)]">Premium rezervasyon deneyimi</p>
+        <WorkingHoursDisplay workingHours={salon.workingHours} label="Bugün" colorClass="text-cyan-400" />
       </div>
 
       <div className="space-y-3">
@@ -188,23 +244,24 @@ export function SlotBookingWizard() {
 
           return (
             <div key={step.id}>
-              <button
-                onClick={() => canAccess && setActiveStep(step.id)}
-                disabled={!canAccess}
-                className={cn("w-full text-left transition-all duration-200", !canAccess && "opacity-40 cursor-not-allowed")}
-              >
-                <div className={cn(
-                  "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
-                  isActive 
-                    ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
-                    : isCompleted 
-                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
-                    : "border-white/[0.08] bg-white/[0.02]"
-                )}>
-                  {isActive && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                  )}
-                  
+              <div className={cn(
+                "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
+                isActive 
+                  ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
+                  : isCompleted 
+                  ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
+                  : "border-white/[0.08] bg-white/[0.02]",
+                !canAccess && "opacity-40 pointer-events-none"
+              )}>
+                {isActive && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                )}
+                
+                <button
+                  onClick={() => canAccess && setActiveStep(step.id)}
+                  disabled={!canAccess}
+                  className="w-full text-left relative z-10"
+                >
                   <div className="relative flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -247,6 +304,7 @@ export function SlotBookingWizard() {
                       )} 
                     />
                   </div>
+                </button>
 
                   <AnimatePresence>
                     {isActive && (
@@ -255,7 +313,7 @@ export function SlotBookingWizard() {
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="overflow-hidden"
+                        className="overflow-hidden relative z-20"
                       >
                         <div className="px-4 pb-4 space-y-3">
                           {step.id === 1 && (
@@ -321,22 +379,21 @@ export function SlotBookingWizard() {
                               {(!salon.staff || salon.staff.length === 0) ? (
                                 <div className="text-center py-8">
                                   <User size={32} className="mx-auto text-[var(--muted-lead)] mb-3" />
-                                  <p className="text-sm text-[var(--muted-lead)]">
+                                  <p className="text-sm text-[var(--muted-lead)] mb-2">
                                     Bu işletmede henüz personel bulunmuyor.
                                   </p>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      selectStaff(null);
-                                      handleStepComplete(2);
-                                    }}
-                                    className="mt-4 px-6 h-10 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:shadow-2xl hover:shadow-amber-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
-                                  >
-                                    Devam Et (Personel Seçmeden)
-                                  </button>
+                                  <p className="text-xs text-red-400">
+                                    Randevu alabilmek için personel seçimi gereklidir.
+                                  </p>
                                 </div>
                               ) : (
-                                <div className="grid grid-cols-2 gap-3">
+                                <>
+                                  <div className="mb-3 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                                    <p className="text-xs text-purple-300 text-center">
+                                      ⚠️ Personel seçimi zorunludur. Seçtiğiniz personelin müsait saatlerini görebilirsiniz.
+                                    </p>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
                               {salon.staff.map((staff) => (
                                 <button
                                   key={staff.id}
@@ -370,14 +427,23 @@ export function SlotBookingWizard() {
                                 </button>
                               ))}
                             </div>
+                                </>
                               )}
                             </>
                           )}
 
                           {step.id === 3 && (
                             <>
+                              {!selectedStaffId && (
+                                <div className="mb-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/30">
+                                  <p className="text-sm text-red-300 text-center">
+                                    ⚠️ Önce personel seçmelisiniz
+                                  </p>
+                                </div>
+                              )}
                               <div className={cn(
                                 "rounded-2xl border transition-all duration-200",
+                                !selectedStaffId && "opacity-50 pointer-events-none",
                                 activeSubStep === 'date' 
                                   ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" 
                                   : selectedDate 
@@ -413,6 +479,10 @@ export function SlotBookingWizard() {
                                           onSelect={handleDateSelect}
                                           minDate={new Date()}
                                           workingHours={salon.workingHours}
+                                          businessId={salon.id}
+                                          serviceDuration={totalDuration}
+                                          staffId={selectedStaffId || undefined}
+                                          staff={salon.staff}
                                         />
                                       </div>
                                     </motion.div>
@@ -455,21 +525,81 @@ export function SlotBookingWizard() {
                                         <div className="px-3 pb-3">
                                           {loadingSlots ? (
                                             <div className="text-center py-8">
-                                              <div className="w-8 h-8 border-2 border-white/10 border-t-[var(--liquid-chrome)] rounded-full animate-spin mx-auto" />
+                                              <Loader2 className="w-8 h-8 text-purple-500 animate-spin mx-auto mb-3" />
+                                              <p className="text-sm font-semibold text-[var(--chrome-white)] mb-1">Müsait saatler yükleniyor...</p>
+                                              <p className="text-xs text-[var(--muted-lead)]">Lütfen bekleyin</p>
+                                            </div>
+                                          ) : !selectedStaffId ? (
+                                            <div className="text-center py-6 text-sm text-red-400">
+                                              Önce personel seçmelisiniz
                                             </div>
                                           ) : availableSlots.length > 0 ? (
-                                            <TimeSlotGrid
-                                              slots={availableSlots.map(slot => ({
-                                                time: slot.startTime,
-                                                available: slot.available
-                                              }))}
-                                              selectedTime={selectedTime}
-                                              onSelect={handleTimeSelect}
-                                            />
+                                            <>
+                                              <div className="mb-3 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                                <p className="text-xs text-emerald-300 text-center">
+                                                  ✓ {availableSlots.length} müsait saat bulundu
+                                                </p>
+                                              </div>
+                                              <TimeSlotGrid
+                                                slots={availableSlots.map(slot => ({
+                                                  time: slot.startTime,
+                                                  available: slot.available
+                                                }))}
+                                                selectedTime={selectedTime}
+                                                onSelect={handleTimeSelect}
+                                              />
+                                            </>
                                           ) : (
-                                            <div className="text-center py-6 text-sm text-[var(--muted-lead)]">
-                                              Bu tarihte müsait saat yok
-                                            </div>
+                                            <>
+                                              <div className="text-center py-6">
+                                                <Clock size={32} className="mx-auto text-[var(--muted-lead)] mb-3" />
+                                                <p className="text-sm text-[var(--muted-lead)] mb-1">
+                                                  Bu tarihte müsait saat yok
+                                                </p>
+                                                <p className="text-xs text-[var(--ash)]">
+                                                  Seçili personelin bu gündeki tüm saatleri dolu
+                                                </p>
+                                              </div>
+                                              
+                                              {/* Sıraya Ekle Butonu - Her zaman göster */}
+                                              {selectedServices.length > 0 && (
+                                                <div className="mb-4">
+                                                  <QueueJoinButton
+                                                    salon={salon}
+                                                    selectedServices={selectedServices}
+                                                    selectedStaffId={selectedStaffId}
+                                                    preferredDate={selectedDate}
+                                                    preferredTime={selectedTime}
+                                                    totalPrice={totalPrice}
+                                                    totalDuration={totalDuration}
+                                                    customerName={localName}
+                                                    customerPhone={localPhone}
+                                                    customerEmail={localEmail}
+                                                    customerNotes={localNotes}
+                                                    onSuccess={() => {
+                                                      addToast('Sıraya eklendiniz! İşletme sizi arayacaktır.', 'success');
+                                                      navigate('/appointments');
+                                                    }}
+                                                  />
+                                                </div>
+                                              )}
+                                              
+                                              {selectedStaffId && selectedDate && salon.staff && (
+                                                <AlternativeSuggestions
+                                                  type="staff"
+                                                  selectedId={selectedStaffId}
+                                                  selectedName={salon.staff.find(s => s.id === selectedStaffId)?.name || ''}
+                                                  date={new Date(selectedDate)}
+                                                  duration={totalDuration || 30}
+                                                  workingHours={salon.workingHours}
+                                                  allStaff={salon.staff}
+                                                  onSelect={(id, name) => {
+                                                    selectStaff(id);
+                                                    setActiveSubStep('time');
+                                                  }}
+                                                />
+                                              )}
+                                            </>
                                           )}
                                         </div>
                                       </motion.div>
@@ -557,8 +687,7 @@ export function SlotBookingWizard() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
-              </button>
+              </div>
             </div>
           );
         })}

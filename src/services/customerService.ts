@@ -19,6 +19,10 @@ export interface Customer {
   loyaltyPoints: number;
   status: 'active' | 'inactive' | 'vip';
   rating?: number; // Salon's rating of the customer
+  isBanned?: boolean; // Banned from this salon
+  bannedAt?: string;
+  bannedReason?: string;
+  bannedBy?: string; // Owner/staff who banned
 }
 
 class CustomerService {
@@ -26,60 +30,73 @@ class CustomerService {
    * Get all customers for a salon
    */
   async getSalonCustomers(salonId: string): Promise<Customer[]> {
-    const appointmentsQuery = query(
-      collection(db, 'appointments'),
-      where('salonId', '==', salonId)
+    // DÜZELTME: reservations collection'ından sadece bu işletmenin verilerini çek
+    const reservationsQuery = query(
+      collection(db, 'reservations'),
+      where('businessId', '==', salonId)
     );
     
-    const snapshot = await getDocs(appointmentsQuery);
-    const appointments = snapshot.docs.map(doc => doc.data() as Appointment);
+    const snapshot = await getDocs(reservationsQuery);
+    const reservations = snapshot.docs.map(doc => doc.data());
 
     // Group by customer
     const customerMap = new Map<string, Customer>();
 
-    appointments.forEach(appointment => {
-      const existing = customerMap.get(appointment.userId);
+    reservations.forEach((reservation: any) => {
+      const userId = reservation.userId;
+      if (!userId) return;
+
+      // İptal edilmiş rezervasyonları sayma
+      const status = reservation.status;
+      if (status === 'cancelled' || status === 'cancelled_by_business' || status === 'cancelled_by_customer') {
+        return; // Skip cancelled reservations
+      }
+
+      const existing = customerMap.get(userId);
+      const resDate = reservation.date || reservation.eventDate || reservation.checkIn || reservation.deliveryDate || '';
+      const price = reservation.pricing?.totalAmount || reservation.totalPrice || 0;
+      const services = reservation.services || [];
 
       if (!existing) {
-        customerMap.set(appointment.userId, {
-          id: appointment.userId,
-          name: appointment.customerName,
-          phone: appointment.customerPhone,
-          email: '',
+        customerMap.set(userId, {
+          id: userId,
+          name: reservation.userName || 'İsimsiz',
+          phone: reservation.userPhone || '',
+          email: reservation.userEmail || '',
           totalAppointments: 1,
-          totalSpent: appointment.totalPrice,
-          lastVisit: appointment.date,
-          firstVisit: appointment.date,
-          favoriteServices: appointment.services.map(s => s.name),
-          favoriteStaff: [appointment.staffName],
+          totalSpent: price,
+          lastVisit: resDate,
+          firstVisit: resDate,
+          favoriteServices: services.map((s: any) => s.name),
+          favoriteStaff: reservation.staffName ? [reservation.staffName] : [],
           notes: '',
           tags: [],
-          loyaltyPoints: Math.floor(appointment.totalPrice / 10),
+          loyaltyPoints: Math.floor(price / 10), // Her 10 TL'ye 1 puan
           status: 'active',
         });
       } else {
         existing.totalAppointments++;
-        existing.totalSpent += appointment.totalPrice;
-        existing.loyaltyPoints += Math.floor(appointment.totalPrice / 10);
+        existing.totalSpent += price;
+        existing.loyaltyPoints += Math.floor(price / 10); // Her 10 TL'ye 1 puan ekle
 
-        if (new Date(appointment.date) > new Date(existing.lastVisit)) {
-          existing.lastVisit = appointment.date;
+        if (resDate && new Date(resDate) > new Date(existing.lastVisit)) {
+          existing.lastVisit = resDate;
         }
 
-        if (new Date(appointment.date) < new Date(existing.firstVisit)) {
-          existing.firstVisit = appointment.date;
+        if (resDate && new Date(resDate) < new Date(existing.firstVisit)) {
+          existing.firstVisit = resDate;
         }
 
         // Update favorite services
-        appointment.services.forEach(service => {
-          if (!existing.favoriteServices.includes(service.name)) {
+        services.forEach((service: any) => {
+          if (service.name && !existing.favoriteServices.includes(service.name)) {
             existing.favoriteServices.push(service.name);
           }
         });
 
         // Update favorite staff
-        if (!existing.favoriteStaff.includes(appointment.staffName)) {
-          existing.favoriteStaff.push(appointment.staffName);
+        if (reservation.staffName && !existing.favoriteStaff.includes(reservation.staffName)) {
+          existing.favoriteStaff.push(reservation.staffName);
         }
 
         // Determine VIP status
@@ -93,15 +110,20 @@ class CustomerService {
     const customers = Array.from(customerMap.values());
     
     for (const customer of customers) {
-      const customerDoc = await getDoc(doc(db, 'customers', customer.id));
+      const customerDocRef = doc(db, 'customers', `${salonId}_${customer.id}`);
+      const customerDoc = await getDoc(customerDocRef);
       if (customerDoc.exists()) {
         const data = customerDoc.data();
         customer.notes = data.notes || '';
         customer.tags = data.tags || [];
         customer.rating = data.rating;
+        customer.isBanned = data.isBanned || false;
+        customer.bannedAt = data.bannedAt;
+        customer.bannedReason = data.bannedReason;
+        customer.bannedBy = data.bannedBy;
       }
     }
-
+    
     return customers.sort((a, b) => 
       new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
     );
@@ -118,29 +140,78 @@ class CustomerService {
   /**
    * Update customer notes
    */
-  async updateCustomerNotes(customerId: string, notes: string): Promise<void> {
-    const customerRef = doc(db, 'customers', customerId);
-    await setDoc(customerRef, { notes }, { merge: true });
+  async updateCustomerNotes(customerId: string, salonId: string, notes: string): Promise<void> {
+    const customerRef = doc(db, 'customers', `${salonId}_${customerId}`);
+    await setDoc(customerRef, { notes, salonId, customerId }, { merge: true });
   }
 
   /**
    * Update customer tags
    */
-  async updateCustomerTags(customerId: string, tags: string[]): Promise<void> {
-    const customerRef = doc(db, 'customers', customerId);
-    await setDoc(customerRef, { tags }, { merge: true });
+  async updateCustomerTags(customerId: string, salonId: string, tags: string[]): Promise<void> {
+    const customerRef = doc(db, 'customers', `${salonId}_${customerId}`);
+    await setDoc(customerRef, { tags, salonId, customerId }, { merge: true });
   }
 
   /**
    * Rate customer
    */
-  async rateCustomer(customerId: string, rating: number): Promise<void> {
+  async rateCustomer(customerId: string, salonId: string, rating: number): Promise<void> {
     if (rating < 1 || rating > 5) {
       throw new Error('Rating must be between 1 and 5');
     }
 
-    const customerRef = doc(db, 'customers', customerId);
-    await setDoc(customerRef, { rating }, { merge: true });
+    const customerRef = doc(db, 'customers', `${salonId}_${customerId}`);
+    await setDoc(customerRef, { rating, salonId, customerId }, { merge: true });
+  }
+
+  /**
+   * Ban customer from salon
+   */
+  async banCustomer(
+    customerId: string, 
+    salonId: string, 
+    reason: string, 
+    bannedBy: string
+  ): Promise<void> {
+    const customerRef = doc(db, 'customers', `${salonId}_${customerId}`);
+    await setDoc(customerRef, {
+      isBanned: true,
+      bannedAt: new Date().toISOString(),
+      bannedReason: reason,
+      bannedBy,
+      salonId,
+      customerId
+    }, { merge: true });
+  }
+
+  /**
+   * Unban customer
+   */
+  async unbanCustomer(customerId: string, salonId: string): Promise<void> {
+    const customerRef = doc(db, 'customers', `${salonId}_${customerId}`);
+    await setDoc(customerRef, {
+      isBanned: false,
+      bannedAt: null,
+      bannedReason: null,
+      bannedBy: null,
+      salonId,
+      customerId
+    }, { merge: true });
+  }
+
+  /**
+   * Check if customer is banned
+   */
+  async isCustomerBanned(customerId: string, salonId: string): Promise<boolean> {
+    const customerRef = doc(db, 'customers', `${salonId}_${customerId}`);
+    const customerDoc = await getDoc(customerRef);
+    
+    if (customerDoc.exists()) {
+      return customerDoc.data().isBanned || false;
+    }
+    
+    return false;
   }
 
   /**

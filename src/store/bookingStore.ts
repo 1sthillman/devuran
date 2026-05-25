@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Service, Salon } from '@/types';
 import { reservationService } from '@/services/reservationService';
 import { useAuthStore } from './authStore';
@@ -105,7 +106,9 @@ const getBookingType = (category: string): 'slot' | 'daily' | 'nightly' | 'proje
   return 'slot'; // Varsayılan
 };
 
-export const useBookingStore = create<BookingState>((set, get) => ({
+export const useBookingStore = create<BookingState>()(
+  persist(
+    (set, get) => ({
   // Ortak alanlar
   salonId: null,
   salon: null,
@@ -159,17 +162,22 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   error: null,
 
   addService: (service) => {
-    const services = [...get().selectedServices, service];
-    set({ selectedServices: services, ...calculateTotals(services) });
+    const currentServices = get().selectedServices;
+    const services = [...currentServices, service];
+    const totals = calculateTotals(services);
+    set({ selectedServices: services, ...totals });
   },
 
   removeService: (serviceId) => {
-    const services = get().selectedServices.filter((s) => s.id !== serviceId);
-    set({ selectedServices: services, ...calculateTotals(services) });
+    const currentServices = get().selectedServices;
+    const services = currentServices.filter((s) => s.id !== serviceId);
+    const totals = calculateTotals(services);
+    set({ selectedServices: services, ...totals });
   },
 
   toggleService: (service) => {
-    const exists = get().selectedServices.find((s) => s.id === service.id);
+    const currentServices = get().selectedServices;
+    const exists = currentServices.find((s) => s.id === service.id);
     if (exists) {
       get().removeService(service.id);
     } else {
@@ -303,8 +311,9 @@ export const useBookingStore = create<BookingState>((set, get) => ({
             duration: s.duration,
             price: s.price
           })),
-          location: state.location,
-          address: state.address,
+          businessCategory: state.salon?.category, // Otomatik onay için kategori bilgisi
+          ...(state.location && { location: state.location }),
+          ...(state.address && { address: state.address }),
         };
       } else if (state.bookingType === 'nightly') {
         // Fiyat hesapla
@@ -402,4 +411,36 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       throw error;
     }
   },
-}));
+}),
+    {
+      name: 'booking-progress',
+      partialize: (state) => ({
+        // Sadece wizard progress'i kaydet, salon bilgilerini kaydetme
+        salonId: state.salonId,
+        bookingType: state.bookingType,
+        selectedServices: state.selectedServices,
+        selectedStaffId: state.selectedStaffId,
+        selectedDate: state.selectedDate,
+        selectedTime: state.selectedTime,
+        customerName: state.customerName,
+        customerPhone: state.customerPhone,
+        customerEmail: state.customerEmail,
+        customerNotes: state.customerNotes,
+        step: state.step,
+        totalPrice: state.totalPrice,
+        totalDuration: state.totalDuration,
+        // Diğer booking type'lar için
+        eventDate: state.eventDate,
+        eventType: state.eventType,
+        capacity: state.capacity,
+        checkIn: state.checkIn,
+        checkOut: state.checkOut,
+        guests: state.guests,
+        deliveryDate: state.deliveryDate,
+        deliveryTime: state.deliveryTime,
+        deliveryAddress: state.deliveryAddress,
+        orderItems: state.orderItems,
+      }),
+    }
+  )
+);

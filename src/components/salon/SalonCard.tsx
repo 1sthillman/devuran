@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { memo } from 'react';
 import { useThemeStore } from '@/store/themeStore';
 import type { Salon } from '@/types';
 
@@ -9,7 +9,7 @@ interface SalonCardProps {
   index?: number;
 }
 
-export function SalonCard({ salon, index = 0 }: SalonCardProps) {
+export const SalonCard = memo(function SalonCard({ salon, index = 0 }: SalonCardProps) {
   const navigate = useNavigate();
   const { actualTheme } = useThemeStore();
 
@@ -28,26 +28,22 @@ export function SalonCard({ salon, index = 0 }: SalonCardProps) {
     : '/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
+    <div
+      onClick={handleClick}
+      className="relative overflow-hidden obsidian-card obsidian-card-hover cursor-pointer group"
     >
-      <div
-        onClick={handleClick}
-        className="relative overflow-hidden obsidian-card obsidian-card-hover cursor-pointer group"
-      >
-        {/* Animated Background */}
-        <div className="absolute inset-0 opacity-[0.15] pointer-events-none">
-          <img
-            src={backgroundGif}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-            style={{
-              imageRendering: 'auto',
-              willChange: 'auto',
-            }}
+      {/* Animated Background */}
+      <div className="absolute inset-0 opacity-[0.15] pointer-events-none">
+        <img
+          src={backgroundGif}
+          alt=""
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          style={{
+            imageRendering: 'auto',
+            willChange: 'auto',
+          }}
           />
         </div>
 
@@ -62,6 +58,7 @@ export function SalonCard({ salon, index = 0 }: SalonCardProps) {
               <img
                 src={salon.coverImage}
                 loading="lazy"
+                decoding="async"
                 alt={salon.name}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
@@ -120,7 +117,6 @@ export function SalonCard({ salon, index = 0 }: SalonCardProps) {
           </div>
         </div>
       </div>
-    </motion.div>
   );
-}
+});
 

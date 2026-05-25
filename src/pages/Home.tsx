@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { SalonCard } from '@/components/salon/SalonCard';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
-import { Search, Navigation, SlidersHorizontal, MapPin, Calendar, Home as HomeIcon, CalendarDays, LayoutGrid, User, X, DollarSign, Coins, Banknote, Gem } from 'lucide-react';
+import { Search, Navigation, SlidersHorizontal, MapPin, Calendar, Home as HomeIcon, CalendarDays, LayoutGrid, User, X, DollarSign, Coins, Banknote, Gem, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { salonsService, servicesService } from '@/services/firebaseService';
 import { useAuthStore } from '@/store/authStore';
@@ -220,14 +220,15 @@ export function Home() {
                       className="flex-1 bg-transparent border-none outline-none text-sm text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body"
                     />
                     
-                    {/* Filter Button */}
-                    <button
+                    {/* Modern Filter Button */}
+                    <motion.button
                       onClick={() => setShowFilters(!showFilters)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold whitespace-nowrap hover:shadow-lg hover:shadow-purple-500/25 transition-all active:scale-95"
+                      whileTap={{ scale: 0.95 }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white text-xs font-bold whitespace-nowrap hover:shadow-xl hover:shadow-purple-500/40 transition-all hover:scale-105"
                     >
-                      <SlidersHorizontal size={14} />
-                      <span className="hidden sm:inline">Filtre</span>
-                    </button>
+                      <SlidersHorizontal size={16} strokeWidth={2.5} />
+                      <span className="hidden sm:inline">Filtrele</span>
+                    </motion.button>
                   </div>
                 </div>
               </div>
@@ -383,124 +384,239 @@ export function Home() {
         </div>
       </section>
 
-      {/* Filter Panel */}
+      {/* Ultra Modern Filter Panel - Opens from current position */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-xl"
             onClick={() => setShowFilters(false)}
           >
             <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="absolute bottom-0 left-0 right-0 bg-[var(--void)] rounded-t-3xl border-t border-white/10 max-h-[80vh] overflow-y-auto"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               onClick={(e) => e.stopPropagation()}
+              className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-4xl sm:my-auto h-[85vh] sm:h-auto sm:max-h-[90vh] bg-gradient-to-b from-white/95 to-white/98 dark:from-slate-900/95 dark:to-slate-900/98 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl border-t border-white/20 dark:border-white/10 sm:border shadow-2xl flex flex-col overflow-hidden will-change-transform"
             >
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-display font-bold text-xl text-[var(--chrome-white)]">
-                    Filtrele
-                  </h3>
-                  <button
-                    onClick={() => setShowFilters(false)}
-                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all"
-                  >
-                    <X size={20} className="text-[var(--muted-lead)]" />
-                  </button>
-                </div>
+              {/* Drag Handle */}
+              <div className="flex justify-center pt-4 pb-2 flex-shrink-0">
+                <div className="w-12 h-1.5 rounded-full bg-gray-300/60 dark:bg-gray-600/60" />
+              </div>
 
+              {/* Sticky Header */}
+              <div className="sticky top-0 bg-gradient-to-b from-white/95 to-white/90 dark:from-slate-900/95 dark:to-slate-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10 px-6 py-4 z-10 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-heading font-bold text-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
+                      Filtreler
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 font-medium">
+                      {filteredSalons.length} işletme bulundu
+                    </p>
+                  </div>
+                  <motion.button
+                    onClick={() => setShowFilters(false)}
+                    whileTap={{ scale: 0.9 }}
+                    className="w-11 h-11 rounded-full bg-gray-100/80 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center transition-all"
+                  >
+                    <X size={20} className="text-gray-600 dark:text-gray-300" />
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-6 pb-6" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {/* Price Range */}
                 <div className="mb-6">
-                  <label className="block font-heading font-semibold text-sm text-[var(--chrome-white)] mb-3">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                     Fiyat Aralığı
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {[
-                      { id: 'all', label: 'Tümü', IconComponent: DollarSign },
-                      { id: 'budget', label: 'Ekonomik', IconComponent: Coins, desc: '< 100₺' },
-                      { id: 'mid', label: 'Orta', IconComponent: Banknote, desc: '100-300₺' },
-                      { id: 'premium', label: 'Premium', IconComponent: Gem, desc: '> 300₺' },
+                      { id: 'all', label: 'Tümü' },
+                      { id: 'budget', label: 'Ekonomik', desc: '< 100₺' },
+                      { id: 'mid', label: 'Orta', desc: '100-300₺' },
+                      { id: 'premium', label: 'Premium', desc: '> 300₺' },
                     ].map((range) => {
-                      const Icon = range.IconComponent;
+                      const isSelected = selectedPriceRange === range.id;
                       return (
-                      <button
-                        key={range.id}
-                        onClick={() => setSelectedPriceRange(range.id as any)}
-                        className={cn(
-                          "p-3 rounded-2xl border-2 transition-all text-left",
-                          selectedPriceRange === range.id
-                            ? "border-purple-500 bg-purple-500/10"
-                            : "border-white/5 bg-white/[0.02] hover:border-white/10"
-                        )}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Icon size={18} className="text-[var(--liquid-chrome)]" strokeWidth={2} />
-                          <span className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
-                            {range.label}
-                          </span>
-                        </div>
-                        {range.desc && (
-                          <p className="text-xs text-[var(--muted-lead)] ml-7">{range.desc}</p>
-                        )}
-                      </button>
-                    );
+                        <motion.button
+                          key={range.id}
+                          onClick={() => setSelectedPriceRange(range.id as any)}
+                          whileTap={{ scale: 0.97 }}
+                          className={cn(
+                            "relative p-4 rounded-3xl text-left transition-all duration-300 overflow-hidden",
+                            isSelected
+                              ? "bg-gradient-to-br from-purple-500 via-pink-500 to-purple-600 text-white shadow-lg shadow-purple-500/30"
+                              : "bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-gray-200/50 dark:border-white/10"
+                          )}
+                        >
+                          {isSelected && (
+                            <motion.div
+                              layoutId="priceSelection"
+                              className="absolute inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-purple-600"
+                              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                            />
+                          )}
+                          <div className="relative z-10">
+                            <div className={cn(
+                              "font-semibold text-sm mb-0.5",
+                              isSelected ? "text-white" : "text-gray-900 dark:text-white"
+                            )}>
+                              {range.label}
+                            </div>
+                            {range.desc && (
+                              <div className={cn(
+                                "text-xs font-medium",
+                                isSelected ? "text-white/90" : "text-gray-500 dark:text-gray-400"
+                              )}>
+                                {range.desc}
+                              </div>
+                            )}
+                          </div>
+                        </motion.button>
+                      );
                     })}
                   </div>
                 </div>
 
                 {/* Rating */}
                 <div className="mb-6">
-                  <label className="block font-heading font-semibold text-sm text-[var(--chrome-white)] mb-3">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                     Minimum Puan
                   </label>
-                  <div className="flex gap-2">
-                    {[0, 3, 4, 4.5].map((rating) => (
-                      <button
-                        key={rating}
-                        onClick={() => setSelectedRating(rating)}
-                        className={cn(
-                          "flex-1 px-4 py-3 rounded-2xl border-2 transition-all",
-                          selectedRating === rating
-                            ? "border-purple-500 bg-purple-500/10"
-                            : "border-white/5 bg-white/[0.02] hover:border-white/10"
-                        )}
-                      >
-                        <div className="text-center">
-                          <div className="text-lg mb-1">
-                            {rating === 0 ? '⭐' : '⭐'.repeat(Math.floor(rating))}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { rating: 0, label: 'Tümü' },
+                      { rating: 3, label: '3+' },
+                      { rating: 4, label: '4+' },
+                      { rating: 4.5, label: '4.5+' }
+                    ].map((item) => {
+                      const isSelected = selectedRating === item.rating;
+                      return (
+                        <motion.button
+                          key={item.rating}
+                          onClick={() => setSelectedRating(item.rating)}
+                          whileTap={{ scale: 0.95 }}
+                          className={cn(
+                            "relative py-3.5 px-2 rounded-full text-sm font-semibold transition-all duration-300 overflow-hidden",
+                            isSelected
+                              ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30"
+                              : "bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-white/10"
+                          )}
+                        >
+                          {isSelected && (
+                            <motion.div
+                              layoutId="ratingSelection"
+                              className="absolute inset-0 bg-gradient-to-br from-amber-400 to-orange-500"
+                              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                            />
+                          )}
+                          <div className="relative z-10">
+                            {item.label}
                           </div>
-                          <span className="text-xs font-heading font-semibold text-[var(--chrome-white)]">
-                            {rating === 0 ? 'Tümü' : `${rating}+`}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Actions */}
+                {/* Category - Icon Based */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                    Kategori
+                  </label>
+                  <div className="grid grid-cols-4 gap-2.5">
+                    <motion.button
+                      onClick={() => {
+                        setActiveGroup('all');
+                        setActiveCategory('all');
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      className={cn(
+                        "relative aspect-square rounded-3xl transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-1.5 p-3",
+                        activeGroup === 'all'
+                          ? "bg-gradient-to-br from-slate-600 to-slate-700 text-white shadow-lg shadow-slate-500/30"
+                          : "bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-white/10"
+                      )}
+                    >
+                      {activeGroup === 'all' && (
+                        <motion.div
+                          layoutId="categorySelection"
+                          className="absolute inset-0 bg-gradient-to-br from-slate-600 to-slate-700"
+                          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                        />
+                      )}
+                      <div className="relative z-10 flex flex-col items-center justify-center gap-1">
+                        <Sparkles size={24} strokeWidth={2} />
+                        <span className="text-[10px] font-semibold">Tümü</span>
+                      </div>
+                    </motion.button>
+                    
+                    {categoryGroups.map((group) => {
+                      const isActive = activeGroup === group.id;
+                      const IconComponent = group.icon;
+                      return (
+                        <motion.button
+                          key={group.id}
+                          onClick={() => {
+                            setActiveGroup(group.id);
+                            setActiveCategory('all');
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          className={cn(
+                            "relative aspect-square rounded-3xl transition-all duration-300 overflow-hidden flex flex-col items-center justify-center gap-1.5 p-3",
+                            isActive
+                              ? `bg-gradient-to-br ${group.color} text-white shadow-lg`
+                              : "bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-white/10"
+                          )}
+                          style={isActive ? { boxShadow: `0 10px 25px -5px ${group.color.split(' ')[1].replace('to-', '').replace('-500', '')}33` } : {}}
+                        >
+                          {isActive && (
+                            <motion.div
+                              layoutId="categorySelection"
+                              className={`absolute inset-0 bg-gradient-to-br ${group.color}`}
+                              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                            />
+                          )}
+                          <div className="relative z-10 flex flex-col items-center justify-center gap-1">
+                            <IconComponent size={24} strokeWidth={2} />
+                            <span className="text-[10px] font-semibold text-center leading-tight">{group.name.split('&')[0].trim()}</span>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sticky Actions Footer */}
+              <div className="sticky bottom-0 bg-gradient-to-t from-white/95 to-white/90 dark:from-slate-900/95 dark:to-slate-900/90 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/10 px-6 py-4 flex-shrink-0">
                 <div className="flex gap-3">
-                  <button
+                  <motion.button
                     onClick={() => {
                       setSelectedPriceRange('all');
                       setSelectedRating(0);
+                      setActiveGroup('all');
+                      setActiveCategory('all');
                     }}
-                    className="flex-1 h-12 rounded-full bg-white/5 hover:bg-white/10 text-[var(--chrome-white)] font-heading font-semibold transition-all"
+                    whileTap={{ scale: 0.97 }}
+                    className="flex-1 h-12 rounded-full bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-gray-200/50 dark:border-white/10 text-gray-700 dark:text-gray-300 font-semibold text-sm transition-all"
                   >
                     Temizle
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     onClick={() => setShowFilters(false)}
-                    className="flex-1 h-12 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-heading font-bold transition-all hover:shadow-lg hover:shadow-purple-500/25"
+                    whileTap={{ scale: 0.97 }}
+                    className="flex-[2] h-12 rounded-full bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 hover:from-purple-700 hover:via-pink-700 hover:to-purple-700 text-white font-semibold text-sm shadow-lg shadow-purple-500/30 transition-all"
                   >
-                    Uygula
-                  </button>
+                    {filteredSalons.length} Sonuç Göster
+                  </motion.button>
                 </div>
               </div>
             </motion.div>

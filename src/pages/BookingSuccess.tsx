@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CheckCircle2, Calendar, Clock, MapPin, Phone, Mail, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Calendar, Clock, MapPin, Phone, Mail, ArrowRight, Sparkles, Home } from 'lucide-react';
 import { reservationService } from '@/services/reservationService';
 import { salonsService } from '@/services/firebaseService';
 import { PaymentInformation } from '@/components/booking/PaymentInformation';
 import type { Reservation, Salon } from '@/types';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 export function BookingSuccess() {
   const { reservationId } = useParams();
@@ -39,7 +40,7 @@ export function BookingSuccess() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--void)] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-white/10 border-t-white/60 rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -47,16 +48,25 @@ export function BookingSuccess() {
   if (!reservation) {
     return (
       <div className="min-h-screen bg-[var(--void)] flex items-center justify-center p-4">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-[var(--chrome-white)] mb-2">
-            Rezervasyon Bulunamadı
-          </h2>
-          <p className="text-[var(--muted-lead)] mb-6">
-            İstediğiniz rezervasyon mevcut değil.
-          </p>
-          <Link to="/" className="chromatic-btn inline-flex items-center gap-2">
-            Anasayfaya Dön
-          </Link>
+        <div className="max-w-md w-full text-center">
+          <div className="p-8 rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl">
+            <div className="w-20 h-20 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">❌</span>
+            </div>
+            <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-2">
+              Rezervasyon Bulunamadı
+            </h2>
+            <p className="text-[var(--muted-lead)] mb-6">
+              İstediğiniz rezervasyon mevcut değil.
+            </p>
+            <Link 
+              to="/" 
+              className="inline-flex items-center gap-2 h-12 px-6 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-white font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+            >
+              <Home size={18} />
+              Anasayfaya Dön
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -115,59 +125,67 @@ export function BookingSuccess() {
   const info = getReservationDetails();
 
   return (
-    <div className="min-h-screen bg-[var(--void)] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--void)] flex items-center justify-center p-4 py-12">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="max-w-2xl w-full"
+        className="max-w-lg w-full"
       >
-        <div className="obsidian-card p-8 text-center">
-          {/* Success Icon */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="w-24 h-24 rounded-full bg-[var(--success)]/10 flex items-center justify-center mx-auto mb-6"
-          >
-            <CheckCircle2 size={48} className="text-[var(--success)]" />
-          </motion.div>
+        {/* Success Icon with Gradient Background */}
+        <motion.div
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+          className="relative mb-6"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full blur-3xl opacity-30 animate-pulse" />
+          <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/50">
+            <CheckCircle2 size={48} className="text-white" strokeWidth={2.5} />
+          </div>
+        </motion.div>
 
-          {/* Title */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <h1 className="font-display font-bold text-3xl text-[var(--chrome-white)] mb-2">
+        {/* Main Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl p-6"
+        >
+          {/* Shimmer Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer pointer-events-none" />
+          
+          {/* Header */}
+          <div className="relative z-10 text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 mb-3">
+              <Sparkles size={16} className="text-emerald-400" />
+              <span className="text-sm font-semibold text-emerald-300">Başarılı</span>
+            </div>
+            <h1 className="font-display font-bold text-2xl bg-gradient-to-r from-white via-emerald-200 to-white bg-clip-text text-transparent mb-2">
               {info.title}
             </h1>
-            <p className="text-[var(--muted-lead)] mb-8">
-              Rezervasyon No: <span className="font-mono text-[var(--liquid-chrome)]">#{reservation.id.slice(0, 8).toUpperCase()}</span>
+            <p className="text-sm text-[var(--muted-lead)]">
+              Rezervasyon No: <span className="font-mono text-emerald-400 font-semibold">#{reservation.id.slice(0, 8).toUpperCase()}</span>
             </p>
-          </motion.div>
+          </div>
 
-          {/* Details */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-[var(--slate-surface)] rounded-2xl p-6 mb-6 text-left"
-          >
-            <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)] mb-4">
+          {/* Details Card */}
+          <div className="relative z-10 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 mb-4">
+            <h3 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-4 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500" />
               Rezervasyon Detayları
             </h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--muted-lead)]">İşletme</span>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03]">
+                <span className="text-sm text-[var(--muted-lead)]">İşletme</span>
                 <span className="font-heading font-semibold text-[var(--chrome-white)]">
                   {reservation.businessName}
                 </span>
               </div>
               {info.details.map((detail, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-[var(--muted-lead)]">
-                    <detail.icon size={16} />
+                <div key={index} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03]">
+                  <span className="flex items-center gap-2 text-sm text-[var(--muted-lead)]">
+                    <detail.icon size={16} className="text-purple-400" />
                     {detail.label}
                   </span>
                   <span className="font-heading font-semibold text-[var(--chrome-white)]">
@@ -175,54 +193,53 @@ export function BookingSuccess() {
                   </span>
                 </div>
               ))}
-              <div className="border-t border-[var(--obsidian-rim)] pt-3 mt-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-heading font-semibold text-[var(--chrome-white)]">Toplam Tutar</span>
-                  <span className="font-mono text-2xl font-bold text-[var(--liquid-chrome)]">
-                    {reservation.pricing?.totalAmount ? reservation.pricing.totalAmount.toLocaleString('tr-TR') : '0'} ₺
-                  </span>
-                </div>
-              </div>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 mb-6"
-          >
-            <p className="text-sm text-blue-400 font-heading font-medium">
-              {reservation.status === 'pending' && 'Rezervasyonunuz işletme tarafından onaylanacaktır'}
-              {reservation.status === 'confirmed' && 'Rezervasyonunuz onaylandı'}
+          {/* Total Amount */}
+          <div className="relative z-10 rounded-2xl p-5 mb-4 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-fuchsia-500/10 border border-purple-500/20">
+            <div className="flex items-center justify-between">
+              <span className="font-heading font-semibold text-[var(--chrome-white)]">Toplam Tutar</span>
+              <span className="font-mono text-2xl font-bold bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                {reservation.pricing?.totalAmount ? reservation.pricing.totalAmount.toLocaleString('tr-TR') : '0'} ₺
+              </span>
+            </div>
+          </div>
+
+          {/* Status Badge */}
+          <div className={cn(
+            "relative z-10 rounded-2xl p-4 mb-6 border",
+            reservation.status === 'confirmed' 
+              ? "bg-emerald-500/10 border-emerald-500/30"
+              : "bg-blue-500/10 border-blue-500/30"
+          )}>
+            <p className={cn(
+              "text-sm font-heading font-medium text-center",
+              reservation.status === 'confirmed' ? "text-emerald-400" : "text-blue-400"
+            )}>
+              {reservation.status === 'pending' && '✨ Rezervasyonunuz işletme tarafından onaylanacaktır'}
+              {reservation.status === 'confirmed' && '✅ Rezervasyonunuz onaylandı'}
             </p>
-          </motion.div>
+          </div>
 
-          {/* Payment Information - Removed */}
-
-          {/* Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex flex-col sm:flex-row gap-3"
-          >
-            <Link
-              to="/appointments"
-              className="flex-1 h-12 rounded-full bg-[var(--liquid-chrome)] hover:bg-[var(--liquid-chrome)]/90 text-[var(--void)] font-heading font-bold transition-all flex items-center justify-center gap-2"
+          {/* Action Buttons */}
+          <div className="relative z-10 flex flex-col gap-3">
+            <button
+              onClick={() => navigate('/appointments')}
+              className="h-12 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-white font-heading font-bold transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               Rezervasyonlarım
               <ArrowRight size={18} />
-            </Link>
-            <Link
-              to="/"
-              className="flex-1 h-12 rounded-full bg-white/5 hover:bg-white/10 text-[var(--chrome-white)] font-heading font-semibold transition-all flex items-center justify-center"
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="h-12 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 text-[var(--chrome-white)] font-heading font-semibold transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
             >
+              <Home size={18} />
               Anasayfa
-            </Link>
-          </motion.div>
-        </div>
+            </button>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );

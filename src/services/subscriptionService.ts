@@ -1,0 +1,598 @@
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit as firestoreLimit,
+  Timestamp,
+} from 'firebase/firestore';
+import type {
+  BusinessSubscription,
+  SubscriptionHistory,
+  SubscriptionPlanType,
+  SubscriptionInterval,
+  SubscriptionStatus,
+  FeatureAccess,
+  PlanFeatures,
+} from '@/types/subscription';
+import { SUBSCRIPTION_PLANS, TRIAL_PERIOD_DAYS } from '@/config/subscriptionPlans';
+
+class SubscriptionService {
+  private subscriptionsCollection = 'subscriptions';
+  private historyCollection = 'subscriptionHistory';
+
+  /**
+   * Yeni işletme için trial abonelik oluştur
+   * NOT: Bir işletme sadece 1 kez trial alabilir
+   */
+  async createTrialSubscription(businessId: string, businessName: string): Promise<BusinessSubscription> {
+    // ✅ GÜVENLİK: Daha önce trial kullanılmış mı kontrol et
+    // Artık ID = businessId olduğu için, dokümanın varlığını kontrol etmek yeterli
+    const existingDoc = await getDoc(doc(db, this.subscriptionsCollection, businessId));
+    
+    if (existingDoc.exists() && existingDoc.data()?.status === 'trial') {
+      throw new Error('Bu işletme için trial abonelik zaten kullanılmış');
+    }
+
+    const now = new Date();
+    const trialEndDate = new Date(now);
+    trialEndDate.setDate(trialEndDate.getDate() + TRIAL_PERIOD_DAYS); // GÜN bazlı ekleme (trial için uygun)
+
+    const subscription: BusinessSubscription = {
+      id: businessId, // ✅ DÜZELTME: ID = businessId
+      businessId,
+      businessName,
+      planType: 'professional', // Trial'da Professional özellikleri ver
+      interval: 'monthly',
+      status: 'trial',
+      startDate: now.toISOString(),
+      endDate: trialEndDate.toISOString(),
+      trialEndDate: trialEndDate.toISOString(),
+      price: 0,
+      currency: 'TRY',
+      usage: {
+        staffCount: 0,
+        serviceCount: 0,
+        monthlyBookings: 0,
+        lastUpdated: now.toISOString(),
+      },
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    await setDoc(doc(db, this.subscriptionsCollection, subscription.id), subscription);
+
+    // Geçmiş kaydı oluştur
+    await this.addHistory(businessId, subscription.id, 'created', undefined, 'professional', 0, `${TRIAL_PERIOD_DAYS} günlük trial başlatıldı`);
+
+    return subscription;
+  }
+
+  /**
+   * İşletmenin aboneliğini getir
+   * NOT: Index hazır olana kadar client-side sıralama kullanılıyor
+   */
+  async getBusinessSubscription(businessId: string): Promise<BusinessSubscription | null> {
+    try {
+      // ✅ DÜZELTME: Artık ID = businessId olduğu için direkt getDoc kullanıyoruz
+      const docRef = doc(db, this.subscriptionsCollection, businessId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) return null;
+      
+      return docSnap.data() as BusinessSubscription;
+    } catch (error: any) {
+      console.error('Error getting business subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Abonelik durumunu kontrol et ve güncelle
+   */
+  async checkAndUpdateSubscriptionStatus(businessId: string): Promise<SubscriptionStatus> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    if (!subscription) return 'expired';
+
+    const now = new Date();
+    const endDate = new Date(subscription.endDate);
+
+    // Süre dolmuşsa
+    if (now > endDate) {
+      if (subscription.status !== 'expired') {
+        await this.updateSubscriptionStatus(subscription.id, 'expired');
+        await this.addHistory(businessId, subscription.id, 'expired', subscription.planType, subscription.planType, 0, 'Abonelik süresi doldu');
+      }
+      return 'expired';
+    }
+
+    return subscription.status;
+  }
+
+  /**
+   * Abonelik satın al veya yenile
+   * NOT: TÜM abonelik işlemleri 'pending' durumunda başlar ve admin onayı gerektirir
+   * Yenileme yapılırsa mevcut sürenin üzerine eklenir (onaylandıktan sonra)
+   * 
+   * ⚠️ GÜVENLİK UYARISI: Bu fonksiyon CLIENT-SIDE çalışır
+   * Production'da Firebase Functions ile backend'e taşınmalı
+   * Ödeme entegrasyonu (Stripe/Iyzico) eklenmelidir
+   */
+  async purchaseSubscription(
+    businessId: string,
+    businessName: string,
+    planType: SubscriptionPlanType,
+    interval: SubscriptionInterval,
+    customPrice?: number
+  ): Promise<BusinessSubscription> {
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planType);
+    if (!plan) throw new Error('Geçersiz plan');
+
+    // ✅ GÜVENLİK: Custom price kontrolü
+    if (customPrice !== undefined) {
+      // Custom price sadece admin verebilmeli (şimdilik client-side kontrol)
+      // TODO: Backend'de admin kontrolü yapılmalı
+      if (customPrice < 0 || customPrice > 1000000) {
+        throw new Error('Geçersiz özel fiyat');
+      }
+    }
+
+    const currentSubscription = await this.getBusinessSubscription(businessId);
+    const now = new Date();
+    
+    // Fiyat hesapla
+    let price = customPrice !== undefined ? customPrice : plan.pricing[interval];
+    
+    // Başlangıç ve bitiş tarihleri hesapla
+    let startDate: Date;
+    let endDate: Date;
+    
+    // Eğer mevcut aktif abonelik varsa ve süresi dolmamışsa, üzerine ekle
+    if (currentSubscription && currentSubscription.status === 'active') {
+      const currentEndDate = new Date(currentSubscription.endDate);
+      const isExpired = now > currentEndDate;
+      
+      if (!isExpired) {
+        // Mevcut sürenin üzerine ekle
+        startDate = currentEndDate;
+        endDate = new Date(currentEndDate);
+      } else {
+        // Süresi dolmuşsa bugünden başlat
+        startDate = now;
+        endDate = new Date(now);
+      }
+    } else {
+      // Yeni abonelik veya süresi dolmuş - bugünden başlat
+      startDate = now;
+      endDate = new Date(now);
+    }
+    
+    // Periyoda göre süre ekle (AY/YIL bazlı hesaplama - DOĞRU)
+    switch (interval) {
+      case 'monthly':
+        endDate.setMonth(endDate.getMonth() + 1); // 1 ay
+        break;
+      case 'quarterly':
+        endDate.setMonth(endDate.getMonth() + 3); // 3 ay
+        break;
+      case 'semi-annual':
+        endDate.setMonth(endDate.getMonth() + 6); // 6 ay
+        break;
+      case 'annual':
+        endDate.setFullYear(endDate.getFullYear() + 1); // 1 yıl
+        break;
+    }
+
+    // ⚠️ TÜM ABONELIKLER PENDING DURUMUNDA BAŞLAR (Admin onayı gerekir)
+    const status: SubscriptionStatus = 'pending';
+
+    const subscription: BusinessSubscription = {
+      id: businessId, // ✅ DÜZELTME: ID = businessId (her business'in 1 subscription'ı var)
+      businessId,
+      businessName,
+      planType,
+      interval,
+      status,
+      startDate: currentSubscription?.startDate || startDate.toISOString(), // İlk başlangıç tarihini koru
+      endDate: endDate.toISOString(),
+      price,
+      currency: 'TRY',
+      ...(customPrice !== undefined && { customPrice }), // Sadece tanımlıysa ekle
+      lastPaymentDate: now.toISOString(),
+      lastPaymentAmount: price,
+      nextPaymentDate: endDate.toISOString(),
+      usage: currentSubscription?.usage || {
+        staffCount: 0,
+        serviceCount: 0,
+        monthlyBookings: 0,
+        lastUpdated: now.toISOString(),
+      },
+      createdAt: currentSubscription?.createdAt || now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    console.log('Creating subscription document:', {
+      id: subscription.id,
+      businessId: subscription.businessId,
+      status: subscription.status,
+      planType: subscription.planType
+    });
+
+    try {
+      await setDoc(doc(db, this.subscriptionsCollection, subscription.id), subscription);
+      console.log('Subscription document created successfully');
+    } catch (error) {
+      console.error('Error creating subscription document:', error);
+      throw error;
+    }
+
+    // Geçmiş kaydı
+    const action = currentSubscription ? 'renewed' : 'created';
+    const daysAdded = interval === 'monthly' ? 30 : interval === 'quarterly' ? 90 : interval === 'semi-annual' ? 180 : 365;
+    const historyNote = currentSubscription 
+      ? `${plan.name} planı yenileme talebi oluşturuldu (+${daysAdded} gün eklenecek) - Admin onayı bekleniyor`
+      : `${plan.name} planı satın alma talebi oluşturuldu - Admin onayı bekleniyor`;
+    
+    await this.addHistory(
+      businessId,
+      subscription.id,
+      action,
+      currentSubscription?.planType,
+      planType,
+      price,
+      historyNote
+    );
+
+    return subscription;
+  }
+
+  /**
+   * Plan yükselt/düşür
+   * NOT: Plan değişikliği için admin onayı gerekir
+   * Onaylanana kadar eski plan devam eder
+   */
+  async changePlan(
+    businessId: string,
+    newPlanType: SubscriptionPlanType,
+    customPrice?: number
+  ): Promise<BusinessSubscription> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    if (!subscription) throw new Error('Abonelik bulunamadı');
+
+    const newPlan = SUBSCRIPTION_PLANS.find(p => p.id === newPlanType);
+    if (!newPlan) throw new Error('Geçersiz plan');
+
+    const oldPlanType = subscription.planType;
+    const price = customPrice || newPlan.pricing[subscription.interval];
+
+    // ⚠️ Plan değişikliği talebi oluştur (pending durumunda)
+    // Gerçek değişiklik admin onayından sonra olacak
+    const changeRequest = {
+      requestedPlanType: newPlanType,
+      requestedPrice: price,
+      requestedAt: new Date().toISOString(),
+      requestStatus: 'pending' as const,
+    };
+
+    // Aboneliği güncelle - sadece talep bilgisini ekle
+    const updatedSubscription: BusinessSubscription = {
+      ...subscription,
+      // Mevcut plan değişmez, sadece talep kaydedilir
+      pendingPlanChange: changeRequest,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await updateDoc(doc(db, this.subscriptionsCollection, subscription.id), {
+      pendingPlanChange: changeRequest,
+      updatedAt: updatedSubscription.updatedAt,
+    });
+
+    // Geçmiş kaydı
+    const action = this.comparePlans(oldPlanType, newPlanType) > 0 ? 'upgraded' : 'downgraded';
+    await this.addHistory(
+      businessId,
+      subscription.id,
+      action,
+      oldPlanType,
+      newPlanType,
+      price,
+      `Plan değişikliği talebi: ${oldPlanType} → ${newPlanType} (Admin onayı bekleniyor)`
+    );
+
+    return updatedSubscription;
+  }
+
+  /**
+   * Admin: Plan değişikliği talebini onayla
+   * 
+   * ⚠️ GÜVENLİK UYARISI: Bu fonksiyon CLIENT-SIDE ÇALIŞMAZ!
+   * Firebase Admin SDK kullanıyor (admin.firestore.FieldValue.delete)
+   * Production'da Firebase Functions ile backend'e taşınmalı
+   * 
+   * TODO: Cloud Functions'a taşınmalı
+   * TODO: Admin custom claims kontrolü yapılmalı
+   */
+  async approvePlanChange(businessId: string, adminEmail: string): Promise<void> {
+    // ⚠️ Bu fonksiyon şu anda kullanılmamalı - backend'e taşınmalı
+    throw new Error('Bu işlem şu anda desteklenmiyor. Lütfen admin panelinden yapın.');
+  }
+
+  /**
+   * Admin: Plan değişikliği talebini reddet
+   * 
+   * ⚠️ GÜVENLİK UYARISI: Bu fonksiyon CLIENT-SIDE ÇALIŞMAZ!
+   * Production'da Firebase Functions ile backend'e taşınmalı
+   */
+  async rejectPlanChange(businessId: string, adminEmail: string, reason: string): Promise<void> {
+    // ⚠️ Bu fonksiyon şu anda kullanılmamalı - backend'e taşınmalı
+    throw new Error('Bu işlem şu anda desteklenmiyor. Lütfen admin panelinden yapın.');
+  }
+
+  /**
+   * Aboneliği iptal et
+   */
+  async cancelSubscription(businessId: string, reason?: string): Promise<void> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    if (!subscription) throw new Error('Abonelik bulunamadı');
+
+    const now = new Date().toISOString();
+
+    await updateDoc(doc(db, this.subscriptionsCollection, subscription.id), {
+      status: 'cancelled',
+      cancelledAt: now,
+      updatedAt: now,
+    });
+
+    await this.addHistory(
+      businessId,
+      subscription.id,
+      'cancelled',
+      subscription.planType,
+      subscription.planType,
+      0,
+      reason || 'Abonelik iptal edildi'
+    );
+  }
+
+  /**
+   * Admin: Aboneliği onayla (pending -> active)
+   * 
+   * ⚠️ GÜVENLİK UYARISI: Bu fonksiyon CLIENT-SIDE ÇALIŞMAZ!
+   * Production'da Firebase Functions ile backend'e taşınmalı
+   * Admin custom claims kontrolü yapılmalı
+   */
+  async approveSubscription(businessId: string, adminEmail: string): Promise<void> {
+    // ⚠️ Bu fonksiyon şu anda kullanılmamalı - backend'e taşınmalı
+    throw new Error('Bu işlem şu anda desteklenmiyor. Lütfen admin panelinden yapın.');
+  }
+
+  /**
+   * Admin: Aboneliği reddet
+   * 
+   * ⚠️ GÜVENLİK UYARISI: Bu fonksiyon CLIENT-SIDE ÇALIŞMAZ!
+   * Production'da Firebase Functions ile backend'e taşınmalı
+   */
+  async rejectSubscription(businessId: string, adminEmail: string, reason: string): Promise<void> {
+    // ⚠️ Bu fonksiyon şu anda kullanılmamalı - backend'e taşınmalı
+    throw new Error('Bu işlem şu anda desteklenmiyor. Lütfen admin panelinden yapın.');
+  }
+
+  /**
+   * Kullanım istatistiklerini güncelle
+   */
+  async updateUsageStats(
+    businessId: string,
+    stats: { staffCount?: number; serviceCount?: number; monthlyBookings?: number }
+  ): Promise<void> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    if (!subscription) return;
+
+    const updatedUsage = {
+      ...subscription.usage,
+      ...stats,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    await updateDoc(doc(db, this.subscriptionsCollection, subscription.id), {
+      usage: updatedUsage,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Özellik erişim kontrolü
+   */
+  async checkFeatureAccess(businessId: string, feature: keyof PlanFeatures): Promise<FeatureAccess> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    
+    // Abonelik yoksa veya süresi dolmuşsa
+    if (!subscription || subscription.status === 'expired') {
+      return {
+        hasAccess: false,
+        reason: 'Aboneliğiniz bulunmuyor veya süresi dolmuş',
+        upgradeRequired: true,
+        requiredPlan: 'starter',
+      };
+    }
+
+    // Trial veya suspended durumunda
+    if (subscription.status === 'suspended') {
+      return {
+        hasAccess: false,
+        reason: 'Aboneliğiniz askıya alınmış',
+        upgradeRequired: false,
+      };
+    }
+
+    // Plan özelliklerini al
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType);
+    if (!plan) {
+      return { hasAccess: false, reason: 'Plan bulunamadı' };
+    }
+
+    // Custom features varsa öncelik ver
+    const features = subscription.customFeatures || plan.features;
+    const hasFeature = features[feature];
+
+    if (typeof hasFeature === 'boolean') {
+      return {
+        hasAccess: hasFeature,
+        reason: hasFeature ? undefined : `Bu özellik ${plan.name} planında bulunmuyor`,
+        upgradeRequired: !hasFeature,
+        requiredPlan: this.getRequiredPlanForFeature(feature),
+      };
+    }
+
+    return { hasAccess: true };
+  }
+
+  /**
+   * Limit kontrolü (personel, hizmet, randevu)
+   */
+  async checkLimit(
+    businessId: string,
+    limitType: 'staff' | 'services' | 'bookings',
+    currentCount: number
+  ): Promise<FeatureAccess> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    
+    if (!subscription || subscription.status === 'expired') {
+      return {
+        hasAccess: false,
+        reason: 'Aboneliğiniz bulunmuyor veya süresi dolmuş',
+        upgradeRequired: true,
+      };
+    }
+
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType);
+    if (!plan) return { hasAccess: false };
+
+    const features = subscription.customFeatures || plan.features;
+    
+    let limit: number | 'unlimited';
+    switch (limitType) {
+      case 'staff':
+        limit = features.maxStaff;
+        break;
+      case 'services':
+        limit = features.maxServices;
+        break;
+      case 'bookings':
+        limit = features.maxMonthlyBookings;
+        break;
+    }
+
+    if (limit === 'unlimited') {
+      return { hasAccess: true };
+    }
+
+    const hasAccess = currentCount < limit;
+    return {
+      hasAccess,
+      reason: hasAccess ? undefined : `${limitType} limiti aşıldı (${currentCount}/${limit})`,
+      upgradeRequired: !hasAccess,
+      requiredPlan: this.getNextPlan(subscription.planType),
+    };
+  }
+
+  /**
+   * Abonelik geçmişini getir
+   * NOT: Index hazır olana kadar client-side sıralama kullanılıyor
+   */
+  async getSubscriptionHistory(businessId: string): Promise<SubscriptionHistory[]> {
+    try {
+      // Önce index'li sorguyu dene
+      const q = query(
+        collection(db, this.historyCollection),
+        where('businessId', '==', businessId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as SubscriptionHistory);
+    } catch (error: any) {
+      // Index henüz hazır değilse, client-side sıralama yap
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        console.log('⏳ Index building, using client-side sorting...');
+        
+        const q = query(
+          collection(db, this.historyCollection),
+          where('businessId', '==', businessId)
+        );
+
+        const snapshot = await getDocs(q);
+        
+        // Client-side'da sırala
+        return snapshot.docs
+          .map(doc => doc.data() as SubscriptionHistory)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      }
+      throw error;
+    }
+  }
+
+  // Private helper methods
+
+  private async updateSubscriptionStatus(subscriptionId: string, status: SubscriptionStatus): Promise<void> {
+    await updateDoc(doc(db, this.subscriptionsCollection, subscriptionId), {
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  private async addHistory(
+    businessId: string,
+    subscriptionId: string,
+    action: SubscriptionHistory['action'],
+    fromPlan: SubscriptionPlanType | undefined,
+    toPlan: SubscriptionPlanType | undefined,
+    amount: number,
+    reason?: string
+  ): Promise<void> {
+    const history: any = {
+      id: doc(collection(db, this.historyCollection)).id,
+      businessId,
+      subscriptionId,
+      action,
+      amount,
+      createdAt: new Date().toISOString(),
+      createdBy: 'system',
+    };
+
+    // Sadece tanımlı alanları ekle
+    if (fromPlan !== undefined) history.fromPlan = fromPlan;
+    if (toPlan !== undefined) history.toPlan = toPlan;
+    if (reason !== undefined) history.reason = reason;
+
+    await setDoc(doc(db, this.historyCollection, history.id), history);
+  }
+
+  private comparePlans(plan1: SubscriptionPlanType, plan2: SubscriptionPlanType): number {
+    const order: SubscriptionPlanType[] = ['starter', 'professional', 'business', 'enterprise', 'custom'];
+    return order.indexOf(plan2) - order.indexOf(plan1);
+  }
+
+  private getNextPlan(currentPlan: SubscriptionPlanType): SubscriptionPlanType {
+    const order: SubscriptionPlanType[] = ['starter', 'professional', 'business', 'enterprise'];
+    const currentIndex = order.indexOf(currentPlan);
+    return order[currentIndex + 1] || 'enterprise';
+  }
+
+  private getRequiredPlanForFeature(feature: keyof PlanFeatures): SubscriptionPlanType {
+    // Her özellik için minimum gereken planı bul
+    for (const plan of SUBSCRIPTION_PLANS) {
+      if (plan.features[feature]) {
+        return plan.id;
+      }
+    }
+    return 'starter';
+  }
+}
+
+export const subscriptionService = new SubscriptionService();

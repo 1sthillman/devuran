@@ -107,7 +107,10 @@ export async function checkIfBanned(userId: string, deviceId: string): Promise<b
     
     return false;
   } catch (error) {
-    console.error('Error checking ban status:', error);
+    // Permission errors are expected for non-admin users
+    if (import.meta.env.DEV) {
+      console.warn('Ban status check failed (expected for non-admin):', error);
+    }
     return false;
   }
 }
@@ -161,12 +164,17 @@ export async function recordUserSession(
       }
       localStorage.setItem('userSessions', JSON.stringify(localSessions));
     } catch (error) {
-      console.error('Error saving to localStorage:', error);
+      if (import.meta.env.DEV) {
+        console.warn('localStorage save failed:', error);
+      }
     }
     
   } catch (error) {
-    console.error('Error recording session:', error);
-    throw error;
+    // Permission errors are expected for non-admin users
+    if (import.meta.env.DEV) {
+      console.warn('Session recording failed (expected for non-admin):', error);
+    }
+    // Don't throw - allow login to continue
   }
 }
 

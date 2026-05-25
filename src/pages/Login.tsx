@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 
 export function Login() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +24,18 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string })?.from || '/';
+
+  // Show loading during auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--liquid-chrome)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-body text-[var(--muted-lead)]">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Giriş yapmış kullanıcıyı anasayfaya yönlendir
   if (isAuthenticated) {

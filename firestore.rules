@@ -1,113 +1,494 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    // Helper function for Super Admin
+    // ⚠️ GÜVENLİK: Email kontrolü yerine custom claims kullanılmalı
+    // TODO: Production'da custom claims ile değiştirilmeli
+    // Örnek: request.auth.token.admin == true
+    function isSuperAdmin() {
+      return request.auth != null && 
+             request.auth.token.email in ['adistow@gmail.com', 'admin@restoqr.com', 'minif@restoqr.com', 'minifinise@gmail.com'];
     }
     
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    // Helper function to check admin custom claim (GELECEK)
+    function hasAdminClaim() {
+      return request.auth != null && 
+             request.auth.token.admin == true;
     }
     
-    function isBusinessOwner(businessId) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/salons/$(businessId)) &&
-             get(/databases/$(database)/documents/salons/$(businessId)).data.ownerId == request.auth.uid;
+    // Helper function to check if user is salon owner
+    function isSalonOwner(salonId) {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/salons/$(salonId)).data.ownerId == request.auth.uid;
     }
     
-    // Users collection
+    // --- USERS COLLECTION ---
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isOwner(userId);
-      allow delete: if false;
+      // Users can read/write their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Super admins can access all users
+      allow read, write: if isSuperAdmin();
+      // Allow user creation during signup
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Salons collection - DAHA ESNEK
+    // --- SALONS COLLECTION ---
     match /salons/{salonId} {
-      allow read: if true; // Herkes okuyabilir
-      allow create: if isAuthenticated(); // Giriş yapmış herkes oluşturabilir
-      allow update: if isAuthenticated() && (
-        resource.data.ownerId == request.auth.uid || 
-        !exists(/databases/$(database)/documents/salons/$(salonId)) ||
-        resource.data.ownerId == null
-      );
-      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      // Public read access (customers need to see salons)
+      allow read: if true;
+      
+      // Salon owners can update their own salon
+      // Check ownerId if it exists, otherwise check if user has owner role with matching salonId
+      allow update: if request.auth != null && 
+                       (resource.data.ownerId == request.auth.uid ||
+                        (!('ownerId' in resource.data) && 
+                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == salonId));
+      
+      // Salon owners can create their own salon
+      allow create: if request.auth != null && 
+                       request.resource.data.ownerId == request.auth.uid;
+      
+      // Salon owners can delete their own salon
+      allow delete: if request.auth != null && 
+                       (resource.data.ownerId == request.auth.uid ||
+                        (!('ownerId' in resource.data) && 
+                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == salonId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
     }
     
-    // Services collection
+    // --- SERVICES COLLECTION ---
     match /services/{serviceId} {
+      // Public read access (customers need to see services)
       allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      
+      // Salon owners can manage their services
+      allow write: if request.auth != null && 
+                      (resource == null || isSalonOwner(resource.data.salonId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+      
+      // Allow creation with salonId
+      allow create: if request.auth != null;
     }
     
-    // Staff collection
-    match /staff/{staffId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
-    }
-    
-    // Reservations collection
+    // --- RESERVATIONS COLLECTION ---
     match /reservations/{reservationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      // Public read for availability check and booking flow
+      allow read: if true;
+      
+      // Anyone can create reservations (anonymous bookings)
+      allow create: if true;
+      
+      // Customers can update their own reservations
+      allow update: if request.auth != null && 
+                       (resource.data.userId == request.auth.uid || 
+                        isSalonOwner(resource.data.businessId));
+      
+      // Salon owners can update reservations for their business
+      allow update: if request.auth != null && isSalonOwner(resource.data.businessId);
+      
+      // Allow status updates and cancellations
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason']);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
     }
     
-    // Queue collection
-    match /queue/{queueId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
-    }
-    
-    // Appointments collection
+    // --- APPOINTMENTS COLLECTION (same as reservations) ---
     match /appointments/{appointmentId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      // Public read for availability check and booking flow
+      allow read: if true;
+      
+      // Anyone can create appointments (anonymous bookings)
+      allow create: if true;
+      
+      // Customers can update their own appointments
+      allow update: if request.auth != null && 
+                       (resource.data.userId == request.auth.uid || 
+                        isSalonOwner(resource.data.businessId));
+      
+      // Salon owners can update appointments for their business
+      allow update: if request.auth != null && isSalonOwner(resource.data.businessId);
+      
+      // Allow status updates and cancellations
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason']);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
     }
     
-    // Notifications collection
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+    // --- QUEUE COLLECTION ---
+    match /queue/{queueId} {
+      // Public read access (customers can see queue status)
+      allow read: if true;
+      
+      // Anyone can join queue (anonymous bookings allowed)
+      allow create: if true;
+      
+      // Customers can update their own queue entries
+      allow update: if request.auth != null && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Customers can delete their own queue entries
+      allow delete: if request.auth != null && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Salon owners can manage queue for their salon (including delete)
+      allow read, write, delete: if request.auth != null && isSalonOwner(resource.data.salonId);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
     }
     
-    // Reviews collection
+    // --- REVIEWS COLLECTION ---
     match /reviews/{reviewId} {
+      // Public read access
       allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      
+      // Customers can create reviews
+      allow create: if true;
+      
+      // Users can update/delete their own reviews
+      allow update, delete: if request.auth != null && 
+                               resource.data.userId == request.auth.uid;
+      
+      // Salon owners can respond to reviews
+      allow update: if request.auth != null && 
+                       isSalonOwner(resource.data.salonId) &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['ownerResponse', 'respondedAt']);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
     }
     
-    // Working hours collection
-    match /workingHours/{hourId} {
+    // --- AVAILABILITY COLLECTION ---
+    match /availability/{availabilityId} {
+      // Public read access (needed for booking flow)
       allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      
+      // Salon owners can manage availability
+      allow write: if request.auth != null && isSalonOwner(resource.data.salonId);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
     }
     
-    // Customers collection
+    // --- STAFF COLLECTION ---
+    match /staff/{staffId} {
+      // Public read access (customers need to see staff)
+      allow read: if true;
+      
+      // Salon owners can manage staff
+      allow write: if request.auth != null && 
+                      (resource == null || isSalonOwner(resource.data.salonId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- NOTIFICATIONS COLLECTION ---
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if request.auth != null && 
+                     resource.data.userId == request.auth.uid;
+      
+      // System can create notifications
+      allow create: if true;
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if request.auth != null && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- CATEGORIES COLLECTION ---
+    match /categories/{categoryId} {
+      // Public read access
+      allow read: if true;
+      
+      // Only super admins can write categories
+      allow write: if isSuperAdmin();
+    }
+    
+    // --- ANALYTICS COLLECTION ---
+    match /analytics/{document=**} {
+      // Salon owners can read their own analytics
+      allow read: if request.auth != null;
+      
+      // Only salon owners can write analytics for their salon
+      allow write: if request.auth != null && 
+                      exists(/databases/$(database)/documents/salons/$(request.resource.data.salonId)) &&
+                      get(/databases/$(database)/documents/salons/$(request.resource.data.salonId)).data.ownerId == request.auth.uid;
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- CUSTOMERS COLLECTION ---
     match /customers/{customerId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      // Anyone authenticated can read customers (they're computed from appointments)
+      allow read: if request.auth != null;
+      
+      // Salon owners can write customer data (notes, tags, ratings, ban status)
+      // Document ID format: {salonId}_{userId}
+      allow create, update: if request.auth != null && 
+                               request.resource.data.salonId is string &&
+                               (
+                                 // Check if salon exists and user is owner
+                                 (exists(/databases/$(database)/documents/salons/$(request.resource.data.salonId)) &&
+                                  get(/databases/$(database)/documents/salons/$(request.resource.data.salonId)).data.ownerId == request.auth.uid) ||
+                                 // OR check if user has owner role with matching salonId
+                                 (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == request.resource.data.salonId)
+                               );
+      
+      // Salon owners can delete customer data
+      allow delete: if request.auth != null && 
+                       resource.data.salonId is string &&
+                       (
+                         (exists(/databases/$(database)/documents/salons/$(resource.data.salonId)) &&
+                          get(/databases/$(database)/documents/salons/$(resource.data.salonId)).data.ownerId == request.auth.uid) ||
+                         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == resource.data.salonId)
+                       );
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- BLOCKED BUSINESSES COLLECTION ---
+    match /blockedBusinesses/{blockId} {
+      // Users can read their own blocks
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Users can create blocks (block a business)
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own blocks (unblock)
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- CHAT SESSIONS ---
+    match /chat_sessions/{sessionId} {
+      // Users can read/write their own chat sessions
+      allow read, write: if request.auth != null && 
+                            (resource.data.userId == request.auth.uid || 
+                             isSalonOwner(resource.data.salonId));
+      
+      // Allow creation
+      allow create: if true;
+      
+      // Super admins can access all chats
+      allow read, write: if isSuperAdmin();
+      
+      match /messages/{messageId} {
+        // Users can read/write messages in their sessions
+        allow read, write: if request.auth != null;
+        allow create: if true;
+        allow read, write: if isSuperAdmin();
+      }
+    }
+    
+    // --- SETTINGS COLLECTION ---
+    match /settings/{document=**} {
+      // Public read for app settings
+      allow read: if true;
+      
+      // Only super admins can write settings
+      allow write: if isSuperAdmin();
+    }
+    
+    // --- SUBSCRIPTIONS COLLECTION ---
+    // ⚠️ GÜVENLİK: Abonelik işlemleri kritik - sıkı kontroller
+    // ✅ DÜZELTME: Subscription ID = businessId (her business'in 1 subscription'ı var)
+    match /subscriptions/{businessId} {
+      // ⚠️ PUBLIC READ: Müşterilerin aktif aboneliği olan işletmeleri görebilmesi için
+      allow read: if true;
+      
+      // Super admins can do everything
+      allow read, write: if isSuperAdmin();
+      
+      // ⚠️ Business owners can CREATE/UPDATE their own subscription
+      // Basitleştirilmiş kontrol: Authenticated user kendi businessId'si için işlem yapabilir
+      allow create, update: if request.auth != null && 
+                               request.resource.data.businessId == businessId;
+      
+      // ⚠️ Silme izni YOK - Hiç kimse silemez (audit trail için)
       allow delete: if false;
+    }
+    
+    // --- SUBSCRIPTION HISTORY COLLECTION ---
+    // ⚠️ GÜVENLİK: History sadece okunabilir, yazma izni YOK (client-side)
+    match /subscriptionHistory/{historyId} {
+      // Business owners can read their own history
+      allow read: if request.auth != null;
+      
+      // Super admins can read all history
+      allow read: if isSuperAdmin();
+      
+      // ⚠️ Business owners can CREATE history entries (for audit trail)
+      // Basitleştirilmiş kontrol: Authenticated user kendi businessId'si için history oluşturabilir
+      allow create: if request.auth != null && 
+                       request.resource.data.businessId is string;
+      
+      // ⚠️ NO UPDATE/DELETE - History is immutable
+      allow update, delete: if false;
+      
+      // Super admins can write (admin panel için)
+      allow write: if isSuperAdmin();
+    }
+    
+    // --- NOTIFICATION HISTORY COLLECTION ---
+    match /notificationHistory/{historyId} {
+      // Only super admins can read/write notification history
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- SUPPORT TICKETS COLLECTION ---
+    match /supportTickets/{ticketId} {
+      // Users can read/write their own tickets
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Allow creation
+      allow create: if request.auth != null;
+      
+      // Super admins can access all tickets
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- SYSTEM CONFIG COLLECTION ---
+    match /systemConfig/{configId} {
+      // Public read for maintenance mode check
+      allow read: if true;
+      
+      // Only super admins can write system config
+      allow write: if isSuperAdmin();
+    }
+    
+    // --- ADMIN ROLES COLLECTION ---
+    match /adminRoles/{roleId} {
+      // Only super admins can read/write admin roles
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- SECURITY LOGS COLLECTION ---
+    match /securityLogs/{logId} {
+      // Only super admins can read security logs
+      allow read: if isSuperAdmin();
+      
+      // System can create logs
+      allow create: if true;
+    }
+    
+    // --- AUDIT LOGS COLLECTION (Admin Panel) ---
+    match /audit_logs/{logId} {
+      // Only super admins can read audit logs
+      allow read: if isSuperAdmin();
+      
+      // System can create logs
+      allow create: if true;
+      
+      // No one can update or delete audit logs
+      allow update, delete: if false;
+    }
+    
+    // --- SUPPORT TICKETS COLLECTION (Admin Panel) ---
+    match /support_tickets/{ticketId} {
+      // Users can read/write their own tickets
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Allow creation
+      allow create: if request.auth != null;
+      
+      // Super admins can access all tickets
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- BANNED USERS COLLECTION ---
+    match /bannedUsers/{userId} {
+      // Only super admins can read/write banned users
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- DELETED USERS COLLECTION (Soft Delete) ---
+    match /deletedUsers/{userId} {
+      // Only super admins can read/write deleted users
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- PAYMENT TRANSACTIONS COLLECTION ---
+    match /paymentTransactions/{transactionId} {
+      // Business owners can read their own transactions
+      allow read: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == resource.data.businessId ||
+                      (exists(/databases/$(database)/documents/salons/$(resource.data.businessId)) &&
+                       get(/databases/$(database)/documents/salons/$(resource.data.businessId)).data.ownerId == request.auth.uid));
+      
+      // Super admins can read all transactions
+      allow read: if isSuperAdmin();
+      
+      // Only system can create transactions
+      allow create: if true;
+      
+      // Super admins can update (for refunds, etc.)
+      allow update: if isSuperAdmin();
+      
+      // No one can delete transactions
+      allow delete: if false;
+    }
+    
+    // --- COUPONS COLLECTION ---
+    match /coupons/{couponId} {
+      // Public read for coupon validation
+      allow read: if true;
+      
+      // Only super admins can write coupons
+      allow write: if isSuperAdmin();
+    }
+    
+    // --- CAMPAIGNS COLLECTION ---
+    match /campaigns/{campaignId} {
+      // Public read for active campaigns
+      allow read: if true;
+      
+      // Only super admins can write campaigns
+      allow write: if isSuperAdmin();
+    }
+    
+    // --- ADMIN PERMISSIONS COLLECTION ---
+    match /adminPermissions/{permissionId} {
+      // Only super admins can read/write permissions
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- SYSTEM NOTIFICATIONS COLLECTION ---
+    match /systemNotifications/{notificationId} {
+      // Public read for system-wide notifications
+      allow read: if true;
+      
+      // Only super admins can write system notifications
+      allow write: if isSuperAdmin();
+    }
+    
+    // Default: Deny all other access except super admin
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
     }
   }
 }

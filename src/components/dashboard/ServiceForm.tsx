@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Trash2, Sparkles, Plus } from 'lucide-react';
+import { X, Save, Trash2, Sparkles, Plus, Scissors, Settings } from 'lucide-react';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { getServiceTemplates, type ServiceTemplate } from '@/config/serviceTemplates';
 import { getCategoryById, type CategoryId } from '@/config/categories';
+import { needsAdvancedPricing } from '@/utils/pricingHelpers';
+import { AdvancedPricingSection } from './AdvancedPricingSection';
 import type { Service } from '@/types';
 
 interface ServiceFormProps {
@@ -21,21 +24,48 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
   const templates = getServiceTemplates(category);
   
   const [showTemplates, setShowTemplates] = useState(!service && templates.length > 0);
-  const [formData, setFormData] = useState({
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [formData, setFormData] = useState<Partial<Service>>({
     name: service?.name || '',
     description: service?.description || '',
     category: service?.category || (templates[0]?.category || 'Genel'),
     duration: service?.duration || 30,
     price: service?.price || 0,
-    gender: service?.gender || 'all' as 'male' | 'female' | 'all',
+    gender: service?.gender || 'all',
     image: service?.image || '',
     isActive: service?.isActive ?? true,
+    pricingRules: service?.pricingRules,
+    addOns: service?.addOns || [],
   });
   const [loading, setLoading] = useState(false);
+  const modalContentRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top when modal opens
+  const hasAdvancedPricing = needsAdvancedPricing(category);
+  
+  // Kategori tipini belirle
+  const getCategoryType = (): 'accommodation' | 'event' | 'catering' | 'other' => {
+    if (['bungalov', 'otel', 'villa', 'kamp-alani'].includes(category)) return 'accommodation';
+    if (['dugun-organizasyon', 'nisan-organizasyon', 'dogum-gunu', 'kurumsal-etkinlik', 'dugun-salonu', 'etkinlik-alani'].includes(category)) return 'event';
+    if (category === 'catering') return 'catering';
+    return 'other';
+  };
+
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    
+    if (modalContentRef.current) {
+      modalContentRef.current.scrollTop = 0;
+    }
+
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
   }, []);
 
   // Get unique categories from templates
@@ -59,9 +89,18 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
     setLoading(true);
     try {
       await onSave({
-        ...formData,
+        name: formData.name!,
+        description: formData.description || '',
+        category: formData.category!,
+        duration: formData.duration!,
+        price: formData.price!,
+        gender: formData.gender!,
+        image: formData.image || '',
+        isActive: formData.isActive!,
         salonId,
         staffIds: service?.staffIds || [],
+        pricingRules: formData.pricingRules,
+        addOns: formData.addOns,
       });
       onClose();
     } catch (error) {
@@ -84,39 +123,62 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
     setLoading(false);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/80 backdrop-blur-sm overflow-y-auto">
+  return createPortal(
+    <AnimatePresence mode="wait">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-4xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-3xl p-5 md:p-6 my-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-xl"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
       >
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="font-display font-bold text-xl text-[var(--chrome-white)]">
-              {service ? 'Hizmet Düzenle' : 'Yeni Hizmet Ekle'}
-            </h3>
-            <p className="font-body text-sm text-[var(--muted-lead)] mt-0.5">
-              {categoryInfo.labels.business} için {categoryInfo.labels.service.toLowerCase()}
-            </p>
+        <motion.div
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 50, opacity: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-3xl sm:my-auto h-[90vh] sm:h-auto sm:max-h-[90vh] bg-[var(--slate-surface)] rounded-t-3xl sm:rounded-3xl border-t border-white/[0.08] sm:border shadow-2xl flex flex-col overflow-hidden will-change-transform"
+        >
+          {/* Sticky Header */}
+          <div className="sticky top-0 bg-gradient-to-b from-[var(--slate-surface)] to-[var(--slate-surface)]/95 backdrop-blur-xl border-b border-white/[0.08] p-4 sm:p-6 z-10 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 flex-shrink-0">
+                  <Scissors size={24} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                    {service ? 'Hizmet Düzenle' : 'Yeni Hizmet Ekle'}
+                  </h3>
+                  <p className="text-xs text-[var(--muted-lead)]">
+                    {categoryInfo.labels.business} için {categoryInfo.labels.service.toLowerCase()}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-10 h-10 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] flex items-center justify-center transition-colors flex-shrink-0 ml-3"
+              >
+                <X size={20} className="text-[var(--muted-lead)]" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/5 rounded-full transition-colors flex-shrink-0"
-          >
-            <X size={20} className="text-[var(--muted-lead)]" />
-          </button>
-        </div>
 
-        <AnimatePresence mode="wait">
-          {showTemplates ? (
-            <motion.div
-              key="templates"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
-            >
+          {/* Scrollable Content */}
+          <div ref={modalContentRef} className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <AnimatePresence mode="wait">
+              {showTemplates ? (
+                <motion.div
+                  key="templates"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
+                >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles size={20} className="text-[var(--liquid-chrome)]" />
@@ -340,35 +402,117 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-white/5">
-                {service && onDelete && (
+              {/* Gelişmiş Ayarlar - Sadece belirli kategoriler için */}
+              {hasAdvancedPricing && (
+                <div className="space-y-4">
                   <button
                     type="button"
-                    onClick={handleDelete}
-                    disabled={loading}
-                    className="px-6 py-3 rounded-xl bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/30 text-red-400 font-heading font-semibold text-sm hover:from-red-500/20 hover:to-red-600/20 hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all"
                   >
-                    <Trash2 size={18} strokeWidth={2.5} />
-                    <span>Sil</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <Settings size={20} className="text-white" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                          Gelişmiş Ayarlar
+                        </p>
+                        <p className="text-xs text-[var(--muted-lead)]">
+                          Fiyatlandırma ve ek hizmetler
+                        </p>
+                      </div>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: showAdvanced ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Plus size={20} className="text-purple-400" />
+                    </motion.div>
                   </button>
-                )}
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[var(--silver-frost)] font-heading font-semibold text-sm hover:bg-white/10 hover:border-white/20 hover:text-[var(--chrome-white)] transition-all active:scale-95"
-                >
-                  İptal
-                </button>
-                <ChromaticButton type="submit" loading={loading} className="flex items-center gap-2 px-8 py-3 shadow-lg shadow-purple-500/20">
-                  <Save size={18} strokeWidth={2.5} />
-                  <span>Kaydet</span>
-                </ChromaticButton>
-              </div>
+
+                  <AnimatePresence>
+                    {showAdvanced && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08]">
+                          <AdvancedPricingSection
+                            service={formData}
+                            onChange={(updates) => setFormData({ ...formData, ...updates })}
+                            categoryType={getCategoryType()}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
             </motion.form>
           )}
         </AnimatePresence>
-      </motion.div>
-    </div>
-  );
+      </div>
+
+      {/* Sticky Footer - Only show when NOT in templates view */}
+      {!showTemplates && (
+        <div className="sticky bottom-0 bg-gradient-to-t from-[var(--slate-surface)] to-[var(--slate-surface)]/95 backdrop-blur-xl border-t border-white/[0.08] p-4 sm:p-6 flex-shrink-0">
+          <form onSubmit={handleSubmit}>
+            {/* Tek satırda birleşik butonlar */}
+            <div className="flex items-center gap-3">
+              {/* Sol: Sil butonu (varsa) */}
+              {service && onDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="group relative px-5 py-3.5 rounded-2xl bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/30 hover:border-red-500/50 transition-all active:scale-95 disabled:opacity-50 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-red-500/0 to-red-600/0 group-hover:from-red-500/20 group-hover:to-red-600/20 transition-all" />
+                  <div className="relative flex items-center gap-2">
+                    <Trash2 size={18} strokeWidth={2.5} className="text-red-400" />
+                    <span className="font-heading font-bold text-sm text-red-400">Sil</span>
+                  </div>
+                </button>
+              )}
+              
+              {/* Sağ: İptal ve Kaydet birleşik */}
+              <div className="flex-1 flex items-center gap-0 rounded-2xl overflow-hidden border border-white/[0.08]">
+                {/* İptal */}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-6 py-3.5 bg-white/[0.02] hover:bg-white/[0.05] text-[var(--silver-frost)] hover:text-[var(--chrome-white)] font-heading font-bold text-sm transition-all border-r border-white/[0.08]"
+                >
+                  İptal
+                </button>
+                
+                {/* Kaydet */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-6 py-3.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-heading font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Save size={18} strokeWidth={2.5} />
+                      <span>Kaydet</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+    </motion.div>
+  </motion.div>
+</AnimatePresence>,
+document.body
+);
 }

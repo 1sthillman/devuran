@@ -3,12 +3,13 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
+import { useAuthStore } from '@/store/authStore';
 import { ModernCalendar } from '../ModernCalendar';
 import { Calendar, MapPin, ShoppingCart, Plus, Minus, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { servicesService } from '@/services/firebaseService';
 import type { Service } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, formatDateToString } from '@/lib/utils';
 
 export function OrderBookingWizard() {
   const navigate = useNavigate();
@@ -42,6 +43,23 @@ export function OrderBookingWizard() {
   const [loading, setLoading] = useState(true);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
+  const { user } = useAuthStore();
+
+  // Kullanıcı bilgilerini otomatik doldur
+  useEffect(() => {
+    if (user && activeStep === 4) {
+      if (!localName && user.displayName) {
+        setLocalName(user.displayName);
+      }
+      if (!localPhone && user.phone) {
+        const cleanPhone = user.phone.replace(/^\+90/, '').replace(/^0/, '');
+        setLocalPhone(cleanPhone);
+      }
+      if (!localEmail && user.email) {
+        setLocalEmail(user.email);
+      }
+    }
+  }, [user, activeStep]);
 
   useEffect(() => {
     if (salon?.id) {
@@ -173,23 +191,24 @@ export function OrderBookingWizard() {
 
           return (
             <div key={step.id}>
-              <button
-                onClick={() => canAccess && setActiveStep(step.id)}
-                disabled={!canAccess}
-                className={cn("w-full text-left transition-all duration-200", !canAccess && "opacity-40 cursor-not-allowed")}
-              >
-                <div className={cn(
-                  "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
-                  isActive 
-                    ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
-                    : isCompleted 
-                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
-                    : "border-white/[0.08] bg-white/[0.02]"
-                )}>
-                  {isActive && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                  )}
-                  
+              <div className={cn(
+                "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
+                isActive 
+                  ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
+                  : isCompleted 
+                  ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
+                  : "border-white/[0.08] bg-white/[0.02]",
+                !canAccess && "opacity-40 pointer-events-none"
+              )}>
+                {isActive && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                )}
+                
+                <button
+                  onClick={() => canAccess && setActiveStep(step.id)}
+                  disabled={!canAccess}
+                  className="w-full text-left relative z-10"
+                >
                   <div className="relative flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -231,6 +250,7 @@ export function OrderBookingWizard() {
                       )} 
                     />
                   </div>
+                </button>
 
                   <AnimatePresence>
                     {isActive && (
@@ -239,7 +259,7 @@ export function OrderBookingWizard() {
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="overflow-hidden"
+                        className="overflow-hidden relative z-20"
                       >
                         <div className="px-4 pb-4 space-y-3">
                           {step.id === 1 && (
@@ -323,7 +343,7 @@ export function OrderBookingWizard() {
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Teslimat Tarihi</h4>
                                 <ModernCalendar
                                   selectedDate={localDeliveryDate ? new Date(localDeliveryDate) : null}
-                                  onSelect={(date) => setLocalDeliveryDate(date.toISOString().split('T')[0])}
+                                  onSelect={(date) => setLocalDeliveryDate(formatDateToString(date))}
                                   minDate={minDate}
                                 />
                                 <p className="text-xs text-[var(--muted-lead)] mt-2 text-center flex items-center justify-center gap-1">
@@ -429,8 +449,7 @@ export function OrderBookingWizard() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
-              </button>
+              </div>
             </div>
           );
         })}

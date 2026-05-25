@@ -5,13 +5,24 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 export function Profile() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isLoading: authLoading } = useAuthStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--liquid-chrome)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-body text-[var(--muted-lead)]">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;

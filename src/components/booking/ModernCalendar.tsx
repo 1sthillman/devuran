@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDateToString } from '@/lib/utils';
+import { availabilityService } from '@/services/availabilityService';
 
 interface ModernCalendarProps {
   selectedDate: Date | null;
@@ -9,6 +10,10 @@ interface ModernCalendarProps {
   maxDate?: Date;
   workingHours?: Record<string, { open: string; close: string; isOpen?: boolean }>;
   className?: string;
+  businessId?: string;
+  serviceDuration?: number;
+  staffId?: string;
+  staff?: any[];  // Staff listesi
 }
 
 const dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -23,33 +28,96 @@ export function ModernCalendar({
   minDate, 
   maxDate,
   workingHours,
-  className 
+  className,
+  businessId,
+  serviceDuration = 30,
+  staffId,
+  staff
 }: ModernCalendarProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
   const [currentMonth, setCurrentMonth] = useState(selectedDate?.getMonth() ?? today.getMonth());
   const [currentYear, setCurrentYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear());
+  const [availabilityMap, setAvailabilityMap] = useState<Map<string, boolean>>(new Map());
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+  // Availability kontrolü - sadece businessId varsa çalışır
+  useEffect(() => {
+    if (businessId && workingHours) {
+      checkMonthAvailability();
+    } else {
+      // BusinessId yoksa availability kontrolü yapma
+      setAvailabilityMap(new Map());
+    }
+  }, [currentMonth, currentYear, businessId, serviceDuration, workingHours, staff]);
+
+  const checkMonthAvailability = async () => {
+    if (!businessId) return;
+    
+    setLoadingAvailability(true);
+    const newMap = new Map<string, boolean>();
+    
+    // Ayın tüm günlerini kontrol et
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    
+    const promises: Promise<void>[] = [];
+    
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      const dateObj = new Date(currentYear, currentMonth, d);
+      dateObj.setHours(0, 0, 0, 0);
+      
+      // Geçmiş tarihler için kontrol yapma
+      if (dateObj < today) continue;
+      
+      // Timezone-safe date key
+      const dateKey = formatDateToString(dateObj);
+      
+      promises.push(
+        availabilityService.getAvailableSlots({
+          businessId,
+          date: dateObj,
+          duration: serviceDuration,
+          staffId,
+          workingHours,
+          staff
+        }).then(slots => {
+          newMap.set(dateKey, slots.length > 0);
+        }).catch(error => {
+          console.warn(`❌ ${dateKey}: Error checking availability`, error);
+          newMap.set(dateKey, false);
+        })
+      );
+    }
+    
+    await Promise.all(promises);
+    setAvailabilityMap(newMap);
+    setLoadingAvailability(false);
+  };
 
   const isDayClosed = (dateObj: Date): boolean => {
+    // Eğer workingHours tanımlı değilse, hiçbir gün kapalı değil (konaklama gibi)
     if (!workingHours) return false;
     
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayName = dayNames[dateObj.getDay()];
     
     const dayHours = workingHours[dayName];
+    // Eğer o gün için saat tanımı yoksa kapalı
     if (!dayHours) return true;
     
-    return dayHours.isOpen === false || 
-           dayHours.isOpen === undefined || 
-           !dayHours.open || 
-           !dayHours.close;
+    // Sadece saatlere bak - isOpen field'ını görmezden gel
+    // Eğer open ve close saatleri varsa, o gün açık demektir
+    if (!dayHours.open || !dayHours.close) return true;
+    
+    return false;
   };
 
   const calendarDays = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Pazartesi başlangıç
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Pazartesi başlangıç (0 = Pazartesi)
     const days: Array<{
       date: number;
       dateObj: Date;
@@ -58,19 +126,22 @@ export function ModernCalendar({
       isPast: boolean;
       isClosed: boolean;
       isDisabled: boolean;
+      hasAvailability: boolean;
     }> = [];
 
-    // Önceki ay padding
-    for (let i = startDayOfWeek - 1; i >= 0; i--) {
-      const prevDate = new Date(currentYear, currentMonth, -i);
+    // Önceki ay padding - boş alanlar
+    for (let i = 0; i < startDayOfWeek; i++) {
+      const prevMonthLastDay = new Date(currentYear, currentMonth, 0).getDate();
+      const prevMonthDate = new Date(currentYear, currentMonth - 1, prevMonthLastDay - (startDayOfWeek - i - 1));
       days.push({
-        date: prevDate.getDate(),
-        dateObj: prevDate,
+        date: prevMonthDate.getDate(),
+        dateObj: prevMonthDate,
         isCurrentMonth: false,
         isToday: false,
         isPast: true,
         isClosed: false,
         isDisabled: true,
+        hasAvailability: false,
       });
     }
 
@@ -80,22 +151,36 @@ export function ModernCalendar({
       dateObj.setHours(0, 0, 0, 0);
       
       const isClosed = isDayClosed(dateObj);
-      const isPast = dateObj < today;
+      const isPast = dateObj < today; // Bugün hariç geçmiş günler
       const isBeforeMin = minDate ? dateObj < minDate : false;
       const isAfterMax = maxDate ? dateObj > maxDate : false;
+      const isToday = dateObj.getTime() === today.getTime();
+      
+      // Timezone-safe date key
+      const dateKey = formatDateToString(dateObj);
+      const hasAvailability = availabilityMap.get(dateKey) ?? true; // Default true if not checked yet
+      
+      // Availability kontrolü sadece businessId varsa yapılır
+      const shouldCheckAvailability = businessId !== undefined;
+      
+      // Disabled logic: 
+      // - Bugün HER ZAMAN seçilebilir (kapalı bile olsa)
+      // - Diğer günler: Kapalı, geçmiş, veya müsait değilse disabled
+      const isDisabled = !isToday && (isClosed || isPast || isBeforeMin || isAfterMax || (shouldCheckAvailability && !hasAvailability));
       
       days.push({
         date: d,
         dateObj,
         isCurrentMonth: true,
-        isToday: dateObj.getTime() === today.getTime(),
+        isToday,
         isPast,
         isClosed,
-        isDisabled: isPast || isClosed || isBeforeMin || isAfterMax,
+        isDisabled,
+        hasAvailability,
       });
     }
 
-    // Sonraki ay padding (42 gün için - 6 satır)
+    // Sonraki ay padding - boş alanlar (42 gün için - 6 satır)
     const remainingDays = 42 - days.length;
     for (let i = 1; i <= remainingDays; i++) {
       const nextDate = new Date(currentYear, currentMonth + 1, i);
@@ -107,11 +192,12 @@ export function ModernCalendar({
         isPast: false,
         isClosed: false,
         isDisabled: true,
+        hasAvailability: false,
       });
     }
 
     return days;
-  }, [currentMonth, currentYear, minDate, maxDate, workingHours]);
+  }, [currentMonth, currentYear, minDate, maxDate, workingHours, availabilityMap, businessId]);
 
   const prevMonth = () => {
     if (currentMonth === 0) {
@@ -182,12 +268,22 @@ export function ModernCalendar({
         {calendarDays.map((day, i) => {
           const selected = isSelected(day.dateObj);
           
+          // Diğer ayın günlerini gösterme
+          if (!day.isCurrentMonth) {
+            return (
+              <div 
+                key={i} 
+                className="aspect-square min-h-[40px]"
+              />
+            );
+          }
+          
           return (
             <button
               key={i}
               onClick={(e) => {
                 e.stopPropagation();
-                if (!day.isDisabled && day.isCurrentMonth) {
+                if (!day.isDisabled) {
                   onSelect(day.dateObj);
                 }
               }}
@@ -195,21 +291,41 @@ export function ModernCalendar({
               className={cn(
                 'relative aspect-square rounded-full font-body text-xs flex items-center justify-center transition-all duration-200',
                 'min-h-[40px]',
-                !day.isCurrentMonth && 'text-[var(--ash)]/20 cursor-default',
-                day.isCurrentMonth && day.isDisabled && 'text-[var(--ash)] cursor-not-allowed opacity-30',
-                day.isCurrentMonth && !day.isDisabled && !selected && 
-                  'text-[var(--chrome-white)] bg-white/[0.03] border border-white/[0.06] hover:border-[var(--liquid-chrome)]/40 hover:bg-white/[0.06] active:scale-95',
+                // Kapalı günler - en yüksek öncelik
+                day.isClosed && 
+                  'text-[var(--ash)]/40 cursor-not-allowed bg-white/[0.02] line-through',
+                // Geçmiş günler
+                !day.isClosed && day.isPast && 
+                  'text-[var(--ash)]/30 cursor-not-allowed opacity-40',
+                // Dolu günler (müsait slot yok)
+                !day.isClosed && !day.isPast && !day.hasAvailability && businessId && 
+                  'text-red-400/60 cursor-not-allowed bg-red-500/5 border border-red-500/20',
+                // Normal müsait günler
+                !day.isDisabled && !selected && 
+                  'text-[var(--chrome-white)] bg-white/[0.03] border border-white/[0.06] hover:border-[var(--liquid-chrome)]/40 hover:bg-white/[0.06] active:scale-95 cursor-pointer',
+                // Bugün - seçili değilse özel stil
                 day.isToday && !day.isDisabled && !selected && 
-                  'border border-[var(--liquid-chrome)]/60 text-[var(--liquid-chrome)] font-semibold',
+                  'ring-2 ring-[var(--liquid-chrome)]/60 ring-inset text-[var(--liquid-chrome)] font-semibold',
+                // Seçili gün
                 selected && 
-                  'bg-gradient-to-br from-[var(--liquid-chrome)] to-purple-600 text-white font-bold border border-[var(--liquid-chrome)] shadow-lg shadow-[var(--liquid-chrome)]/30',
-                day.isClosed && 'line-through'
+                  'bg-gradient-to-br from-[var(--liquid-chrome)] to-purple-600 text-white font-bold border-2 border-[var(--liquid-chrome)] shadow-lg shadow-[var(--liquid-chrome)]/30',
               )}
-              title={day.isClosed ? 'Kapalı' : day.isPast ? 'Geçmiş tarih' : ''}
+              title={
+                day.isClosed ? 'Kapalı' : 
+                day.isPast ? 'Geçmiş tarih' : 
+                !day.hasAvailability && businessId ? 'Müsait saat yok' : 
+                ''
+              }
             >
               <span className="relative z-10">{day.date}</span>
               {selected && (
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-full" />
+              )}
+              {/* Dolu günler için çapraz çizgi */}
+              {!day.isClosed && !day.isPast && !day.hasAvailability && businessId && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-0.5 h-full bg-red-500/40 rotate-45" />
+                </div>
               )}
             </button>
           );
@@ -226,6 +342,16 @@ export function ModernCalendar({
           <div className="w-3 h-3 rounded bg-gradient-to-br from-[var(--liquid-chrome)] to-purple-600" />
           <span>Seçili</span>
         </div>
+        {businessId && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-0.5 h-full bg-red-500/40 rotate-45" />
+              </div>
+            </div>
+            <span>Dolu</span>
+          </div>
+        )}
       </div>
     </div>
   );

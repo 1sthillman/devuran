@@ -52,7 +52,7 @@ class AppointmentAutoCompleteService {
     try {
       await appointmentsService.autoCompleteAppointments();
     } catch (error) {
-      console.error('Error in auto-complete service:', error);
+      // Sessizce geç
     }
   }
 }

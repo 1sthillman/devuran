@@ -231,18 +231,18 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
                     <button
                       onClick={() => handleApprove(appointment.id)}
                       disabled={loading}
-                      className="p-2.5 rounded-full bg-[var(--success)]/10 border-2 border-[var(--success)]/30 text-[var(--success)] hover:bg-[var(--success)]/20 hover:border-[var(--success)] transition-all active:scale-95 disabled:opacity-50"
+                      className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/10"
                       title="Onayla"
                     >
-                      <Check size={18} strokeWidth={2.5} />
+                      <Check size={20} strokeWidth={2.5} />
                     </button>
                     <button
                       onClick={() => setCancelDialogAppointment(appointment)}
                       disabled={loading}
-                      className="p-2.5 rounded-full bg-[var(--error)]/10 border-2 border-[var(--error)]/30 text-[var(--error)] hover:bg-[var(--error)]/20 hover:border-[var(--error)] transition-all active:scale-95 disabled:opacity-50"
+                      className="p-3 rounded-xl bg-gradient-to-r from-red-500/10 to-pink-500/10 hover:from-red-500/20 hover:to-pink-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/10"
                       title="Reddet"
                     >
-                      <X size={18} strokeWidth={2.5} />
+                      <X size={20} strokeWidth={2.5} />
                     </button>
                   </div>
                 </div>
@@ -305,18 +305,18 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
                     <button
                       onClick={() => setCompleteEarlyAppointment(appointment)}
                       disabled={loading}
-                      className="p-2.5 rounded-full bg-[var(--success)]/10 border-2 border-[var(--success)]/30 text-[var(--success)] hover:bg-[var(--success)]/20 hover:border-[var(--success)] transition-all active:scale-95 disabled:opacity-50"
+                      className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/10"
                       title="Erken Tamamla"
                     >
-                      <CheckCircle2 size={18} strokeWidth={2.5} />
+                      <CheckCircle2 size={20} strokeWidth={2.5} />
                     </button>
                     <button
                       onClick={() => setCancelDialogAppointment(appointment)}
                       disabled={loading}
-                      className="p-2.5 rounded-full bg-[var(--error)]/10 border-2 border-[var(--error)]/30 text-[var(--error)] hover:bg-[var(--error)]/20 hover:border-[var(--error)] transition-all active:scale-95 disabled:opacity-50"
+                      className="p-3 rounded-xl bg-gradient-to-r from-red-500/10 to-pink-500/10 hover:from-red-500/20 hover:to-pink-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/10"
                       title="İptal Et"
                     >
-                      <X size={18} strokeWidth={2.5} />
+                      <X size={20} strokeWidth={2.5} />
                     </button>
                   </div>
                 </div>

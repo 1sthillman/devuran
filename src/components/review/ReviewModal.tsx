@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star } from 'lucide-react';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { useUIStore } from '@/store/uiStore';
@@ -19,8 +20,40 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
   const [loading, setLoading] = useState(false);
   const [hoveredSalonStar, setHoveredSalonStar] = useState(0);
   const [hoveredStaffStar, setHoveredStaffStar] = useState(0);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+
+  // Check if appointment can be reviewed
+  const canReview = appointment.status === 'completed' && !appointment.hasReview;
+
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    
+    if (modalContentRef.current) {
+      modalContentRef.current.scrollTop = 0;
+    }
+
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
 
   const handleSubmit = async () => {
+    // Validate appointment can be reviewed
+    if (!canReview) {
+      if (appointment.hasReview) {
+        addToast('Bu randevuyu zaten değerlendirdiniz', 'error');
+      } else if (appointment.status !== 'completed') {
+        addToast('Sadece tamamlanmış randevuları değerlendirebilirsiniz', 'error');
+      }
+      return;
+    }
+
     if (salonRating === 0 || staffRating === 0) {
       addToast('Lütfen hem işletmeyi hem de personeli değerlendirin', 'warning');
       return;
@@ -71,14 +104,17 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
     </div>
   );
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto pt-16 sm:pt-20 pb-24 sm:pb-8">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-3xl p-4 sm:p-6 my-4"
-        onClick={(e) => e.stopPropagation()}
-      >
+  const modalContent = (
+    <div className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-sm" onClick={onClose}>
+      <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md sm:my-auto h-[85vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <motion.div
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          className="w-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-t-3xl sm:rounded-3xl p-4 sm:p-6"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <h3 className="font-display font-bold text-lg sm:text-xl text-[var(--chrome-white)]">
             Deneyiminizi Değerlendirin
@@ -101,6 +137,17 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
           </p>
         </div>
 
+        {/* Cannot Review Warning */}
+        {!canReview && (
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 mb-4 sm:mb-6">
+            <p className="font-body text-sm text-red-400 text-center">
+              {appointment.hasReview 
+                ? 'Bu randevuyu zaten değerlendirdiniz' 
+                : 'Sadece tamamlanmış randevuları değerlendirebilirsiniz'}
+            </p>
+          </div>
+        )}
+
         {/* Salon Rating */}
         <div className="mb-4 sm:mb-6">
           <label className="block font-heading font-semibold text-sm sm:text-base text-[var(--chrome-white)] mb-2 sm:mb-3">
@@ -108,9 +155,9 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
           </label>
           <StarRating 
             rating={salonRating}
-            setRating={setSalonRating}
+            setRating={canReview ? setSalonRating : () => {}}
             hovered={hoveredSalonStar}
-            setHovered={setHoveredSalonStar}
+            setHovered={canReview ? setHoveredSalonStar : () => {}}
           />
           <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
             Genel deneyiminizi değerlendirin
@@ -124,9 +171,9 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
           </label>
           <StarRating 
             rating={staffRating}
-            setRating={setStaffRating}
+            setRating={canReview ? setStaffRating : () => {}}
             hovered={hoveredStaffStar}
-            setHovered={setHoveredStaffStar}
+            setHovered={canReview ? setHoveredStaffStar : () => {}}
           />
           <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
             Personelin hizmet kalitesini değerlendirin
@@ -141,9 +188,10 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
+            disabled={!canReview}
             placeholder="Deneyiminizi paylaşın..."
             rows={3}
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-3xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-sm outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none"
+            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-3xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-sm outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -154,18 +202,23 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
             onClick={onClose}
             className="flex-shrink-0 px-4 sm:px-6"
           >
-            Daha Sonra
+            {canReview ? 'Daha Sonra' : 'Kapat'}
           </ChromaticButton>
-          <ChromaticButton
-            onClick={handleSubmit}
-            loading={loading}
-            className="flex-1"
-          >
-            Gönder
-          </ChromaticButton>
+          {canReview && (
+            <ChromaticButton
+              onClick={handleSubmit}
+              loading={loading}
+              className="flex-1"
+            >
+              Gönder
+            </ChromaticButton>
+          )}
         </div>
       </motion.div>
+      </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 

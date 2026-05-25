@@ -36,24 +36,35 @@ class ReservationService {
       throw new Error('Geçersiz isim formatı');
     }
     
-    // Müsaitlik kontrolü
-    const isAvailable = await this.checkAvailability(sanitizedData);
-    if (!isAvailable) {
-      throw new Error('Seçilen tarih/saat müsait değil');
-    }
-
+    // Müsaitlik kontrolü frontend'de yapılıyor (availabilityService)
+    // Backend'de tekrar kontrol etmeye gerek yok
+    
     // Fiyat hesapla
     const pricing = this.calculatePricing(sanitizedData);
 
     // İptal politikası
     const cancellationPolicy = this.getCancellationPolicy(sanitizedData);
 
+    // Kategori bazlı otomatik onay kontrolü
+    // Kuaför, berber gibi slot-based kategorilerde otomatik onay
+    const autoApproveCategories = ['kuafor', 'berber', 'guzellik', 'tirnak'];
+    let initialStatus: 'pending' | 'confirmed' = 'pending';
+    
+    // Eğer slot rezervasyonu ise ve kategori otomatik onay listesindeyse
+    if (sanitizedData.type === 'slot') {
+      // businessCategory'yi data'dan al (bookingStore'dan gönderilmeli)
+      const businessCategory = (sanitizedData as any).businessCategory;
+      if (businessCategory && autoApproveCategories.includes(businessCategory)) {
+        initialStatus = 'confirmed';
+      }
+    }
+
     // Rezervasyon oluştur
     const reservationId = doc(collection(db, this.collectionName)).id;
     const reservation: Reservation = {
       ...sanitizedData,
       id: reservationId,
-      status: 'pending',
+      status: initialStatus,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pricing,
@@ -188,6 +199,24 @@ class ReservationService {
         updatedAt: new Date().toISOString(),
         cancellationReason: reason
       }, { merge: true });
+
+      // Send notification to customer
+      try {
+        const { notificationService } = await import('./notificationService');
+        await notificationService.sendReservationCancelled({
+          userId: reservation.userId,
+          userName: reservation.userName,
+          userEmail: reservation.userEmail,
+          userPhone: reservation.userPhone,
+          businessName: reservation.businessName,
+          reservationId,
+          cancelledBy: 'business',
+          reason,
+        });
+      } catch (notificationError) {
+        console.error('Failed to send cancellation notification:', notificationError);
+      }
+
       return 0;
     }
 
@@ -215,6 +244,23 @@ class ReservationService {
       'pricing.refundReason': reason,
       cancellationReason: reason
     }, { merge: true });
+
+    // Send notification to business owner
+    try {
+      const { notificationService } = await import('./notificationService');
+      await notificationService.sendReservationCancelled({
+        userId: reservation.userId,
+        userName: reservation.userName,
+        userEmail: reservation.userEmail,
+        userPhone: reservation.userPhone,
+        businessName: reservation.businessName,
+        reservationId,
+        cancelledBy: 'user',
+        reason,
+      });
+    } catch (notificationError) {
+      console.error('Failed to send cancellation notification:', notificationError);
+    }
 
     return refundAmount;
   }

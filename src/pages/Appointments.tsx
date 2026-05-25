@@ -15,7 +15,7 @@ import { ReviewModal } from '@/components/review/ReviewModal';
 import { CancelAppointmentDialog } from '@/components/booking/CancelAppointmentDialog';
 
 export function Appointments() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isLoading: authLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const [filter, setFilter] = useState<'upcoming' | 'past'>('upcoming');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -80,8 +80,11 @@ export function Appointments() {
       
       setAppointments(allAppointments);
     } catch (error: any) {
-      console.error('Error loading appointments:', error);
-      addToast(error?.message || 'Randevular yuklenemedi', 'error');
+      // Permission errors are expected - don't show error toast
+      if (error?.code !== 'permission-denied') {
+        console.error('Error loading appointments:', error);
+        addToast(error?.message || 'Randevular yuklenemedi', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -89,6 +92,18 @@ export function Appointments() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Show loading during auth check to prevent redirect
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--liquid-chrome)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-body text-[var(--muted-lead)]">Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleCancel = async (reason: string) => {

@@ -4,13 +4,15 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Users, Bed, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
+import { Calendar, Users, Bed, CheckCircle2, ChevronDown, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
+import { QueueJoinButton } from '../QueueJoinButton';
 import { differenceInDays } from 'date-fns';
 import { servicesService } from '@/services/firebaseService';
+import { accommodationAvailabilityService, type RoomAvailability } from '@/services/accommodationAvailabilityService';
 import type { Service } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, formatDateToString } from '@/lib/utils';
 
 export function NightlyBookingWizard() {
   const navigate = useNavigate();
@@ -37,14 +39,59 @@ export function NightlyBookingWizard() {
   const [extraServices, setExtraServices] = useState<Service[]>([]);
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [roomAvailabilities, setRoomAvailabilities] = useState<RoomAvailability[]>([]);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [localName, setLocalName] = useState(customerName || '');
+  const [localPhone, setLocalPhone] = useState(customerPhone || '');
+  const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
+
+  // Kullanıcı bilgilerini otomatik doldur
+  useEffect(() => {
+    if (user && activeStep === 3) {
+      if (!localName && user.displayName) {
+        setLocalName(user.displayName);
+      }
+      if (!localPhone && user.phone) {
+        const cleanPhone = user.phone.replace(/^\+90/, '').replace(/^0/, '');
+        setLocalPhone(cleanPhone);
+      }
+      if (!localEmail && user.email) {
+        setLocalEmail(user.email);
+      }
+    }
+  }, [user, activeStep]);
 
   useEffect(() => {
     if (salon?.id) {
       loadServices();
     }
   }, [salon?.id]);
+
+  useEffect(() => {
+    if (checkInDate && checkOutDate && salon?.id && roomTypes.length > 0) {
+      checkRoomAvailabilities();
+    }
+  }, [checkInDate, checkOutDate, salon?.id, roomTypes]);
+
+  const checkRoomAvailabilities = async () => {
+    if (!checkInDate || !checkOutDate || !salon?.id) return;
+    
+    setCheckingAvailability(true);
+    try {
+      const availabilities = await accommodationAvailabilityService.getAvailableRooms(
+        salon.id,
+        roomTypes,
+        checkInDate,
+        checkOutDate
+      );
+      setRoomAvailabilities(availabilities);
+    } catch (error) {
+      console.error('Müsaitlik kontrolü hatası:', error);
+    }
+    setCheckingAvailability(false);
+  };
 
   const loadServices = async () => {
     try {
@@ -96,9 +143,9 @@ export function NightlyBookingWizard() {
   };
 
   const handleSubmit = async () => {
-    const nameValid = validateName('name', customerName);
-    const phoneValid = validatePhone('phone', customerPhone);
-    const emailValid = customerEmail ? validateEmail('email', customerEmail) : true;
+    const nameValid = validateName('name', localName);
+    const phoneValid = validatePhone('phone', localPhone);
+    const emailValid = localEmail ? validateEmail('email', localEmail) : true;
 
     if (!nameValid || !phoneValid || !emailValid) {
       addToast('Lütfen tüm bilgileri doğru girin', 'error');
@@ -110,9 +157,16 @@ export function NightlyBookingWizard() {
       return;
     }
 
+    setCustomerInfo({
+      name: localName,
+      phone: localPhone,
+      email: localEmail,
+      notes: ''
+    });
+
     setAccommodationDetails({
-      checkIn: checkInDate?.toISOString().split('T')[0],
-      checkOut: checkOutDate?.toISOString().split('T')[0],
+      checkIn: checkInDate ? formatDateToString(checkInDate) : undefined,
+      checkOut: checkOutDate ? formatDateToString(checkOutDate) : undefined,
       guests,
       roomType: selectedRoom?.id,
       selectedPackage: selectedRoom,
@@ -173,23 +227,24 @@ export function NightlyBookingWizard() {
 
           return (
             <div key={step.id}>
-              <button
-                onClick={() => canAccess && setActiveStep(step.id)}
-                disabled={!canAccess}
-                className={cn("w-full text-left transition-all duration-200", !canAccess && "opacity-40 cursor-not-allowed")}
-              >
-                <div className={cn(
-                  "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
-                  isActive 
-                    ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
-                    : isCompleted 
-                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
-                    : "border-white/[0.08] bg-white/[0.02]"
-                )}>
-                  {isActive && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                  )}
-                  
+              <div className={cn(
+                "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
+                isActive 
+                  ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
+                  : isCompleted 
+                  ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
+                  : "border-white/[0.08] bg-white/[0.02]",
+                !canAccess && "opacity-40 pointer-events-none"
+              )}>
+                {isActive && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                )}
+                
+                <button
+                  onClick={() => canAccess && setActiveStep(step.id)}
+                  disabled={!canAccess}
+                  className="w-full text-left relative z-10"
+                >
                   <div className="relative flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -231,6 +286,7 @@ export function NightlyBookingWizard() {
                       )} 
                     />
                   </div>
+                </button>
 
                   <AnimatePresence>
                     {isActive && (
@@ -239,7 +295,7 @@ export function NightlyBookingWizard() {
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="overflow-hidden"
+                        className="overflow-hidden relative z-20"
                       >
                         <div className="px-4 pb-4 space-y-4">
                           {step.id === 1 && (
@@ -461,36 +517,164 @@ export function NightlyBookingWizard() {
 
                           {step.id === 2 && (
                             <div className="space-y-3">
-                              {roomTypes.map((room) => (
-                                <button
-                                  key={room.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedRoom(room);
-                                    handleStepComplete(2);
-                                  }}
-                                  className={cn(
-                                    "w-full p-4 rounded-2xl border text-left transition-all duration-200",
-                                    selectedRoom?.id === room.id
-                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
-                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
-                                  )}
-                                >
-                                  <div className="flex justify-between items-start mb-2">
-                                    <h5 className="font-heading font-bold text-base text-[var(--chrome-white)] flex-1">{room.name}</h5>
-                                    <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent ml-2">
-                                      {room.price}₺<span className="text-sm">/gece</span>
-                                    </span>
+                              {checkingAvailability && (
+                                <div className="text-center py-4">
+                                  <div className="w-6 h-6 border-2 border-white/10 border-t-purple-500 rounded-full animate-spin mx-auto mb-2" />
+                                  <p className="text-xs text-[var(--muted-lead)]">Oda müsaitlikleri kontrol ediliyor...</p>
+                                </div>
+                              )}
+                              
+                              {roomTypes.map((room) => {
+                                const availability = roomAvailabilities.find(a => a.roomId === room.id);
+                                const isAvailable = !availability || availability.isAvailable;
+                                
+                                return (
+                                  <div key={room.id}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isAvailable) {
+                                          setSelectedRoom(room);
+                                          handleStepComplete(2);
+                                        }
+                                      }}
+                                      disabled={!isAvailable}
+                                      className={cn(
+                                        "w-full p-4 rounded-2xl border text-left transition-all duration-200",
+                                        !isAvailable && "opacity-50 cursor-not-allowed",
+                                        selectedRoom?.id === room.id
+                                          ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                          : isAvailable
+                                          ? "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                          : "border-red-500/30 bg-red-500/5"
+                                      )}
+                                    >
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                          <h5 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
+                                            {room.name}
+                                          </h5>
+                                          {!isAvailable && (
+                                            <div className="flex items-center gap-1 text-red-400">
+                                              <AlertCircle size={14} />
+                                              <span className="text-xs font-semibold">Bu tarihler için dolu</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <span className={cn(
+                                          "font-bold text-lg bg-gradient-to-r bg-clip-text text-transparent ml-2",
+                                          isAvailable 
+                                            ? "from-purple-400 to-pink-400"
+                                            : "from-gray-400 to-gray-500"
+                                        )}>
+                                          {room.price}₺<span className="text-sm">/gece</span>
+                                        </span>
+                                      </div>
+                                      {room.description && (
+                                        <p className="text-xs text-[var(--muted-lead)] mb-2">{room.description}</p>
+                                      )}
+                                      {selectedRoom?.id === room.id && isAvailable && (
+                                        <div className="mt-3 flex items-center gap-2 text-emerald-400">
+                                          <CheckCircle2 size={16} />
+                                          <span className="text-sm font-semibold">Seçildi</span>
+                                        </div>
+                                      )}
+                                    </button>
                                   </div>
-                                  {room.description && <p className="text-xs text-[var(--muted-lead)] mb-2">{room.description}</p>}
-                                  {selectedRoom?.id === room.id && (
-                                    <div className="mt-3 flex items-center gap-2 text-emerald-400">
-                                      <CheckCircle2 size={16} />
-                                      <span className="text-sm font-semibold">Seçildi</span>
+                                );
+                              })}
+                              
+                              {/* Alternatif Oda Önerileri */}
+                              {roomAvailabilities.length > 0 && roomAvailabilities.some(a => !a.isAvailable) && (
+                                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-yellow-500/10 border border-amber-500/20">
+                                  <div className="flex items-start gap-3 mb-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0">
+                                      <Sparkles size={20} className="text-white" />
                                     </div>
-                                  )}
-                                </button>
-                              ))}
+                                    <div className="flex-1">
+                                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
+                                        Müsait Odalar
+                                      </h4>
+                                      <p className="text-xs text-amber-300/80">
+                                        Seçtiğiniz tarihler için müsait odalarımız:
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {roomAvailabilities
+                                      .filter(a => a.isAvailable)
+                                      .map(availability => {
+                                        const room = roomTypes.find(r => r.id === availability.roomId);
+                                        if (!room) return null;
+                                        
+                                        return (
+                                          <button
+                                            key={room.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedRoom(room);
+                                              handleStepComplete(2);
+                                            }}
+                                            className="w-full p-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] hover:border-emerald-500/30 transition-all duration-200 active:scale-[0.98]"
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
+                                                  <Bed size={18} className="text-emerald-400" />
+                                                </div>
+                                                <div className="text-left">
+                                                  <h5 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                                                    {room.name}
+                                                  </h5>
+                                                  <span className="text-xs text-emerald-400 font-semibold">✓ Müsait</span>
+                                                </div>
+                                              </div>
+                                              <div className="text-right">
+                                                <span className="font-bold text-base bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                                                  {room.price}₺
+                                                </span>
+                                                <span className="text-xs text-[var(--muted-lead)] block">/gece</span>
+                                              </div>
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Tüm Odalar Doluysa Sıraya Ekle */}
+                              {roomAvailabilities.length > 0 && 
+                               roomAvailabilities.every(a => !a.isAvailable) && 
+                               (salon as any).bookingSettings?.allowQueue && 
+                               checkInDate && 
+                               checkOutDate && (
+                                <div className="p-4 rounded-2xl bg-gradient-to-r from-red-500/10 via-orange-500/10 to-amber-500/10 border border-red-500/20">
+                                  <div className="text-center mb-3">
+                                    <AlertCircle size={32} className="mx-auto text-red-400 mb-2" />
+                                    <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
+                                      Tüm Odalar Dolu
+                                    </h4>
+                                    <p className="text-xs text-red-300/80">
+                                      Seçtiğiniz tarihler için tüm odalarımız rezerve edilmiş
+                                    </p>
+                                  </div>
+                                  <QueueJoinButton
+                                    salon={salon}
+                                    selectedServices={selectedRoom ? [selectedRoom] : []}
+                                    preferredDate={formatDateToString(checkInDate)}
+                                    totalPrice={totalPrice}
+                                    totalDuration={nights * 24 * 60}
+                                    customerName={customerName}
+                                    customerPhone={customerPhone}
+                                    customerEmail={customerEmail}
+                                    onSuccess={() => {
+                                      addToast('Sıraya eklendiniz! İşletme sizi arayacaktır.', 'success');
+                                      navigate('/appointments');
+                                    }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -499,22 +683,26 @@ export function NightlyBookingWizard() {
                               <input
                                 type="text"
                                 placeholder="Ad Soyad"
-                                value={customerName}
-                                onChange={(e) => setCustomerInfo({ name: e.target.value, phone: customerPhone, email: customerEmail, notes: '' })}
+                                value={localName}
+                                onChange={(e) => setLocalName(e.target.value)}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
                               <input
                                 type="tel"
-                                placeholder="Telefon"
-                                value={customerPhone}
-                                onChange={(e) => setCustomerInfo({ name: customerName, phone: e.target.value, email: customerEmail, notes: '' })}
+                                placeholder="5XX XXX XX XX"
+                                value={localPhone}
+                                onChange={(e) => {
+                                  const cleaned = e.target.value.replace(/\D/g, '');
+                                  setLocalPhone(cleaned.slice(0, 10));
+                                }}
+                                maxLength={10}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
                               <input
                                 type="email"
                                 placeholder="E-posta (opsiyonel)"
-                                value={customerEmail}
-                                onChange={(e) => setCustomerInfo({ name: customerName, phone: customerPhone, email: e.target.value, notes: '' })}
+                                value={localEmail}
+                                onChange={(e) => setLocalEmail(e.target.value)}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
                               <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
@@ -548,8 +736,7 @@ export function NightlyBookingWizard() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
-              </button>
+              </div>
             </div>
           );
         })}

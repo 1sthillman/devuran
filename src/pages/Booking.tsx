@@ -3,7 +3,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { BookingWizardRouter } from '@/components/booking/BookingWizardRouter';
 import { useState, useEffect } from 'react';
-import { salonsService } from '@/services/firebaseService';
+import { salonsService, servicesService, staffService } from '@/services/firebaseService';
 import type { Salon } from '@/types';
 import { X } from 'lucide-react';
 
@@ -24,8 +24,21 @@ export function Booking() {
     try {
       const salonData = await salonsService.getById(salonId!);
       if (salonData) {
-        setSalon(salonData);
-        init(salonId!, salonData);
+        // Load services and staff separately
+        const [services, staff] = await Promise.all([
+          servicesService.getBySalon(salonId!),
+          staffService.getBySalon(salonId!)
+        ]);
+        
+        // Merge services and staff into salon object
+        const completeSalon = {
+          ...salonData,
+          services,
+          staff
+        };
+        
+        setSalon(completeSalon);
+        init(salonId!, completeSalon);
       }
     } catch (error) {
       console.error('Salon yüklenemedi:', error);
