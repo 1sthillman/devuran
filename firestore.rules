@@ -316,8 +316,7 @@ service cloud.firestore {
     
     // --- SUBSCRIPTIONS COLLECTION ---
     // ⚠️ GÜVENLİK: Abonelik işlemleri kritik - sıkı kontroller
-    // ✅ DÜZELTME: Subscription ID = businessId (her business'in 1 subscription'ı var)
-    match /subscriptions/{businessId} {
+    match /subscriptions/{subscriptionId} {
       // ⚠️ PUBLIC READ: Müşterilerin aktif aboneliği olan işletmeleri görebilmesi için
       allow read: if true;
       
@@ -325,9 +324,18 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
       
       // ⚠️ Business owners can CREATE/UPDATE their own subscription
-      // Basitleştirilmiş kontrol: Authenticated user kendi businessId'si için işlem yapabilir
+      // Check if user owns the business this subscription is for
       allow create, update: if request.auth != null && 
-                               request.resource.data.businessId == businessId;
+                               request.resource.data.businessId is string &&
+                               (
+                                 // Check if salon exists and user is owner
+                                 (exists(/databases/$(database)/documents/salons/$(request.resource.data.businessId)) &&
+                                  get(/databases/$(database)/documents/salons/$(request.resource.data.businessId)).data.ownerId == request.auth.uid) ||
+                                 // OR check if user has owner role with matching salonId
+                                 (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == request.resource.data.businessId)
+                               );
       
       // ⚠️ Silme izni YOK - Hiç kimse silemez (audit trail için)
       allow delete: if false;

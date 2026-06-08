@@ -192,25 +192,60 @@ export function SubscriptionManagement() {
   };
 
   const handleApproveSubscription = async (subscriptionId: string) => {
+    console.log('🎯 [1/5] Handle Approve Subscription called');
+    console.log('📋 Parameters:', { 
+      subscriptionId, 
+      user: {
+        uid: user?.uid,
+        email: user?.email,
+        displayName: user?.displayName
+      }
+    });
+    
     setConfirmModal({
       isOpen: true,
       title: '✅ Aboneliği Onayla',
       message: 'Bu aboneliği onaylamak istediğinizden emin misiniz?\n\nOnaylandıktan sonra işletme anasayfada görünecek ve müşteriler randevu alabilecek.',
       type: 'success',
       onConfirm: async () => {
+        console.log('🎯 [2/5] User confirmed approval in modal');
         setActionLoading(true);
+        console.log('🎯 [3/5] Action loading set to true');
+        
         try {
-          await adminSubscriptionService.approveSubscription(
+          console.log('🎯 [4/5] Calling adminSubscriptionService.approveSubscription...');
+          console.log('📤 Service call parameters:', {
+            subscriptionId,
+            adminId: user?.uid || 'admin',
+            adminName: user?.displayName || 'Admin'
+          });
+          
+          const result = await adminSubscriptionService.approveSubscription(
             subscriptionId,
             user?.uid || 'admin',
             user?.displayName || 'Admin'
           );
+          
+          console.log('✅ [5/5] Service call returned:', result);
+          console.log('🔄 Reloading subscriptions...');
+          
           await loadSubscriptions();
+          
+          console.log('✅ Subscriptions reloaded successfully');
           addToast('✅ Abonelik başarıyla onaylandı! İşletme artık anasayfada görünüyor.', 'success');
           setConfirmModal({ ...confirmModal, isOpen: false });
         } catch (error: any) {
-          addToast(error.message || 'Hata oluştu', 'error');
+          console.error('❌ Approval error caught in component:', error);
+          console.error('❌ Error type:', typeof error);
+          console.error('❌ Error constructor:', error?.constructor?.name);
+          console.error('❌ Error message:', error?.message);
+          console.error('❌ Error code:', error?.code);
+          console.error('❌ Error details:', JSON.stringify(error, null, 2));
+          
+          const errorMessage = error.message || error.toString() || 'Hata oluştu';
+          addToast(`❌ Onaylama hatası: ${errorMessage}`, 'error');
         } finally {
+          console.log('🔚 Finally block - setting action loading to false');
           setActionLoading(false);
         }
       },
@@ -703,6 +738,29 @@ export function SubscriptionManagement() {
           </div>
         </div>
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        loading={actionLoading}
+      />
+
+      {/* Prompt Modal */}
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        title={promptModal.title}
+        message={promptModal.message}
+        placeholder={promptModal.placeholder}
+        defaultValue={promptModal.defaultValue}
+        onConfirm={promptModal.onConfirm}
+        onCancel={() => setPromptModal({ ...promptModal, isOpen: false })}
+        loading={actionLoading}
+      />
     </div>
   );
 }
