@@ -370,14 +370,40 @@ export function OwnerDashboard() {
 
   const todayStr = new Date().toISOString().split('T')[0];
   
-  // Reservations'dan hesapla
-  const todayApps = reservations.filter((r: any) => {
-    const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
-    const isToday = resDate === todayStr;
-    // Sadece confirmed ve pending status'leri say
-    const isActive = r.status === 'confirmed' || r.status === 'pending';
-    return isToday && isActive;
+  console.log('📊 Dashboard Stats Debug:', {
+    todayStr,
+    reservationsCount: reservations.length,
+    appointmentsCount: appointments.length,
+    reservations: reservations.map(r => ({
+      date: r.date || r.eventDate || r.checkIn || r.deliveryDate,
+      status: r.status
+    })),
+    appointments: appointments.map(a => ({
+      date: a.date,
+      status: a.status
+    }))
   });
+  
+  // Hem reservations hem de appointments'dan hesapla
+  const todayApps = [
+    ...reservations.filter((r: any) => {
+      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+      const isToday = resDate === todayStr;
+      // Sadece confirmed ve pending status'leri say
+      const isActive = r.status === 'confirmed' || r.status === 'pending';
+      console.log('Reservation check:', { resDate, todayStr, isToday, status: r.status, isActive });
+      return isToday && isActive;
+    }),
+    ...appointments.filter((a: Appointment) => {
+      const isToday = a.date === todayStr;
+      // Sadece confirmed ve pending status'leri say
+      const isActive = a.status === 'confirmed' || a.status === 'pending';
+      console.log('Appointment check:', { date: a.date, todayStr, isToday, status: a.status, isActive });
+      return isToday && isActive;
+    })
+  ];
+  
+  console.log('📊 Today Apps Result:', todayApps.length, todayApps);
   
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
@@ -385,27 +411,45 @@ export function OwnerDashboard() {
   weekEnd.setDate(weekEnd.getDate() + 7);
   weekEnd.setHours(23, 59, 59, 999);
   
-  const weekApps = reservations.filter((r: any) => {
-    const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
-    if (!resDate) return false;
-    const appDate = new Date(resDate);
-    const inWeek = appDate >= weekStart && appDate <= weekEnd;
-    const isActive = r.status === 'confirmed' || r.status === 'pending';
-    return inWeek && isActive;
-  });
+  // Hem reservations hem de appointments'dan hesapla
+  const weekApps = [
+    ...reservations.filter((r: any) => {
+      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+      if (!resDate) return false;
+      const appDate = new Date(resDate);
+      const inWeek = appDate >= weekStart && appDate <= weekEnd;
+      const isActive = r.status === 'confirmed' || r.status === 'pending';
+      return inWeek && isActive;
+    }),
+    ...appointments.filter((a: Appointment) => {
+      if (!a.date) return false;
+      const appDate = new Date(a.date);
+      const inWeek = appDate >= weekStart && appDate <= weekEnd;
+      const isActive = a.status === 'confirmed' || a.status === 'pending';
+      return inWeek && isActive;
+    })
+  ];
   
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-  const monthlyRevenue = reservations
-    .filter((r: any) => {
-      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
-      const isCompleted = r.status === 'completed' || r.status === 'confirmed';
-      const isThisMonth = resDate.startsWith(currentMonth);
-      return isCompleted && isThisMonth;
-    })
-    .reduce((sum: number, r: any) => {
-      const price = r.pricing?.totalAmount || r.totalPrice || 0;
-      return sum + price;
-    }, 0);
+  
+  // Hem reservations hem de appointments'dan hesapla
+  const monthlyRevenue = [
+    ...reservations
+      .filter((r: any) => {
+        const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+        const isCompleted = r.status === 'completed' || r.status === 'confirmed';
+        const isThisMonth = resDate.startsWith(currentMonth);
+        return isCompleted && isThisMonth;
+      })
+      .map((r: any) => r.pricing?.totalAmount || r.totalPrice || 0),
+    ...appointments
+      .filter((a: Appointment) => {
+        const isCompleted = a.status === 'completed' || a.status === 'confirmed';
+        const isThisMonth = a.date.startsWith(currentMonth);
+        return isCompleted && isThisMonth;
+      })
+      .map((a: Appointment) => a.totalPrice || 0)
+  ].reduce((sum: number, price: number) => sum + price, 0);
 
   const handleSaveWorkingHours = async (hours: any) => {
     if (!salon) {
