@@ -332,23 +332,46 @@ export const adminSubscriptionService = {
     adminId: string,
     adminName: string
   ) {
+    console.log('🔍 Approve Subscription Debug:', {
+      subscriptionId,
+      adminId,
+      adminName
+    });
+    
     try {
       const subDoc = await getDoc(doc(db, 'subscriptions', subscriptionId));
+      
+      console.log('📄 Subscription Document:', {
+        exists: subDoc.exists(),
+        id: subDoc.id,
+        data: subDoc.data()
+      });
+      
       if (!subDoc.exists()) {
         throw new Error('Subscription not found');
       }
 
       const subData = subDoc.data();
+      
+      console.log('📊 Subscription Status Check:', {
+        currentStatus: subData.status,
+        canApprove: subData.status === 'pending'
+      });
+      
       if (subData.status !== 'pending') {
-        throw new Error('Only pending subscriptions can be approved');
+        throw new Error(`Only pending subscriptions can be approved. Current status: ${subData.status}`);
       }
 
+      console.log('✍️ Updating subscription to active...');
+      
       await updateDoc(doc(db, 'subscriptions', subscriptionId), {
         status: 'active',
         approvedBy: adminId,
         approvedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+      
+      console.log('✅ Subscription updated successfully');
 
       await auditLogService.log({
         adminId,
@@ -363,10 +386,12 @@ export const adminSubscriptionService = {
           price: subData.price 
         },
       });
+      
+      console.log('✅ Audit log created');
 
       return { success: true };
     } catch (error) {
-      console.error('Approve subscription error:', error);
+      console.error('❌ Approve subscription error:', error);
       throw error;
     }
   },
