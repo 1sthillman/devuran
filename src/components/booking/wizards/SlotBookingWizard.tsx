@@ -232,13 +232,21 @@ export function SlotBookingWizard() {
   const handleDateSelect = (date: Date) => {
     const dateStr = formatDateToString(date);
     selectDateTime(dateStr, selectedTime || '');
-    // Tarih seçildiğinde saat seçim alanını otomatik aç
-    setActiveSubStep('time');
+    // Tarih seçildiğinde otomatik collapse yap ve saat seçim alanını aç
+    setTimeout(() => {
+      setActiveSubStep('time');
+    }, 300);
   };
 
   const handleTimeSelect = (time: string) => {
     selectDateTime(selectedDate || '', time);
-    setTimeout(() => setActiveSubStep(null), 100);
+    // Saat seçildiğinde otomatik collapse yap
+    setTimeout(() => {
+      setActiveSubStep(null);
+      // Step'i tamamla ve bir sonrakine geç
+      const currentStepId = salon?.staff && salon.staff.length > 0 ? 3 : 2;
+      handleStepComplete(currentStepId);
+    }, 300);
   };
 
   const handleSubmit = async () => {

@@ -16,6 +16,7 @@ export default defineConfig({
     },
   },
   build: {
+    sourcemap: false, // Production'da source map'leri kapat - güvenlik
     rollupOptions: {
       output: {
         manualChunks: {
