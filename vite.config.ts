@@ -17,6 +17,7 @@ export default defineConfig({
   },
   build: {
     sourcemap: false, // Production'da source map'leri kapat - güvenlik
+    minify: 'esbuild', // esbuild ile minify
     rollupOptions: {
       output: {
         manualChunks: {
@@ -27,5 +28,8 @@ export default defineConfig({
       },
     },
     chunkSizeWarningLimit: 1000,
+  },
+  esbuild: {
+    drop: ['console', 'debugger'], // Production'da console ve debugger'ları kaldır
   },
 });
