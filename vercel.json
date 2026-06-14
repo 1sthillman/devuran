@@ -2,6 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "env": {
+    "GENERATE_SOURCEMAP": "false",
+    "VITE_ENABLE_SOURCE_MAPS": "false"
+  },
   "routes": [
     {
       "handle": "filesystem"
