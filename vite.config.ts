@@ -10,40 +10,30 @@ export default defineConfig({
   plugins: [
     inspectAttr(), 
     react(),
-    // Production'da kod karmaşıklaştırma - kaynak kodları okunamaz hale getirir
+    // Production'da kod karmaşıklaştırma - daha hafif ayarlar
     obfuscatorPlugin({
       include: ['src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx'],
-      exclude: [/node_modules/],
-      apply: 'build', // Sadece production build'de çalıştır
+      exclude: [
+        /node_modules/,
+        /firebase/i, // Firebase dosyalarını karmaşıklaştırma
+        /\.(config|setup)\./i, // Config dosyalarını karmaşıklaştırma
+      ],
+      apply: 'build',
       options: {
         compact: true,
-        controlFlowFlattening: true,
-        controlFlowFlatteningThreshold: 0.75,
-        deadCodeInjection: true,
-        deadCodeInjectionThreshold: 0.4,
-        debugProtection: false, // true yaparsanız DevTools açıldığında sayfa çöker
-        debugProtectionInterval: 0,
+        controlFlowFlattening: false, // Firebase ile uyumsuz - kapat
+        deadCodeInjection: false, // Performans sorunu yaratıyor - kapat
+        debugProtection: false,
         disableConsoleOutput: true,
         identifierNamesGenerator: 'hexadecimal',
         log: false,
-        numbersToExpressions: true,
-        renameGlobals: false,
-        selfDefending: true,
+        renameGlobals: false, // Firebase global'lerini korumak için
+        selfDefending: false, // Hata yaratabilir - kapat
         simplify: true,
-        splitStrings: true,
-        splitStringsChunkLength: 10,
+        splitStrings: false, // Firebase string'lerini bozabilir - kapat
         stringArray: true,
-        stringArrayCallsTransform: true,
-        stringArrayEncoding: ['base64'],
-        stringArrayIndexShift: true,
-        stringArrayRotate: true,
-        stringArrayShuffle: true,
-        stringArrayWrappersCount: 2,
-        stringArrayWrappersChainedCalls: true,
-        stringArrayWrappersParametersMaxCount: 4,
-        stringArrayWrappersType: 'function',
-        stringArrayThreshold: 0.75,
-        transformObjectKeys: true,
+        stringArrayThreshold: 0.5, // Daha az agresif
+        transformObjectKeys: false, // Firebase obje key'lerini korumak için
         unicodeEscapeSequence: false,
       },
     }),
@@ -57,8 +47,8 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: false, // Production'da source map'leri kapat - güvenlik
-    minify: 'esbuild', // esbuild ile minify
+    sourcemap: false,
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -71,6 +61,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   esbuild: {
-    drop: ['console', 'debugger'], // Production'da console ve debugger'ları kaldır
+    drop: ['console', 'debugger'],
   },
 });
