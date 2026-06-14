@@ -36,11 +36,39 @@ class ReservationService {
       throw new Error('Geçersiz isim formatı');
     }
     
-    // Müsaitlik kontrolü frontend'de yapılıyor (availabilityService)
-    // Backend'de tekrar kontrol etmeye gerek yok
+    // ⚠️ ÖNEMLİ: Bu fonksiyon artık direkt kullanılmamalı!
+    // Backend validation için createReservationWithValidation Cloud Function kullanılmalı
+    // Bu fonksiyon sadece geriye dönük uyumluluk için korunuyor
     
-    // Fiyat hesapla
-    const pricing = this.calculatePricing(sanitizedData);
+    // ✅ GÜVENLİK KONTROLÜ: _requiresPriceValidation flag'ini sil (metadata)
+    // Bu flag sadece backend validation gerektiğini işaretler, legacy method için sorun değil
+    const hasValidIBAN = (sanitizedData as any)._hasValidIBAN;
+    delete (sanitizedData as any)._requiresPriceValidation;
+    delete (sanitizedData as any)._packageId;
+    delete (sanitizedData as any)._hasValidIBAN;
+    
+    // 🆕 İşletme ayarlarını al (kapora için)
+    let salonSettings: any = null;
+    if (sanitizedData.businessId) {
+      try {
+        const { salonsService } = await import('./firebaseService');
+        salonSettings = await salonsService.getById(sanitizedData.businessId);
+        
+        // ✅ CRITICAL: Salon ayarları yüklenemezse hata fırlat
+        if (!salonSettings) {
+          throw new Error('İşletme ayarları yüklenemedi. Lütfen tekrar deneyin.');
+        }
+      } catch (error) {
+        console.error('Salon settings loading error:', error);
+        throw new Error('İşletme ayarları yüklenemedi. Lütfen tekrar deneyin.');
+      }
+    }
+    
+    // Fiyat hesapla (IBAN kontrolü ile)
+    const pricing = this.calculatePricing(
+      sanitizedData, 
+      hasValidIBAN ? salonSettings?.paymentSettings?.depositSettings : undefined
+    );
 
     // İptal politikası
     const cancellationPolicy = this.getCancellationPolicy(sanitizedData);
@@ -129,6 +157,11 @@ class ReservationService {
   }
 
   async getBusinessReservations(businessId: string, date?: string): Promise<Reservation[]> {
+    // ✅ GÜVENLİK: BusinessId format kontrolü
+    if (!businessId || businessId.trim().length === 0) {
+      throw new Error('Geçersiz işletme ID');
+    }
+    
     let q = query(
       collection(db, this.collectionName),
       where('businessId', '==', businessId)
@@ -141,8 +174,23 @@ class ReservationService {
     const snapshot = await getDocs(q);
     const reservations = snapshot.docs.map(doc => doc.data() as Reservation);
     
+    // ✅ GÜVENLİK: Sonuçları double-check et (veri sızıntısı önleme)
+    const validReservations = reservations.filter(r => r.businessId === businessId);
+    
+    if (validReservations.length !== reservations.length) {
+      console.error('⚠️ WARNING: Cross-business data leakage detected!', {
+        expected: businessId,
+        totalReturned: reservations.length,
+        validCount: validReservations.length,
+        invalid: reservations.filter(r => r.businessId !== businessId).map(r => ({
+          id: r.id,
+          businessId: r.businessId
+        }))
+      });
+    }
+    
     // Client-side sorting by createdAt
-    return reservations.sort((a, b) => {
+    return validReservations.sort((a, b) => {
       const dateA = new Date(a.createdAt || 0).getTime();
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
@@ -315,7 +363,7 @@ class ReservationService {
     return hours * 60 + minutes;
   }
 
-  private calculatePricing(data: Partial<Reservation>): PaymentInfo {
+  private calculatePricing(data: Partial<Reservation>, depositSettings?: any): PaymentInfo {
     let basePrice = 0;
     let extrasTotal = 0;
 
@@ -352,8 +400,8 @@ class ReservationService {
     const tax = 0; // KDV dahil fiyat
     const total = basePrice;
 
-    // Depozit hesapla
-    const depositInfo = this.calculateDeposit(data, total);
+    // 🆕 Depozit hesapla (işletme ayarlarına göre)
+    const depositInfo = this.calculateDeposit(data, total, depositSettings);
 
     return {
       basePrice,
@@ -369,37 +417,56 @@ class ReservationService {
     };
   }
 
-  private calculateDeposit(data: Partial<Reservation>, totalAmount: number) {
-    let depositPercentage = 0;
-    let required = false;
+  private calculateDeposit(
+    data: Partial<Reservation>, 
+    totalAmount: number,
+    depositSettings?: {
+      enabled: boolean;
+      type: 'percentage' | 'fixed';
+      amount: number;
+      minimumReservationAmount?: number;
+      paymentDeadlineHours: number;
+    }
+  ) {
+    // 🆕 İşletme kapora ayarları varsa ve aktifse
+    if (depositSettings?.enabled) {
+      // Minimum tutar kontrolü
+      if (depositSettings.minimumReservationAmount && totalAmount < depositSettings.minimumReservationAmount) {
+        // Minimum tutarın altında, kapora alınmaz
+        return {
+          required: false,
+          percentage: 0,
+          amount: 0
+        };
+      }
 
-    switch (data.type) {
-      case 'slot':
-        depositPercentage = 0;
-        required = false;
-        break;
-      case 'daily':
-        depositPercentage = 50;
-        required = true;
-        break;
-      case 'nightly':
-        depositPercentage = 30;
-        required = true;
-        break;
-      case 'project':
-        depositPercentage = 40;
-        required = true;
-        break;
-      case 'order':
-        depositPercentage = 30;
-        required = true;
-        break;
+      // Kapora hesapla
+      let depositAmount = 0;
+      let depositPercentage = 0;
+
+      if (depositSettings.type === 'percentage') {
+        depositPercentage = depositSettings.amount;
+        depositAmount = Math.round(totalAmount * (depositSettings.amount / 100));
+      } else {
+        // fixed
+        depositAmount = depositSettings.amount;
+        depositPercentage = Math.round((depositSettings.amount / totalAmount) * 100);
+      }
+
+      return {
+        required: true,
+        percentage: depositPercentage,
+        amount: depositAmount
+      };
     }
 
+    // ⚠️ DEPRECATION WARNING: Varsayılan depozit mantığı kaldırılıyor
+    // Artık sadece işletme ayarları üzerinden kapora alınmalı
+    // Legacy support için hala mevcut ancak production'da kullanılmamalı
     return {
-      required,
-      percentage: depositPercentage,
-      amount: Math.round(totalAmount * (depositPercentage / 100))
+      required: false,
+      percentage: 0,
+      amount: 0
     };
   }
 

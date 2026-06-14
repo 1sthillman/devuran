@@ -106,10 +106,14 @@ export async function checkIfBanned(userId: string, deviceId: string): Promise<b
     }
     
     return false;
-  } catch (error) {
-    // Permission errors are expected for non-admin users
+  } catch (error: any) {
+    // Permission errors are expected for non-admin users - silently ignore
+    if (error?.code === 'permission-denied' || error?.message?.includes('permissions')) {
+      return false;
+    }
+    // Only log unexpected errors
     if (import.meta.env.DEV) {
-      console.warn('Ban status check failed (expected for non-admin):', error);
+      console.warn('Unexpected ban check error:', error);
     }
     return false;
   }
@@ -169,10 +173,14 @@ export async function recordUserSession(
       }
     }
     
-  } catch (error) {
-    // Permission errors are expected for non-admin users
+  } catch (error: any) {
+    // Permission errors are expected for non-admin users - silently ignore
+    if (error?.code === 'permission-denied' || error?.message?.includes('permissions')) {
+      return;
+    }
+    // Only log unexpected errors
     if (import.meta.env.DEV) {
-      console.warn('Session recording failed (expected for non-admin):', error);
+      console.warn('Unexpected session recording error:', error);
     }
     // Don't throw - allow login to continue
   }

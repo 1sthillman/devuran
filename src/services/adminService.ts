@@ -74,6 +74,11 @@ export const adminUserService = {
   // Bulk Actions
   async bulkBan(userIds: string[], reason: string, adminId: string, adminName: string) {
     try {
+      // ✅ GÜVENLİK: Rate limiting (max 100 items per batch)
+      if (userIds.length > 100) {
+        throw new Error('Tek seferde en fazla 100 kullanıcı işlem yapılabilir');
+      }
+      
       const batch = writeBatch(db);
       
       for (const userId of userIds) {
@@ -107,6 +112,11 @@ export const adminUserService = {
 
   async bulkDelete(userIds: string[], adminId: string, adminName: string) {
     try {
+      // ✅ GÜVENLİK: Rate limiting (max 100 items per batch)
+      if (userIds.length > 100) {
+        throw new Error('Tek seferde en fazla 100 kullanıcı işlem yapılabilir');
+      }
+      
       const batch = writeBatch(db);
       
       for (const userId of userIds) {
@@ -138,6 +148,11 @@ export const adminUserService = {
 
   async bulkGrantPremium(userIds: string[], days: number, adminId: string, adminName: string) {
     try {
+      // ✅ GÜVENLİK: Rate limiting (max 100 items per batch)
+      if (userIds.length > 100) {
+        throw new Error('Tek seferde en fazla 100 kullanıcı işlem yapılabilir');
+      }
+      
       const batch = writeBatch(db);
       
       for (const userId of userIds) {
@@ -222,16 +237,31 @@ export const adminUserService = {
 
   async hardDelete(userId: string, adminId: string, adminName: string) {
     try {
-      await auditLogService.log({
+      // ✅ GÜVENLİK: Transaction kullanarak atomic operation
+      // Audit log ve delete aynı anda başarılı/başarısız olur
+      const batch = writeBatch(db);
+      
+      // 1. Audit log oluştur (batch içinde)
+      const auditLogRef = doc(collection(db, 'audit_logs'));
+      batch.set(auditLogRef, {
         adminId,
         adminName,
         action: 'hard_delete_user',
-        targetType: 'user',
+        targetType: 'user' as const,
         targetId: userId,
         targetName: userId,
+        timestamp: new Date().toISOString(),
+        ip: 'admin-panel',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
       });
-
-      await deleteDoc(doc(db, 'users', userId));
+      
+      // 2. User dokümanını sil (batch içinde)
+      const userRef = doc(db, 'users', userId);
+      batch.delete(userRef);
+      
+      // ✅ Her iki işlem birlikte commit (atomicity garantisi)
+      await batch.commit();
+      
       return { success: true };
     } catch (error) {
       console.error('Hard delete error:', error);
@@ -372,6 +402,18 @@ export const adminSubscriptionService = {
       });
       
       console.log('✅ Subscription updated successfully');
+      
+      // ✅ Salon'un subscriptionActive alanını güncelle
+      try {
+        await updateDoc(doc(db, 'salons', subData.businessId), {
+          subscriptionActive: true,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log('✅ Salon subscriptionActive updated to true');
+      } catch (salonError) {
+        console.error('⚠️ Could not update salon subscriptionActive:', salonError);
+        // Salon güncellenemese bile devam et
+      }
 
       await auditLogService.log({
         adminId,
@@ -421,6 +463,18 @@ export const adminSubscriptionService = {
         rejectionReason: reason,
         updatedAt: new Date().toISOString(),
       });
+      
+      // ✅ Salon'un subscriptionActive alanını güncelle
+      try {
+        await updateDoc(doc(db, 'salons', subData.businessId), {
+          subscriptionActive: false,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log('✅ Salon subscriptionActive updated to false');
+      } catch (salonError) {
+        console.error('⚠️ Could not update salon subscriptionActive:', salonError);
+        // Salon güncellenemese bile devam et
+      }
 
       await auditLogService.log({
         adminId,

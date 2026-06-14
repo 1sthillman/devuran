@@ -151,7 +151,8 @@ export function ModernCalendar({
       dateObj.setHours(0, 0, 0, 0);
       
       const isClosed = isDayClosed(dateObj);
-      const isPast = dateObj < today; // Bugün hariç geçmiş günler
+      // Bugün dahil ve sonrası seçilebilir - geçmiş günler disabled
+      const isPast = dateObj < today;
       const isBeforeMin = minDate ? dateObj < minDate : false;
       const isAfterMax = maxDate ? dateObj > maxDate : false;
       const isToday = dateObj.getTime() === today.getTime();
@@ -160,13 +161,13 @@ export function ModernCalendar({
       const dateKey = formatDateToString(dateObj);
       const hasAvailability = availabilityMap.get(dateKey) ?? true; // Default true if not checked yet
       
-      // Availability kontrolü sadece businessId varsa yapılır
-      const shouldCheckAvailability = businessId !== undefined;
-      
       // Disabled logic: 
-      // - Bugün HER ZAMAN seçilebilir (kapalı bile olsa)
-      // - Diğer günler: Kapalı, geçmiş, veya müsait değilse disabled
-      const isDisabled = !isToday && (isClosed || isPast || isBeforeMin || isAfterMax || (shouldCheckAvailability && !hasAvailability));
+      // - Geçmiş günler disabled (bugün hariç)
+      // - MinDate/MaxDate kontrolü
+      // - Availability kontrolü SADECE businessId varsa yapılır
+      // - BusinessId yoksa sadece past, min, max kontrolü yap
+      const shouldCheckAvailability = businessId !== undefined;
+      const isDisabled = isPast || isBeforeMin || isAfterMax || (shouldCheckAvailability && (isClosed || !hasAvailability));
       
       days.push({
         date: d,
@@ -289,26 +290,26 @@ export function ModernCalendar({
               }}
               disabled={day.isDisabled}
               className={cn(
-                'relative aspect-square rounded-full font-body text-xs flex items-center justify-center transition-all duration-200',
-                'min-h-[40px]',
+                'relative aspect-square rounded-[16px] font-medium text-sm flex items-center justify-center transition-all duration-200',
+                'min-h-[44px]',
                 // Kapalı günler - en yüksek öncelik
                 day.isClosed && 
                   'text-[var(--ash)]/40 cursor-not-allowed bg-white/[0.02] line-through',
                 // Geçmiş günler
                 !day.isClosed && day.isPast && 
-                  'text-[var(--ash)]/30 cursor-not-allowed opacity-40',
+                  'text-[var(--ash)]/30 cursor-not-allowed opacity-30',
                 // Dolu günler (müsait slot yok)
                 !day.isClosed && !day.isPast && !day.hasAvailability && businessId && 
-                  'text-red-400/60 cursor-not-allowed bg-red-500/5 border border-red-500/20',
+                  'text-[var(--muted-lead)]/60 cursor-not-allowed bg-white/[0.02]',
                 // Normal müsait günler
                 !day.isDisabled && !selected && 
-                  'text-[var(--chrome-white)] bg-white/[0.03] border border-white/[0.06] hover:border-[var(--liquid-chrome)]/40 hover:bg-white/[0.06] active:scale-95 cursor-pointer',
+                  'text-[var(--chrome-white)] bg-white/[0.06] border-2 border-white/[0.08] hover:border-purple-500/50 hover:bg-white/[0.1] hover:scale-105 active:scale-95 cursor-pointer',
                 // Bugün - seçili değilse özel stil
                 day.isToday && !day.isDisabled && !selected && 
-                  'ring-2 ring-[var(--liquid-chrome)]/60 ring-inset text-[var(--liquid-chrome)] font-semibold',
-                // Seçili gün
+                  'ring-2 ring-purple-500/60 ring-inset font-bold',
+                // Seçili gün - Apple tarzı belirgin
                 selected && 
-                  'bg-gradient-to-br from-[var(--liquid-chrome)] to-purple-600 text-white font-bold border-2 border-[var(--liquid-chrome)] shadow-lg shadow-[var(--liquid-chrome)]/30',
+                  'bg-gradient-to-br from-purple-500 to-pink-500 text-white font-bold border-2 border-purple-400 shadow-xl shadow-purple-500/50 scale-110 z-10',
               )}
               title={
                 day.isClosed ? 'Kapalı' : 
@@ -319,13 +320,10 @@ export function ModernCalendar({
             >
               <span className="relative z-10">{day.date}</span>
               {selected && (
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-full" />
-              )}
-              {/* Dolu günler için çapraz çizgi */}
-              {!day.isClosed && !day.isPast && !day.hasAvailability && businessId && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-0.5 h-full bg-red-500/40 rotate-45" />
-                </div>
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-[16px]" />
+                  <div className="absolute -inset-1 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-[18px] blur-md -z-10" />
+                </>
               )}
             </button>
           );

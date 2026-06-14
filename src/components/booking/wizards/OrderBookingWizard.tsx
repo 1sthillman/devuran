@@ -5,6 +5,7 @@ import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { ModernCalendar } from '../ModernCalendar';
+import { AppleTimePicker } from '../AppleTimePicker';
 import { Calendar, MapPin, ShoppingCart, Plus, Minus, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { servicesService } from '@/services/firebaseService';
@@ -145,8 +146,11 @@ export function OrderBookingWizard() {
     }
   };
 
+  // Minimum date is based on salon's minOrderDays setting
   const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 3);
+  const minOrderDays = salon?.settings?.minOrderDays || 0; // Varsayılan 0 (anında sipariş)
+  minDate.setDate(minDate.getDate() + minOrderDays);
+  minDate.setHours(0, 0, 0, 0);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -170,7 +174,7 @@ export function OrderBookingWizard() {
   ];
 
   return (
-    <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+    <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
       <div className="mb-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
@@ -228,7 +232,7 @@ export function OrderBookingWizard() {
                       <div>
                         <h3 className={cn(
                           "font-heading font-bold text-base transition-colors duration-200",
-                          isActive ? "text-white" : isCompleted ? "text-emerald-300" : "text-[var(--muted-lead)]"
+                          isActive ? "text-white" : isCompleted ? "text-emerald-300" : "text-gray-600 dark:text-[var(--muted-lead)]"
                         )}>
                           {step.title}
                         </h3>
@@ -340,7 +344,7 @@ export function OrderBookingWizard() {
                           {step.id === 2 && (
                             <div className="space-y-4">
                               <div>
-                                <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Teslimat Tarihi</h4>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Tarihi</h4>
                                 <ModernCalendar
                                   selectedDate={localDeliveryDate ? new Date(localDeliveryDate) : null}
                                   onSelect={(date) => setLocalDeliveryDate(formatDateToString(date))}
@@ -348,20 +352,20 @@ export function OrderBookingWizard() {
                                 />
                                 <p className="text-xs text-[var(--muted-lead)] mt-2 text-center flex items-center justify-center gap-1">
                                   <Calendar size={12} />
-                                  Minimum 3 gün önceden sipariş gereklidir
+                                  {minOrderDays === 0 
+                                    ? 'Bugün ve sonraki günler için sipariş verebilirsiniz'
+                                    : `En az ${minOrderDays} gün önceden sipariş gereklidir`}
                                 </p>
                               </div>
                               <div>
-                                <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Teslimat Saati</h4>
-                                <input
-                                  type="time"
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Saati</h4>
+                                <AppleTimePicker
                                   value={localDeliveryTime}
-                                  onChange={(e) => setLocalDeliveryTime(e.target.value)}
-                                  className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                                  onChange={(time) => setLocalDeliveryTime(time)}
                                 />
                               </div>
                               <div>
-                                <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Teslimat Adresi</h4>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Adresi</h4>
                                 <textarea
                                   value={localDeliveryAddress}
                                   onChange={(e) => setLocalDeliveryAddress(e.target.value)}

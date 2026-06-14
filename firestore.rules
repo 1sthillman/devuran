@@ -38,6 +38,9 @@ service cloud.firestore {
       // Public read access (customers need to see salons)
       allow read: if true;
       
+      // Super admins can do anything (must be first!)
+      allow read, write: if isSuperAdmin();
+      
       // Salon owners can update their own salon
       // Check ownerId if it exists, otherwise check if user has owner role with matching salonId
       allow update: if request.auth != null && 
@@ -58,9 +61,6 @@ service cloud.firestore {
                          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == salonId));
-      
-      // Super admins can do anything
-      allow read, write: if isSuperAdmin();
     }
     
     // --- SERVICES COLLECTION ---
@@ -84,20 +84,22 @@ service cloud.firestore {
       // Public read for availability check and booking flow
       allow read: if true;
       
-      // Anyone can create reservations (anonymous bookings)
-      allow create: if true;
+      // ✅ GÜVENLİK: Create sadece authenticated user
+      allow create: if request.auth != null &&
+                       request.resource.data.userId == request.auth.uid;
       
-      // Customers can update their own reservations
+      // Customers can update their own reservations (status, cancellation)
       allow update: if request.auth != null && 
                        (resource.data.userId == request.auth.uid || 
                         isSalonOwner(resource.data.businessId));
       
-      // Salon owners can update reservations for their business
+      // Salon owners can update reservations for their business (deposit confirmation, status)
       allow update: if request.auth != null && isSalonOwner(resource.data.businessId);
       
-      // Allow status updates and cancellations
+      // Allow status and payment updates
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason']);
+                       .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason', 
+                                'pricing', 'updatedAt']);
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();
@@ -315,29 +317,57 @@ service cloud.firestore {
     }
     
     // --- SUBSCRIPTIONS COLLECTION ---
-    // ⚠️ GÜVENLİK: Abonelik işlemleri kritik - sıkı kontroller
+    // ✅ GÜVENLİK: Abonelik işlemleri kritik - sıkı kontroller
     match /subscriptions/{subscriptionId} {
-      // ⚠️ PUBLIC READ: Müşterilerin aktif aboneliği olan işletmeleri görebilmesi için
-      allow read: if true;
+      // ✅ GÜVENLİK: Salon sahibi kendi işletmesinin aboneliğini görebilir
+      allow read: if request.auth != null && 
+                     (
+                       // businessId ile eşleşen aboneliği okuyabilir
+                       (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == subscriptionId) ||
+                       // veya ownerId kontrolü
+                       (exists(/databases/$(database)/documents/salons/$(subscriptionId)) &&
+                        get(/databases/$(database)/documents/salons/$(subscriptionId)).data.ownerId == request.auth.uid) ||
+                       // veya super admin
+                       isSuperAdmin()
+                     );
       
       // Super admins can do everything
-      allow read, write: if isSuperAdmin();
+      allow write: if isSuperAdmin();
       
-      // ⚠️ Business owners can CREATE/UPDATE their own subscription
-      // Check if user owns the business this subscription is for
-      allow create, update: if request.auth != null && 
-                               request.resource.data.businessId is string &&
-                               (
-                                 // Check if salon exists and user is owner
-                                 (exists(/databases/$(database)/documents/salons/$(request.resource.data.businessId)) &&
-                                  get(/databases/$(database)/documents/salons/$(request.resource.data.businessId)).data.ownerId == request.auth.uid) ||
-                                 // OR check if user has owner role with matching salonId
-                                 (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
-                                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == request.resource.data.businessId)
-                               );
+      // ✅ GÜVENLİK: Business owners SADECE PENDING status ile oluşturabilir
+      // Status'ü ASLA 'active' yapamaz (admin onayı gerekir)
+      allow create: if request.auth != null && 
+                       request.resource.data.businessId is string &&
+                       request.resource.data.status == 'pending' &&
+                       // ✅ Custom price kontrolü - Sadece admin verebilir (client-side'da yok)
+                       !('customPrice' in request.resource.data) &&
+                       (
+                         // Check if salon exists and user is owner
+                         (exists(/databases/$(database)/documents/salons/$(request.resource.data.businessId)) &&
+                          get(/databases/$(database)/documents/salons/$(request.resource.data.businessId)).data.ownerId == request.auth.uid) ||
+                         // OR check if user has owner role with matching salonId
+                         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == request.resource.data.businessId)
+                       );
       
-      // ⚠️ Silme izni YOK - Hiç kimse silemez (audit trail için)
+      // ✅ GÜVENLİK: Update sadece belirli alanları değiştirebilir (status değiştiremez)
+      allow update: if request.auth != null && 
+                       (
+                         // Salon sahibi kendi işletmesinin aboneliğini güncelleyebilir
+                         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == subscriptionId) ||
+                         (exists(/databases/$(database)/documents/salons/$(subscriptionId)) &&
+                          get(/databases/$(database)/documents/salons/$(subscriptionId)).data.ownerId == request.auth.uid)
+                       ) &&
+                       // Status değişikliği yasak (sadece admin yapabilir)
+                       request.resource.data.status == resource.data.status &&
+                       // Usage stats güncellenebilir
+                       request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['usage', 'updatedAt']);
+      
+      // ✅ Silme izni YOK - Hiç kimse silemez (audit trail için)
       allow delete: if false;
     }
     
@@ -418,14 +448,43 @@ service cloud.firestore {
     
     // --- SUPPORT TICKETS COLLECTION (Admin Panel) ---
     match /support_tickets/{ticketId} {
-      // Users can read/write their own tickets
-      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Users can read their own tickets (by ownerId)
+      allow read: if request.auth != null && 
+                     (resource.data.ownerId == request.auth.uid || 
+                      isSuperAdmin());
       
-      // Allow creation
+      // Users can create tickets
+      allow create: if request.auth != null &&
+                       request.resource.data.ownerId == request.auth.uid;
+      
+      // Users can update their own tickets
+      allow update: if request.auth != null && 
+                       (resource.data.ownerId == request.auth.uid ||
+                        isSuperAdmin());
+      
+      // Super admins can do everything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- SUPPORT MESSAGES COLLECTION ---
+    match /support_messages/{messageId} {
+      // Users can read messages from tickets they own
+      allow read: if request.auth != null;
+      
+      // Users can create messages
       allow create: if request.auth != null;
       
-      // Super admins can access all tickets
+      // Super admins can do everything
       allow read, write: if isSuperAdmin();
+    }
+    
+    // --- ANNOUNCEMENTS COLLECTION ---
+    match /announcements/{announcementId} {
+      // All authenticated users can read announcements
+      allow read: if request.auth != null;
+      
+      // Only super admins can create/update/delete announcements
+      allow write: if isSuperAdmin();
     }
     
     // --- BANNED USERS COLLECTION ---

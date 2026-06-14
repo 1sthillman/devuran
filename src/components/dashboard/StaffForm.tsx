@@ -143,8 +143,8 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
           <div className="sticky top-0 bg-gradient-to-b from-[var(--slate-surface)] to-[var(--slate-surface)]/95 backdrop-blur-xl border-b border-white/[0.08] p-4 sm:p-6 z-10 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 flex-shrink-0">
-                  <User size={24} className="text-white" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30 flex-shrink-0">
+                  <User size={24} className="text-white" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
@@ -159,7 +159,7 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
                 onClick={onClose}
                 className="w-10 h-10 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] flex items-center justify-center transition-colors flex-shrink-0 ml-3"
               >
-                <X size={20} className="text-[var(--muted-lead)]" />
+                <X size={20} className="text-[var(--muted-lead)]" strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -167,9 +167,10 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
           {/* Scrollable Content */}
           <div ref={modalContentRef} className="flex-1 overflow-y-auto p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
+              {/* Ad Soyad ve Ünvan - Modern Card */}
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-4">
+                <div>
+                  <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
                     Ad Soyad *
                   </label>
                   <input
@@ -177,27 +178,27 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
-                    placeholder="Ornek: Ahmet Yilmaz"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                    placeholder="Örnek: Ahmet Yılmaz"
+                    className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                    Unvan *
+                  <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                    Ünvan *
                   </label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
-                    placeholder="Ornek: Usta Berber"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                    placeholder="Örnek: Usta Berber"
+                    className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
+                  <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
                     Telefon
                   </label>
                   <input
@@ -205,153 +206,169 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="5XX XXX XX XX"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                    className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                    Min Fiyat (TL)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.priceRange.min}
-                    onChange={(e) => setFormData({ ...formData, priceRange: { ...formData.priceRange, min: Number(e.target.value) }})}
-                    placeholder="Minimum fiyat"
-                    min="0"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                    Max Fiyat (TL)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.priceRange.max}
-                    onChange={(e) => setFormData({ ...formData, priceRange: { ...formData.priceRange, max: Number(e.target.value) }})}
-                    placeholder="Maximum fiyat"
-                    min="0"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <ImageUploader
-                    label="Personel Fotoğrafı"
-                    value={formData.photo}
-                    onChange={(url) => setFormData({ ...formData, photo: url })}
-                    folder="staff"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                    Uzmanlik Alanlari
-                  </label>
-                  <div className="flex gap-2 mb-2">
+              {/* Fiyat Aralığı - Modern Card */}
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                  Fiyat Aralığı
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-body text-xs text-[var(--muted-lead)] mb-2">
+                      Min Fiyat (TL)
+                    </label>
                     <input
-                      type="text"
-                      value={specialtyInput}
-                      onChange={(e) => setSpecialtyInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialty())}
-                      placeholder="Ornek: Sac Kesimi"
-                      className="flex-1 h-10 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body text-sm outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                      type="number"
+                      value={formData.priceRange.min}
+                      onChange={(e) => setFormData({ ...formData, priceRange: { ...formData.priceRange, min: Number(e.target.value) }})}
+                      placeholder="0"
+                      min="0"
+                      className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-mono outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                     />
-                    <button
-                      type="button"
-                      onClick={addSpecialty}
-                      className="px-4 h-10 rounded-full bg-[var(--liquid-chrome)]/10 border border-[var(--liquid-chrome)] text-[var(--liquid-chrome)] font-heading font-medium text-sm hover:bg-[var(--liquid-chrome)]/20 transition-colors"
+                  </div>
+
+                  <div>
+                    <label className="block font-body text-xs text-[var(--muted-lead)] mb-2">
+                      Max Fiyat (TL)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.priceRange.max}
+                      onChange={(e) => setFormData({ ...formData, priceRange: { ...formData.priceRange, max: Number(e.target.value) }})}
+                      placeholder="0"
+                      min="0"
+                      className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-mono outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Fotoğraf */}
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <ImageUploader
+                  label="Personel Fotoğrafı"
+                  value={formData.photo}
+                  onChange={(url) => setFormData({ ...formData, photo: url })}
+                  folder="staff"
+                />
+              </div>
+
+              {/* Uzmanlık Alanları - Modern Card */}
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                  Uzmanlık Alanları
+                </label>
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={specialtyInput}
+                    onChange={(e) => setSpecialtyInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialty())}
+                    placeholder="Örnek: Saç Kesimi"
+                    className="flex-1 h-11 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body text-sm outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={addSpecialty}
+                    className="px-5 h-11 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-heading font-bold text-sm transition-all shadow-lg shadow-purple-500/20"
+                  >
+                    Ekle
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.specialties.map((specialty) => (
+                    <span
+                      key={specialty}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 text-purple-300 font-body text-sm"
                     >
-                      Ekle
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.specialties.map((specialty) => (
-                      <span
-                        key={specialty}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/5 border border-[var(--obsidian-rim)] text-[var(--silver-frost)] font-body text-sm"
-                      >
-                        {specialty}
-                        <button
-                          type="button"
-                          onClick={() => removeSpecialty(specialty)}
-                          className="text-[var(--muted-lead)] hover:text-[var(--error)] transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-3">
-                    Calisma Gunleri *
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {DAYS.map((day) => (
+                      {specialty}
                       <button
-                        key={day.value}
                         type="button"
-                        onClick={() => toggleDay(day.value)}
-                        className={`w-14 h-14 rounded-full border-2 transition-all font-heading font-medium ${
-                          formData.workingDays.includes(day.value)
-                            ? 'border-[var(--liquid-chrome)] bg-white/5 text-[var(--chrome-white)]'
-                            : 'border-[var(--obsidian-rim)] text-[var(--muted-lead)] hover:border-[var(--silver-frost)]'
-                        }`}
+                        onClick={() => removeSpecialty(specialty)}
+                        className="text-purple-400 hover:text-red-400 transition-colors"
                       >
-                        {day.label}
+                        <X size={14} strokeWidth={2.5} />
                       </button>
-                    ))}
-                  </div>
+                    </span>
+                  ))}
                 </div>
+              </div>
 
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-3">
-                    Renk *
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    {COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, color })}
-                        className={`w-12 h-12 rounded-full border-2 transition-all ${
-                          formData.color === color
-                            ? 'border-[var(--chrome-white)] scale-110'
-                            : 'border-transparent hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)]">
+              {/* Çalışma Günleri - Modern Card */}
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                  Çalışma Günleri *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map((day) => (
                     <button
+                      key={day.value}
                       type="button"
-                      onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-                      className={`relative w-12 h-7 rounded-full transition-colors ${
-                        formData.isActive ? 'bg-[var(--success)]' : 'bg-[var(--slate-elevated)]'
+                      onClick={() => toggleDay(day.value)}
+                      className={`w-14 h-14 rounded-2xl border-2 transition-all font-heading font-bold ${
+                        formData.workingDays.includes(day.value)
+                          ? 'border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                          : 'border-[var(--obsidian-rim)] text-[var(--muted-lead)] hover:border-[var(--silver-frost)]'
                       }`}
                     >
-                      <div
-                        className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                          formData.isActive ? 'translate-x-5' : 'translate-x-0.5'
-                        }`}
-                      />
+                      {day.label}
                     </button>
-                    <div>
-                      <p className="font-heading font-medium text-[var(--chrome-white)]">
-                        Personel Aktif
-                      </p>
-                      <p className="font-body text-xs text-[var(--muted-lead)]">
-                        Müşteriler bu personeli görebilir ve randevu alabilir
-                      </p>
-                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Renk Seçimi - Modern Card */}
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                  Takvim Rengi *
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, color })}
+                      className={`w-14 h-14 rounded-2xl border-2 transition-all shadow-lg ${
+                        formData.color === color
+                          ? 'border-[var(--chrome-white)] scale-110'
+                          : 'border-transparent hover:scale-105'
+                      }`}
+                      style={{ 
+                        backgroundColor: color,
+                        boxShadow: formData.color === color ? `0 8px 20px ${color}40` : undefined
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Aktif Durum - Modern Card */}
+              <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${
+                      formData.isActive ? 'bg-emerald-500' : 'bg-[var(--slate-elevated)]'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                        formData.isActive ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <p className="font-heading font-bold text-emerald-400">
+                      Personel Aktif
+                    </p>
+                    <p className="font-body text-xs text-emerald-300/80">
+                      Müşteriler bu personeli görebilir ve randevu alabilir
+                    </p>
                   </div>
                 </div>
               </div>

@@ -201,7 +201,7 @@ export const createSubscription = functions
           throw new Error('Ödeme başarısız');
         }
       } catch (error: any) {
-        throw new functions.https.HttpsError('payment-required', `Ödeme hatası: ${error.message}`);
+        throw new functions.https.HttpsError('internal', `Ödeme hatası: ${error.message}`);
       }
     }
 
@@ -335,7 +335,6 @@ export const updateUsageOnStaffCreate = functions
     if (subscriptionsSnapshot.empty) return;
 
     const subscriptionDoc = subscriptionsSnapshot.docs[0];
-    const subscription = subscriptionDoc.data();
 
     // Usage stats güncelle
     await subscriptionDoc.ref.update({
@@ -434,14 +433,154 @@ export const sendSubscriptionReminders = functions
     console.log(`${expiringSubscriptions.size} reminders sent`);
   });
 
-// ============================================================================
-// EXPORT ALL FUNCTIONS
-// ============================================================================
+/**
+ * 6️⃣ SALON SUBSCRIPTION STATUS GÜNCELLE (TRIGGER)
+ * 
+ * ✅ GÜVENLİK: Otomatik güncelleme - Client-side bypass edilemez
+ * 
+ * Subscription oluşturulduğunda, güncellendiğunda veya silindiğinde
+ * ilgili salon belgesindeki subscriptionActive alanını güncelle
+ * 
+ * Bu sayede müşteriler subscriptions koleksiyonunu okumadan
+ * hangi salonların aktif olduğunu görebilir
+ */
+export const updateSalonSubscriptionStatus = functions
+  .region('europe-west1')
+  .firestore.document('subscriptions/{subscriptionId}')
+  .onWrite(async (change, context) => {
+    const after = change.after.exists ? change.after.data() : null;
+    const before = change.before.exists ? change.before.data() : null;
+    
+    // Subscription silinmişse veya businessId yoksa skip
+    const businessId = after?.businessId || before?.businessId;
+    if (!businessId) {
+      console.log('No businessId found, skipping');
+      return;
+    }
 
-export {
-  createSubscription,
-  approveSubscription,
-  updateUsageOnStaffCreate,
-  checkPendingSubscriptions,
-  sendSubscriptionReminders,
-};
+    try {
+      // Salon dokümanını kontrol et
+      const salonRef = db.collection('salons').doc(businessId);
+      const salonDoc = await salonRef.get();
+      
+      if (!salonDoc.exists) {
+        console.log(`Salon ${businessId} not found, skipping`);
+        return;
+      }
+
+      // Bu işletmenin EN GÜNCEL aboneliğini bul
+      const subscriptionsSnapshot = await db
+        .collection('subscriptions')
+        .where('businessId', '==', businessId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+
+      let subscriptionActive = false;
+      
+      if (!subscriptionsSnapshot.empty) {
+        const latestSubscription = subscriptionsSnapshot.docs[0].data();
+        const now = new Date();
+        const endDate = new Date(latestSubscription.endDate);
+        
+        // Abonelik aktif mi kontrol et
+        subscriptionActive = 
+          latestSubscription.status === 'active' && 
+          now <= endDate;
+      }
+
+      // Salon dokümanını güncelle
+      await salonRef.update({
+        subscriptionActive,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log(`✅ Salon ${businessId} subscriptionActive updated to: ${subscriptionActive}`);
+      
+      // Log kaydı
+      await db.collection('audit_logs').add({
+        action: 'salon_subscription_status_updated',
+        businessId,
+        subscriptionActive,
+        subscriptionId: context.params.subscriptionId,
+        timestamp: new Date().toISOString(),
+        source: 'cloud_function',
+      });
+      
+    } catch (error) {
+      console.error('Error updating salon subscription status:', error);
+      // Hata durumunda da devam et - kritik değil
+    }
+  });
+
+/**
+ * 7️⃣ TÜM SALON ABONELİK STATUSLERINI GÜNCELLE (MANUAL CALLABLE)
+ * 
+ * Admin tarafından manuel olarak çağrılabilir
+ * Tüm salonların subscriptionActive durumunu günceller
+ * 
+ * Kullanım: Admin panelinden veya Firebase Console'dan çağrılabilir
+ */
+export const syncAllSalonSubscriptions = functions
+  .region('europe-west1')
+  .runWith({ memory: '1GB', timeoutSeconds: 540 })
+  .https.onCall(async (data, context) => {
+    // ✅ ADMIN KONTROLÜ
+    if (!context.auth || !(await isAdmin(context))) {
+      throw new functions.https.HttpsError('permission-denied', 'Sadece adminler bu işlemi yapabilir');
+    }
+
+    try {
+      const salonsSnapshot = await db.collection('salons').get();
+      const batch = db.batch();
+      const now = new Date();
+      let updateCount = 0;
+
+      for (const salonDoc of salonsSnapshot.docs) {
+        const salonId = salonDoc.id;
+        
+        // Bu işletmenin EN GÜNCEL aboneliğini bul
+        const subscriptionsSnapshot = await db
+          .collection('subscriptions')
+          .where('businessId', '==', salonId)
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+
+        let subscriptionActive = false;
+        
+        if (!subscriptionsSnapshot.empty) {
+          const latestSubscription = subscriptionsSnapshot.docs[0].data();
+          const endDate = new Date(latestSubscription.endDate);
+          
+          subscriptionActive = 
+            latestSubscription.status === 'active' && 
+            now <= endDate;
+        }
+
+        // Güncelleme gerekiyorsa batch'e ekle
+        if (salonDoc.data().subscriptionActive !== subscriptionActive) {
+          batch.update(salonDoc.ref, {
+            subscriptionActive,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          updateCount++;
+        }
+      }
+
+      await batch.commit();
+
+      console.log(`✅ ${updateCount} salons updated`);
+      
+      return {
+        success: true,
+        message: `${updateCount} işletme güncellendi`,
+        totalSalons: salonsSnapshot.size,
+        updatedCount: updateCount,
+      };
+      
+    } catch (error: any) {
+      console.error('Error syncing salon subscriptions:', error);
+      throw new functions.https.HttpsError('internal', `Senkronizasyon hatası: ${error.message}`);
+    }
+  });

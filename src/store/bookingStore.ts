@@ -1,10 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Service, Salon } from '@/types';
-import { reservationService } from '@/services/reservationService';
+import { reservationServiceBackend } from '@/services/reservationServiceBackend';
 import { useAuthStore } from './authStore';
 import { rateLimiter } from '@/utils/rateLimiter';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '@/utils/sanitize';
+
+// ✅ GÜVENLİK: Backend validation açık/kapalı (acil durum için)
+// ⚠️ UYARI: Production'da TRUE olmalıdır!
+// 
+// Backend validation etkinleştirmek için:
+// 1. Firebase Functions'ı deploy edin (functions/src/index.ts)
+// 2. Cloud Function'ların çalıştığını test edin
+// 3. Bu değeri true yapın
+// 
+// Geçici olarak false: Client-side fiyat hesaplama kullanılıyor
+const USE_BACKEND_VALIDATION = false;
 
 interface BookingState {
   // Ortak alanlar
@@ -19,6 +30,7 @@ interface BookingState {
   selectedTime: string | null;
   location?: 'studio' | 'outdoor' | 'home' | 'business';
   address?: string;
+  gpsLocation?: { lat: number; lng: number };
   
   // Günlük kiralama (Salon, Etkinlik)
   eventDate: string | null;
@@ -65,7 +77,7 @@ interface BookingState {
   toggleService: (service: Service) => void;
   selectStaff: (staffId: string | null) => void;
   selectDateTime: (date: string, time: string) => void;
-  setCustomerInfo: (info: { name: string; phone: string; email: string; notes: string }) => void;
+  setCustomerInfo: (info: { name: string; phone: string; email: string; notes: string; address?: string; location?: { lat: number; lng: number } }) => void;
   setEventDetails: (details: any) => void;
   setAccommodationDetails: (details: any) => void;
   setOrderDetails: (details: any) => void;
@@ -121,6 +133,7 @@ export const useBookingStore = create<BookingState>()(
   selectedTime: null,
   location: undefined,
   address: undefined,
+  gpsLocation: undefined,
   
   // Günlük kiralama
   eventDate: null,
@@ -194,7 +207,9 @@ export const useBookingStore = create<BookingState>()(
       customerName: sanitizeInput(info.name), 
       customerPhone: sanitizePhone(info.phone),
       customerEmail: sanitizeEmail(info.email),
-      customerNotes: sanitizeInput(info.notes)
+      customerNotes: sanitizeInput(info.notes),
+      address: info.address ? sanitizeInput(info.address) : undefined,
+      gpsLocation: info.location
     }),
 
   setEventDetails: (details) => set({ ...details }),
@@ -254,23 +269,45 @@ export const useBookingStore = create<BookingState>()(
 
   submitReservation: async () => {
     const state = get();
-    const user = useAuthStore.getState().user;
     
-    if (!user) {
+    // ✅ Firebase Auth'dan direkt al (zustand store gecikmesi olabilir)
+    const { auth } = await import('@/lib/firebase');
+    const firebaseUser = auth.currentUser;
+    
+    if (!firebaseUser) {
       throw new Error('Giriş yapmalısınız');
     }
-
+    
+    const userId = firebaseUser.uid;
+    const userEmail = firebaseUser.email || '';
+    
     // Security: Rate limiting
-    if (!rateLimiter.isAllowed('reservation:create', user.uid)) {
-      const resetTime = Math.ceil(rateLimiter.getResetTime('reservation:create', user.uid) / 1000);
+    if (!rateLimiter.isAllowed('reservation:create', userId)) {
+      const resetTime = Math.ceil(rateLimiter.getResetTime('reservation:create', userId) / 1000);
       throw new Error(`Çok fazla istek. Lütfen ${resetTime} saniye bekleyin.`);
     }
 
     set({ isSubmitting: true, error: null });
 
     try {
-      // Salon bilgilerini al
-      const salonData = state.salon!;
+      // ✅ CRITICAL: Fresh salon verisi çek (cache değil!)
+      const { salonsService } = await import('@/services/firebaseService');
+      const freshSalon = await salonsService.getById(state.salonId!);
+      
+      if (!freshSalon) {
+        throw new Error('İşletme bilgileri yüklenemedi. Lütfen tekrar deneyin.');
+      }
+      
+      // ✅ IBAN kontrolü (fresh data ile)
+      const hasValidIBAN = freshSalon?.paymentSettings?.bankTransferEnabled && 
+                           freshSalon?.paymentSettings?.bankAccounts &&
+                           freshSalon.paymentSettings.bankAccounts.length > 0 &&
+                           freshSalon.paymentSettings.bankAccounts.some(acc => 
+                             acc.iban && acc.iban.trim().length > 0
+                           );
+      
+      // Salon bilgilerini kullan (fresh data)
+      const salonData = freshSalon;
       const whatsappNumber = (salonData as any).whatsapp || salonData.phone || '';
       const salonCover = (salonData as any).cover || salonData.coverImage || '';
       const salonAddress = typeof salonData.address === 'string' 
@@ -279,20 +316,24 @@ export const useBookingStore = create<BookingState>()(
 
       let reservationData: any = {
         businessId: state.salonId!,
-        businessName: state.salon!.name,
-        businessCategory: state.salon!.category,
-        userId: user.uid,
+        businessName: freshSalon.name,
+        businessCategory: freshSalon.category,
+        userId: userId,
         userName: state.customerName,
         userPhone: state.customerPhone,
-        userEmail: state.customerEmail,
+        userEmail: state.customerEmail || userEmail,
         type: state.bookingType,
-        notes: state.customerNotes,
-        // Salon bilgileri ekle
+        notes: state.customerNotes || '',
         whatsappNumber,
         salonCover,
         salonAddress,
+        // ✅ GÜVENLİK: IBAN bilgisi metadata olarak ekle
+        _hasValidIBAN: hasValidIBAN,
       };
 
+      // ⚠️ ÖNEMLİ: Fiyat hesaplama client-side yapılır ama backend'de doğrulanmalıdır
+      // TODO: Backend validation eklenmelidir (Firebase Functions)
+      
       // Tip bazlı veri ekleme
       if (state.bookingType === 'slot') {
         const endTime = new Date(`2000-01-01T${state.selectedTime}`);
@@ -311,16 +352,21 @@ export const useBookingStore = create<BookingState>()(
             duration: s.duration,
             price: s.price
           })),
-          businessCategory: state.salon?.category, // Otomatik onay için kategori bilgisi
-          ...(state.location && { location: state.location }),
+          businessCategory: state.salon?.category,
+          // ✅ GÜVENLİK: Fiyat client-side hesaplama (backend validation gerekli)
+          totalPrice: state.totalPrice,
+          // ⚠️ UYARI: Backend'de servis ID'lerinden fiyat yeniden hesaplanmalı
+          _requiresPriceValidation: true,
+          ...(state.gpsLocation && { gpsLocation: state.gpsLocation }),
           ...(state.address && { address: state.address }),
         };
       } else if (state.bookingType === 'nightly') {
-        // Fiyat hesapla
         const roomPrice = state.selectedPackage?.price || 0;
         const nights = Math.ceil((new Date(state.checkOut!).getTime() - new Date(state.checkIn!).getTime()) / (1000 * 60 * 60 * 24));
         const extrasTotal = state.extras?.reduce((sum: number, e: any) => sum + (e.price || 0), 0) || 0;
-        const totalPrice = state.totalPrice || (roomPrice * nights + extrasTotal);
+        
+        // ✅ GÜVENLİK: Fiyat hesaplama (backend validation gerekli)
+        const calculatedPrice = roomPrice * nights + extrasTotal;
 
         reservationData = {
           ...reservationData,
@@ -334,11 +380,13 @@ export const useBookingStore = create<BookingState>()(
           guests: state.guests,
           extras: state.extras || [],
           extrasTotal,
-          totalPrice,
+          totalPrice: calculatedPrice,
+          // ⚠️ UYARI: Backend'de paket ID'den fiyat yeniden hesaplanmalı
+          _requiresPriceValidation: true,
+          _packageId: state.selectedPackage?.id,
         };
         
-        // Fiyat bilgisini state'e de kaydet
-        set({ totalPrice });
+        set({ totalPrice: calculatedPrice });
       } else if (state.bookingType === 'project') {
         const packagePrice = state.selectedPackage?.price || 0;
         
@@ -353,11 +401,14 @@ export const useBookingStore = create<BookingState>()(
           meetings: [],
           milestones: [],
           subServices: [],
+          // ⚠️ UYARI: Backend'de paket ID'den fiyat yeniden hesaplanmalı
+          _requiresPriceValidation: true,
+          _packageId: state.selectedPackage?.id,
         };
         
-        // Fiyat bilgisini state'e de kaydet
         set({ totalPrice: packagePrice });
       } else if (state.bookingType === 'order') {
+        // ✅ GÜVENLİK: Sipariş toplamı hesaplama (backend validation gerekli)
         const orderTotal = state.orderItems.reduce((sum: number, item: any) => 
           sum + (item.price * item.quantity), 0);
         
@@ -369,15 +420,15 @@ export const useBookingStore = create<BookingState>()(
           orderType: state.salon!.category,
           items: state.orderItems,
           totalPrice: orderTotal,
+          // ⚠️ UYARI: Backend'de item ID'lerinden fiyat yeniden hesaplanmalı
+          _requiresPriceValidation: true,
         };
         
-        // Fiyat bilgisini state'e de kaydet
         set({ totalPrice: orderTotal });
       } else if (state.bookingType === 'daily') {
-        // Daily için paket fiyatı + ekstralar
         const packagePrice = state.selectedPackage?.price || 0;
         const extrasTotal = state.extras?.reduce((sum: number, e: any) => sum + (e.price || 0), 0) || 0;
-        const totalPrice = packagePrice + extrasTotal;
+        const calculatedPrice = packagePrice + extrasTotal;
         
         reservationData = {
           ...reservationData,
@@ -388,14 +439,41 @@ export const useBookingStore = create<BookingState>()(
           package: state.selectedPackage,
           extras: state.extras || [],
           extrasTotal,
-          totalPrice,
+          totalPrice: calculatedPrice,
+          // ⚠️ UYARI: Backend'de paket ID'den fiyat yeniden hesaplanmalı
+          _requiresPriceValidation: true,
+          _packageId: state.selectedPackage?.id,
         };
         
-        // Fiyat bilgisini state'e de kaydet
-        set({ totalPrice });
+        set({ totalPrice: calculatedPrice });
       }
 
-      const reservation = await reservationService.createReservation(reservationData);
+      const reservation = await (async () => {
+        // ✅ GÜVENLİK: Backend validation kullan
+        if (USE_BACKEND_VALIDATION) {
+          console.log('🔒 Using backend validation...');
+          const result = await reservationServiceBackend.createReservationWithValidation(reservationData);
+          
+          // Backend'den dönen fiyatı log'la
+          console.log('💰 Price validation:', {
+            clientPrice: reservationData.totalPrice,
+            validatedPrice: result.validatedPrice,
+            diff: Math.abs(reservationData.totalPrice - result.validatedPrice)
+          });
+          
+          // Rezervasyon ID'sini döndür
+          return { id: result.reservationId };
+        } else {
+          // Legacy direkt Firestore write (DEPRECATED)
+          console.warn('⚠️ Backend validation DISABLED - using legacy client-side pricing');
+          console.warn('💡 To enable secure backend validation:');
+          console.warn('   1. Deploy Firebase Functions');
+          console.warn('   2. Set USE_BACKEND_VALIDATION = true');
+          
+          const { reservationService } = await import('@/services/reservationService');
+          return reservationService.createReservation(reservationData);
+        }
+      })();
       
       // Başarılı olduğundan emin ol
       if (!reservation || !reservation.id) {

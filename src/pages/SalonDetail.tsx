@@ -51,62 +51,54 @@ export function SalonDetail() {
   useEffect(() => {
     if (id) {
       loadSalonData();
-      checkSubscription();
     }
   }, [id]);
-
-  const checkSubscription = async () => {
-    if (!id) return;
-    
-    try {
-      const { subscriptionService } = await import('@/services/subscriptionService');
-      const subscription = await subscriptionService.getBusinessSubscription(id);
-      
-      if (!subscription) {
-        setSubscriptionStatus({
-          hasActiveSubscription: false,
-          isExpired: true,
-          isPending: false,
-          daysRemaining: 0,
-        });
-        return;
-      }
-      
-      const now = new Date();
-      const endDate = new Date(subscription.endDate);
-      const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
-      setSubscriptionStatus({
-        hasActiveSubscription: subscription.status === 'active' && daysRemaining > 0,
-        isExpired: subscription.status === 'expired' || daysRemaining <= 0,
-        isPending: subscription.status === 'pending',
-        daysRemaining: Math.max(0, daysRemaining),
-      });
-    } catch (error) {
-      console.error('Error checking subscription:', error);
-      setSubscriptionStatus({
-        hasActiveSubscription: false,
-        isExpired: true,
-        isPending: false,
-        daysRemaining: 0,
-      });
-    }
-  };
 
   const loadSalonData = async () => {
     if (!id) return;
     
     setLoading(true);
     try {
-      const [salonData, servicesData, staffData] = await Promise.all([
-        salonsService.getById(id),
-        servicesService.getBySalon(id),
-        staffService.getBySalon(id),
+      let salonData: Salon | null = null;
+      
+      // Önce tüm salonları al ve slug ile ara (daha güvenilir)
+      const allSalons = await salonsService.getAll();
+      
+      // Önce slug ile dene
+      salonData = allSalons.find(s => s.slug === id) || null;
+      
+      // Slug ile bulunamadıysa, ID ile dene
+      if (!salonData) {
+        salonData = allSalons.find(s => s.id === id) || null;
+      }
+      
+      if (!salonData) {
+        console.error('Salon bulunamadı:', id);
+        setLoading(false);
+        return;
+      }
+      
+      const [servicesData, staffData] = await Promise.all([
+        servicesService.getBySalon(salonData.id),
+        staffService.getBySalon(salonData.id),
       ]);
       
       setSalon(salonData);
       setServices(servicesData);
       setStaff(staffData);
+      
+      // ✅ Salon belgesindeki subscriptionActive alanını kontrol et (subscriptions koleksyonunu okumaya gerek yok)
+      if (salonData) {
+        const hasActiveSubscription = salonData.subscriptionActive === true;
+        const isPending = salonData.subscriptionPendingApproval === true;
+        
+        setSubscriptionStatus({
+          hasActiveSubscription,
+          isExpired: !hasActiveSubscription && !isPending,
+          isPending,
+          daysRemaining: 0, // Salon belgesinde süre bilgisi yok, önemli değil
+        });
+      }
 
       // Check if user is blocked or banned
       if (user && id) {
@@ -148,12 +140,12 @@ export function SalonDetail() {
   }
 
   const handleBook = () => {
-    // Abonelik kontrolü - EN ÖNCELİKLİ
+    // ✅ Abonelik kontrolü - Aktif abonelik yoksa randevu alınamaz
     if (!subscriptionStatus?.hasActiveSubscription) {
       if (subscriptionStatus?.isPending) {
-        addToast('Bu işletme şu anda randevu kabul etmemektedir. İşletme aboneliği onay bekliyor.', 'warning');
+        addToast('Bu işletme abonelik onayı bekliyor. Şu anda randevu alınamaz.', 'warning');
       } else if (subscriptionStatus?.isExpired) {
-        addToast('Bu işletme şu anda kapalıdır. Randevu alınamaz.', 'error');
+        addToast('Bu işletmenin aboneliği sona ermiş. Randevu alınamaz.', 'error');
       } else {
         addToast('Bu işletme şu anda randevu kabul etmemektedir.', 'error');
       }
@@ -187,13 +179,14 @@ export function SalonDetail() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto pb-8">
-      {/* Hero Image */}
+    <div className="w-full pb-8 pt-6">
+      {/* Hero Image - Kompakt ve Modern */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="relative h-[300px] md:h-[400px] -mx-4 sm:-mx-6 lg:-mx-8"
+        className="relative h-[200px] md:h-[240px] lg:h-[280px] max-w-5xl mx-auto rounded-2xl overflow-hidden mb-6 px-4 sm:px-6 md:px-8"
       >
+        <div className="relative h-full w-full rounded-2xl overflow-hidden">
         {salon.coverImage ? (
           <img
             src={salon.coverImage}
@@ -205,48 +198,62 @@ export function SalonDetail() {
           <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-pink-500/20" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--void)] via-transparent to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <span className="liquid-glass-pill px-3 py-1 text-[10px] font-heading font-semibold uppercase tracking-wider text-[var(--chrome-white)]">
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
+          <span className="liquid-glass-pill px-2.5 py-1 text-[10px] font-heading font-semibold uppercase tracking-wider text-[var(--chrome-white)]">
             {categoryLabels[salon.category]}
           </span>
-          <h1 className="font-display font-bold text-3xl md:text-4xl text-[var(--chrome-white)] mt-3">
+          <h1 className="font-display font-bold text-2xl md:text-3xl text-[var(--chrome-white)] mt-2">
             {salon.name}
           </h1>
-          <div className="flex items-center gap-2 mt-2">
-            <MapPin size={14} className="text-[var(--muted-lead)]" />
-            <span className="font-body text-sm text-[var(--muted-lead)]">
+          <div className="flex items-center gap-2 mt-1.5">
+            <MapPin size={13} className="text-[var(--muted-lead)]" />
+            <span className="font-body text-xs text-[var(--muted-lead)]">
               {salon.address.district}, {salon.address.city}
             </span>
           </div>
         </div>
+        </div>
       </motion.div>
 
-      {/* Rating & Actions */}
-      <div className="mt-6">
-        <div className="flex items-center gap-3">
-          <StarRating score={salon.stats.averageRating} size={20} />
-          <span className="font-heading font-bold text-2xl text-[var(--chrome-white)]">
-            {salon.stats.averageRating}
-          </span>
-          <span className="font-body text-sm text-[var(--muted-lead)]">
-            ({salon.stats.reviewCount} yorum)
-          </span>
+      {/* Rating & Actions - Kompakt Container */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+      <div className="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Sol Kolon - Rating ve Açıklama */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center gap-2.5">
+            <StarRating score={salon.stats.averageRating} size={18} />
+            <span className="font-heading font-bold text-xl text-[var(--chrome-white)]">
+              {salon.stats.averageRating}
+            </span>
+            <span className="font-body text-sm text-[var(--muted-lead)]">
+              ({salon.stats.reviewCount} yorum)
+            </span>
+          </div>
+
+          {/* Description */}
+          <div>
+            <p className="font-body text-[14px] text-[var(--silver-frost)] leading-relaxed">
+              {salon.description}
+            </p>
+          </div>
         </div>
 
-        {/* Modern Randevu Kartı */}
-        <div className="mt-6 p-6 rounded-3xl bg-gradient-to-br from-[#1a1f2e] to-[#0f1419] border border-emerald-900/20">
+        {/* Sağ Kolon - Kompakt Randevu Kartı (Sticky) */}
+        <div className="lg:sticky lg:top-20 lg:self-start">
+          {/* Kompakt Randevu Kartı */}
+          <div className="p-4 rounded-2xl obsidian-card border border-[var(--obsidian-rim)]">
           {/* Abonelik Uyarısı */}
           {subscriptionStatus && !subscriptionStatus.hasActiveSubscription && (
-            <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle size={20} className="text-red-400" />
+            <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20">
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle size={16} className="text-red-400" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-heading font-bold text-sm text-red-400 mb-1">
+                  <h4 className="font-heading font-bold text-xs text-red-400 mb-0.5">
                     {subscriptionStatus.isPending ? 'İşletme Onay Bekliyor' : 'İşletme Kapalı'}
                   </h4>
-                  <p className="font-body text-xs text-red-300/80 leading-relaxed">
+                  <p className="font-body text-[11px] text-red-300/80 leading-relaxed">
                     {subscriptionStatus.isPending 
                       ? 'Bu işletme abonelik onayı bekliyor. Şu anda randevu alınamaz.'
                       : 'Bu işletme şu anda randevu kabul etmemektedir. Lütfen daha sonra tekrar deneyin.'}
@@ -256,119 +263,116 @@ export function SalonDetail() {
             </div>
           )}
           
-          <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center gap-3 mb-4">
             <div className={cn(
-              'w-16 h-16 rounded-2xl border flex items-center justify-center flex-shrink-0',
+              'w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0',
               subscriptionStatus?.hasActiveSubscription
                 ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/30'
                 : 'bg-gradient-to-br from-gray-500/20 to-gray-600/20 border-gray-500/30'
             )}>
-              <Calendar size={28} className={subscriptionStatus?.hasActiveSubscription ? 'text-emerald-400' : 'text-gray-400'} />
+              <Calendar size={20} className={subscriptionStatus?.hasActiveSubscription ? 'text-emerald-400' : 'text-gray-400'} />
             </div>
             <div className="flex-1">
-              <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)] mb-1">
+              <h3 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-0.5">
                 Randevu Oluştur
               </h3>
-              <p className="font-body text-sm text-[var(--muted-lead)] leading-relaxed">
+              <p className="font-body text-[11px] text-[var(--muted-lead)] leading-relaxed">
                 {subscriptionStatus?.hasActiveSubscription 
-                  ? 'Müsait saatleri görüntüleyin ve anında rezervasyon yapın'
+                  ? 'Müsait saatleri görüntüleyin'
                   : 'Randevu alınamaz'}
               </p>
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-2.5">
             <button
               onClick={handleBook}
               disabled={!subscriptionStatus?.hasActiveSubscription}
               className={cn(
-                'flex-1 h-14 rounded-full font-heading font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2.5',
+                'flex-1 h-11 rounded-full font-heading font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2',
                 subscriptionStatus?.hasActiveSubscription
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-emerald-900/40 hover:shadow-emerald-500/30 active:scale-[0.98] cursor-pointer'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30 active:scale-[0.98] cursor-pointer'
                   : 'bg-gray-500/20 text-gray-500 cursor-not-allowed opacity-50'
               )}
             >
-              <Calendar size={20} strokeWidth={2.5} />
-              <span>{subscriptionStatus?.hasActiveSubscription ? 'Randevu Al' : 'Randevu Kapalı'}</span>
+              <Calendar size={16} strokeWidth={2.5} />
+              <span>{subscriptionStatus?.hasActiveSubscription ? 'Randevu Al' : 'Kapalı'}</span>
             </button>
             <a
               href={`https://wa.me/${salon.whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-14 w-14 rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-emerald-900/20 hover:border-emerald-500/30 text-[var(--chrome-white)] transition-all active:scale-[0.98] flex items-center justify-center"
+              className="h-11 w-11 rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-[var(--obsidian-rim)] hover:border-emerald-500/30 text-[var(--chrome-white)] transition-all active:scale-[0.98] flex items-center justify-center"
             >
-              <MessageCircle size={20} strokeWidth={2.5} />
+              <MessageCircle size={16} strokeWidth={2.5} />
             </a>
           </div>
         </div>
+        </div>
+      </div>
       </div>
 
-      {/* Description */}
-      <div className="mt-8">
-        <p className="font-body text-[15px] text-[var(--silver-frost)] leading-relaxed">
-          {salon.description}
-        </p>
-      </div>
-
-      {/* Services */}
-      <section className="mt-10">
-        <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-4">
+      {/* Services - Kompakt Container */}
+      <section className="mt-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+        <h2 className="font-display font-bold text-xl text-[var(--chrome-white)] mb-3">
           Hizmetler
         </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
         {Object.entries(servicesByCategory).map(([category, services]) => (
-          <ObsidianCard key={category} hover={false} className="mb-3 overflow-hidden">
+          <ObsidianCard key={category} hover={false} className="overflow-hidden">
             <button
               onClick={() => toggleCategory(category)}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors"
+              className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.02] transition-colors"
             >
-              <span className="font-heading font-semibold text-base text-[var(--silver-frost)]">
+              <span className="font-heading font-semibold text-sm text-[var(--silver-frost)]">
                 {category}
               </span>
               {expandedCategories[category] ? (
-                <ChevronUp size={18} className="text-[var(--muted-lead)]" />
+                <ChevronUp size={16} className="text-[var(--muted-lead)]" />
               ) : (
-                <ChevronDown size={18} className="text-[var(--muted-lead)]" />
+                <ChevronDown size={16} className="text-[var(--muted-lead)]" />
               )}
             </button>
             {expandedCategories[category] && (
-              <div className="pb-2">
+              <div className="pb-1">
                 {services.map((service) => (
-                  <div key={service.id} className="flex items-center justify-between px-4 py-3 border-t border-[var(--obsidian-rim)]">
+                  <div key={service.id} className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--obsidian-rim)]">
                     <div>
-                      <span className="font-body text-[15px] text-[var(--chrome-white)]">{service.name}</span>
+                      <span className="font-body text-[14px] text-[var(--chrome-white)]">{service.name}</span>
                       {/* Sadece slot-based kategorilerde dakika göster */}
                       {['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salon.category) && (
-                        <span className="block font-body text-[13px] text-[var(--muted-lead)]">{service.duration} dk</span>
+                        <span className="block font-body text-[12px] text-[var(--muted-lead)]">{service.duration} dk</span>
                       )}
                     </div>
-                    <span className="font-mono font-medium text-[var(--silver-frost)]">{service.price} TL</span>
+                    <span className="font-mono font-medium text-sm text-[var(--silver-frost)]">{service.price} TL</span>
                   </div>
                 ))}
               </div>
             )}
           </ObsidianCard>
         ))}
+        </div>
       </section>
 
-      {/* Staff */}
-      <section className="mt-10">
-        <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-4">
+      {/* Staff - Kompakt Container */}
+      <section className="mt-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+        <h2 className="font-display font-bold text-xl text-[var(--chrome-white)] mb-3">
           Ekibimiz
         </h2>
-        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {staff.map((member) => (
             <StaffCard key={member.id} staff={member} variant="compact" />
           ))}
         </div>
       </section>
 
-      {/* Gallery */}
+      {/* Gallery - Kompakt Container */}
       {salon.galleryImages && salon.galleryImages.length > 0 && (
-        <section className="mt-10">
-          <h2 className="font-display font-bold text-xl sm:text-2xl text-[var(--chrome-white)] mb-4">
+        <section className="mt-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+          <h2 className="font-display font-bold text-xl text-[var(--chrome-white)] mb-3">
             Galeri
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
             {salon.galleryImages.filter(img => img).map((img, i) => (
               <button
                 key={i}
@@ -379,17 +383,17 @@ export function SalonDetail() {
                   setLightboxIndex(i);
                   setLightboxOpen(true);
                 }}
-                className="aspect-square rounded-2xl sm:rounded-3xl overflow-hidden obsidian-card cursor-pointer group relative hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="aspect-[4/3] rounded-xl overflow-hidden obsidian-card cursor-pointer group relative hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 <img
                   src={img}
                   loading="lazy"
                   alt={`${salon.name} galeri ${i + 1}`}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-white/0 group-hover:bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-8 h-8 rounded-full bg-white/0 group-hover:bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                     </svg>
                   </div>
@@ -407,13 +411,13 @@ export function SalonDetail() {
         </section>
       )}
 
-      {/* Reviews */}
-      <section className="mt-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
+      {/* Reviews - Kompakt Container */}
+      <section className="mt-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-display font-bold text-xl text-[var(--chrome-white)]">
             Musteri Yorumlari
           </h2>
-          <span className="liquid-glass-pill px-3 py-1 font-mono text-sm text-[var(--silver-frost)]">
+          <span className="liquid-glass-pill px-2.5 py-0.5 font-mono text-sm text-[var(--silver-frost)]">
             {salon.stats.averageRating}
           </span>
         </div>
@@ -422,9 +426,9 @@ export function SalonDetail() {
         {salon.stats.reviewCount > 2 && (
           <button
             onClick={() => setShowAllReviews(true)}
-            className="w-full mt-4 h-12 rounded-full bg-gradient-to-br from-[#1a1f2e] to-[#0f1419] hover:from-[#1f2535] hover:to-[#141a24] border border-emerald-900/20 hover:border-emerald-500/30 text-[var(--chrome-white)] font-heading font-semibold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            className="w-full mt-3 h-11 rounded-full bg-gradient-to-br from-[#1a1f2e] to-[#0f1419] hover:from-[#1f2535] hover:to-[#141a24] border border-emerald-900/20 hover:border-emerald-500/30 text-[var(--chrome-white)] font-heading font-semibold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
           >
-            <MessageSquare size={18} />
+            <MessageSquare size={16} />
             <span>Tüm Yorumları Gör ({salon.stats.reviewCount})</span>
           </button>
         )}
@@ -493,9 +497,9 @@ export function SalonDetail() {
         document.body
       )}
 
-      {/* Location */}
-      <section className="mt-10">
-        <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-4">
+      {/* Location - Kompakt Container */}
+      <section className="mt-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+        <h2 className="font-display font-bold text-xl text-[var(--chrome-white)] mb-3">
           Konum
         </h2>
         <SalonMap
@@ -506,30 +510,30 @@ export function SalonDetail() {
       </section>
 
       {/* Contact */}
-      <section className="mt-10 mb-24 md:mb-8">
-        <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-4">
+      <section className="mt-8 mb-24 md:mb-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+        <h2 className="font-display font-bold text-xl text-[var(--chrome-white)] mb-3">
           Iletisim
         </h2>
-        <ObsidianCard hover={false} className="p-5 space-y-4">
+        <ObsidianCard hover={false} className="p-4 space-y-3">
           <a
             href={`tel:${salon.phone}`}
-            className="flex items-center gap-3 p-3 rounded-full hover:bg-white/5 transition-colors"
+            className="flex items-center gap-3 p-2.5 rounded-full hover:bg-white/5 transition-colors"
           >
-            <div className="w-10 h-10 rounded-full bg-[var(--liquid-chrome)]/10 flex items-center justify-center flex-shrink-0">
-              <Phone size={18} className="text-[var(--liquid-chrome)]" />
+            <div className="w-9 h-9 rounded-full bg-[var(--liquid-chrome)]/10 flex items-center justify-center flex-shrink-0">
+              <Phone size={16} className="text-[var(--liquid-chrome)]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-heading font-medium text-sm text-[var(--chrome-white)]">Telefon</p>
+              <p className="font-heading font-medium text-xs text-[var(--chrome-white)]">Telefon</p>
               <p className="font-mono text-sm text-[var(--silver-frost)]">{salon.phone}</p>
             </div>
           </a>
           
-          <div className="flex items-start gap-3 p-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--liquid-chrome)]/10 flex items-center justify-center flex-shrink-0">
-              <MapPin size={18} className="text-[var(--liquid-chrome)]" />
+          <div className="flex items-start gap-3 p-2.5">
+            <div className="w-9 h-9 rounded-full bg-[var(--liquid-chrome)]/10 flex items-center justify-center flex-shrink-0">
+              <MapPin size={16} className="text-[var(--liquid-chrome)]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-heading font-medium text-sm text-[var(--chrome-white)] mb-1">Adres</p>
+              <p className="font-heading font-medium text-xs text-[var(--chrome-white)] mb-0.5">Adres</p>
               <p className="font-body text-sm text-[var(--silver-frost)] leading-relaxed">{salon.address.full}</p>
             </div>
           </div>
@@ -537,19 +541,19 @@ export function SalonDetail() {
 
         {/* Social Media */}
         {salon.socialMedia && (salon.socialMedia.instagram || salon.socialMedia.tiktok || salon.socialMedia.youtube) && (
-          <div className="mt-4">
-            <h3 className="font-heading font-semibold text-base sm:text-lg text-[var(--chrome-white)] mb-3">
+          <div className="mt-3">
+            <h3 className="font-heading font-semibold text-sm text-[var(--chrome-white)] mb-2.5">
               Sosyal Medya
             </h3>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
               {salon.socialMedia.instagram && (
                 <a
                   href={salon.socialMedia.instagram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 min-w-0 liquid-glass-pill px-4 sm:px-5 py-3 font-heading font-medium text-sm text-[var(--silver-frost)] hover:text-[var(--chrome-white)] hover:border-[var(--liquid-chrome)] transition-all flex items-center justify-center gap-2"
+                  className="flex-1 min-w-0 liquid-glass-pill px-4 py-2.5 font-heading font-medium text-xs text-[var(--silver-frost)] hover:text-[var(--chrome-white)] hover:border-[var(--liquid-chrome)] transition-all flex items-center justify-center gap-2"
                 >
-                  <Instagram size={16} className="sm:size-[18px] flex-shrink-0" />
+                  <Instagram size={15} className="flex-shrink-0" />
                   <span>Instagram</span>
                 </a>
               )}
@@ -558,9 +562,9 @@ export function SalonDetail() {
                   href={salon.socialMedia.tiktok}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 min-w-0 liquid-glass-pill px-4 sm:px-5 py-3 font-heading font-medium text-sm text-[var(--silver-frost)] hover:text-[var(--chrome-white)] hover:border-[var(--liquid-chrome)] transition-all flex items-center justify-center gap-2"
+                  className="flex-1 min-w-0 liquid-glass-pill px-4 py-2.5 font-heading font-medium text-xs text-[var(--silver-frost)] hover:text-[var(--chrome-white)] hover:border-[var(--liquid-chrome)] transition-all flex items-center justify-center gap-2"
                 >
-                  <Music size={16} className="sm:size-[18px] flex-shrink-0" />
+                  <Music size={15} className="flex-shrink-0" />
                   <span>TikTok</span>
                 </a>
               )}
@@ -569,9 +573,9 @@ export function SalonDetail() {
                   href={salon.socialMedia.youtube}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 min-w-0 liquid-glass-pill px-4 sm:px-5 py-3 font-heading font-medium text-sm text-[var(--silver-frost)] hover:text-[var(--chrome-white)] hover:border-[var(--liquid-chrome)] transition-all flex items-center justify-center gap-2"
+                  className="flex-1 min-w-0 liquid-glass-pill px-4 py-2.5 font-heading font-medium text-xs text-[var(--silver-frost)] hover:text-[var(--chrome-white)] hover:border-[var(--liquid-chrome)] transition-all flex items-center justify-center gap-2"
                 >
-                  <Youtube size={16} className="sm:size-[18px] flex-shrink-0" />
+                  <Youtube size={15} className="flex-shrink-0" />
                   <span>YouTube</span>
                 </a>
               )}
@@ -580,15 +584,21 @@ export function SalonDetail() {
         )}
       </section>
 
-      {/* Floating Book Button (Mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 md:hidden z-[100]">
-        <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#1a1f2e]/95 to-[#0f1419]/95 border border-white/[0.08] backdrop-blur-xl p-3 sm:p-4 shadow-2xl">
+      {/* Floating Book Button (Mobile) - Güvenli ve Performanslı */}
+      <div className="fixed bottom-0 left-0 right-0 p-3 md:hidden z-[100] pointer-events-none">
+        <div className="pointer-events-auto rounded-2xl bg-gradient-to-br from-[#1a1f2e]/98 to-[#0f1419]/98 border border-white/[0.08] backdrop-blur-xl p-3 shadow-2xl">
           <button 
             onClick={handleBook} 
-            className="w-full h-12 sm:h-14 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-heading font-bold text-sm shadow-lg shadow-emerald-900/40 transition-all active:scale-[0.97] flex items-center justify-center gap-2"
+            disabled={!subscriptionStatus?.hasActiveSubscription}
+            className={cn(
+              'w-full h-12 rounded-full font-heading font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2',
+              subscriptionStatus?.hasActiveSubscription
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 active:from-emerald-400 active:to-teal-400 text-white shadow-emerald-900/40 active:scale-[0.97]'
+                : 'bg-gray-500/20 text-gray-500 cursor-not-allowed opacity-50'
+            )}
           >
-            <Calendar size={18} className="sm:size-5" />
-            <span>Randevu Al</span>
+            <Calendar size={18} />
+            <span>{subscriptionStatus?.hasActiveSubscription ? 'Randevu Al' : 'Kapalı'}</span>
           </button>
         </div>
       </div>

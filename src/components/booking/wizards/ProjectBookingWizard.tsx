@@ -157,7 +157,7 @@ export function ProjectBookingWizard() {
   ];
 
   return (
-    <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+    <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
       <div className="mb-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
@@ -254,7 +254,7 @@ export function ProjectBookingWizard() {
                             <div className="space-y-4">
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Tipi</h4>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                                   {eventTypes.map((type) => (
                                     <button
                                       key={type.id}
@@ -331,7 +331,7 @@ export function ProjectBookingWizard() {
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Bütçe Aralığı (₺)</h4>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
                                     <label className="block text-xs text-[var(--muted-lead)] mb-1">Minimum</label>
                                     <input

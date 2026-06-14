@@ -16,6 +16,18 @@ export {
   sendSubscriptionReminders,
 } from './subscriptions';
 
+// Email Functions
+export {
+  onAppointmentCreated,
+} from './email';
+
+// ✅ Reservation Functions (Price Validation)
+export {
+  createReservationWithValidation,
+  onReservationCreated,
+  cleanupExpiredReservations,
+} from './reservations';
+
 // TODO: Diğer functions eklenebilir
 // export * from './notifications';
 // export * from './analytics';

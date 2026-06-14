@@ -110,140 +110,160 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
   };
 
   return (
-    <div className="space-y-6">
-      {/* Personel Filtreleme */}
-      <div className="obsidian-card p-4">
-        <div className="flex items-center gap-3 mb-4">
-          <UsersIcon size={20} className="text-[var(--liquid-chrome)]" />
-          <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
-            Personel Bazlı Görüntüle
-          </h3>
-        </div>
-        
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-          <button
-            onClick={() => setSelectedStaffId(null)}
-            className={`flex-shrink-0 px-4 py-2 rounded-xl font-heading font-medium text-sm transition-all ${
-              !selectedStaffId
-                ? 'bg-[var(--liquid-chrome)] text-[var(--void)]'
-                : 'bg-white/5 text-[var(--silver-frost)] hover:bg-white/10'
-            }`}
-          >
-            Tüm Personel ({appointments.length})
-          </button>
-          
-          {staff.map((member) => {
-            const memberAppointments = appointments.filter(a => a.staffId === member.id);
-            return (
-              <button
-                key={member.id}
-                onClick={() => setSelectedStaffId(member.id)}
-                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-heading font-medium text-sm transition-all ${
-                  selectedStaffId === member.id
-                    ? 'bg-[var(--liquid-chrome)] text-[var(--void)]'
-                    : 'bg-white/5 text-[var(--silver-frost)] hover:bg-white/10'
-                }`}
-              >
-                {member.photo ? (
-                  <img
-                    src={member.photo}
-                    alt={member.name}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: member.color }}
-                  >
-                    {member.name.charAt(0)}
-                  </div>
-                )}
-                <span>{member.name}</span>
-                <span className="opacity-60">({memberAppointments.length})</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Pending Queue */}
-      {pendingAppointments.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)]">
-              Onay Bekleyenler
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-[var(--warning)]/20 text-[var(--warning)] text-xs font-mono">
-                {pendingAppointments.length}
-              </span>
+    <div className="space-y-4">
+      {/* Personel Filtreleme - Compact */}
+      {staff.length > 0 && (
+        <div className="p-4 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+          <div className="flex items-center gap-2 mb-3">
+            <UsersIcon size={16} className="text-slate-400" />
+            <h3 className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
+              Personel Filtrele
             </h3>
+          </div>
+          
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+            <button
+              onClick={() => setSelectedStaffId(null)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-2xl font-heading font-medium text-xs transition-all ${
+                !selectedStaffId
+                  ? 'bg-slate-500/20 border border-slate-400/50 text-[var(--chrome-white)]'
+                  : 'bg-white/[0.03] border border-white/[0.08] text-[var(--muted-lead)] hover:bg-white/[0.05]'
+              }`}
+            >
+              Tümü ({appointments.length})
+            </button>
+            
+            {staff.map((member) => {
+              const memberAppointments = appointments.filter(a => a.staffId === member.id);
+              return (
+                <button
+                  key={member.id}
+                  onClick={() => setSelectedStaffId(member.id)}
+                  className={`flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-2xl font-heading font-medium text-xs transition-all ${
+                    selectedStaffId === member.id
+                      ? 'bg-slate-500/20 border border-slate-400/50 text-[var(--chrome-white)]'
+                      : 'bg-white/[0.03] border border-white/[0.08] text-[var(--muted-lead)] hover:bg-white/[0.05]'
+                  }`}
+                >
+                  {member.photo && (
+                    <img
+                      src={member.photo}
+                      alt={member.name}
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  )}
+                  {member.name} ({memberAppointments.length})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Pending Appointments */}
+      {pendingAppointments.length > 0 && (
+        <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 border border-orange-500/30 flex items-center justify-center">
+              <Clock size={18} className="text-orange-400" strokeWidth={2} />
+            </div>
+            <div>
+              <h3 className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
+                Onay Bekleyen Randevular
+              </h3>
+              <p className="text-[10px] text-[var(--muted-lead)] mt-0.5">
+                {pendingAppointments.length} randevu onay bekliyor
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">
-            {pendingAppointments.map((appointment) => (
+            {pendingAppointments.map((appointment, index) => (
               <motion.div
                 key={appointment.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="obsidian-card p-4"
+                transition={{ delay: index * 0.05 }}
+                className="relative overflow-hidden rounded-3xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent backdrop-blur-xl"
               >
-                <div className="flex items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <User size={16} className="text-[var(--muted-lead)]" />
-                      <span className="font-heading font-semibold text-[var(--chrome-white)]">
+                {/* Glow Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 opacity-50" />
+                
+                <div className="relative p-5">
+                  <div className="flex items-start gap-4">
+                    {/* User Avatar */}
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/30">
+                      <User size={24} className="text-white" strokeWidth={2.5} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      {/* Name */}
+                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-2">
                         {appointment.customerName}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mb-2">
-                      <Phone size={16} className="text-[var(--muted-lead)]" />
-                      <span className="font-body text-sm text-[var(--silver-frost)]">
-                        {appointment.customerPhone}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 mb-2">
-                      <Clock size={16} className="text-[var(--muted-lead)]" />
-                      <span className="font-mono text-sm text-[var(--silver-frost)]">
-                        {appointment.date} - {appointment.time}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {appointment.services.map((service) => (
-                        <span
-                          key={service.id}
-                          className="px-3 py-1 rounded-full bg-white/5 font-body text-xs text-[var(--silver-frost)]"
-                        >
-                          {service.name} ({service.duration} dk)
+                      </h4>
+                      
+                      {/* Phone */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Phone size={14} className="text-orange-400" />
+                        <span className="font-mono text-xs text-[var(--silver-frost)]">
+                          {appointment.customerPhone}
                         </span>
-                      ))}
+                      </div>
+
+                      {/* Date & Time */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock size={14} className="text-orange-400" />
+                        <span className="font-mono text-xs text-[var(--silver-frost)]">
+                          {appointment.date} • {appointment.time}
+                        </span>
+                      </div>
+
+                      {/* Services */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {appointment.services.map((service) => (
+                          <span
+                            key={service.id}
+                            className="px-2.5 py-1 rounded-xl bg-white/[0.08] border border-white/10 font-body text-[10px] text-[var(--chrome-white)]"
+                          >
+                            {service.name} • {service.duration}dk
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Price */}
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30">
+                        <span className="font-mono font-bold text-sm text-orange-300">
+                          {appointment.totalPrice}₺
+                        </span>
+                      </div>
+
+                      {/* Notes */}
+                      {appointment.notes && (
+                        <p className="mt-3 font-body text-xs text-[var(--muted-lead)] italic px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
+                          "{appointment.notes}"
+                        </p>
+                      )}
                     </div>
 
-                    {appointment.notes && (
-                      <p className="mt-3 font-body text-sm text-[var(--muted-lead)] italic">
-                        "{appointment.notes}"
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => handleApprove(appointment.id)}
-                      disabled={loading}
-                      className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/10"
-                      title="Onayla"
-                    >
-                      <Check size={20} strokeWidth={2.5} />
-                    </button>
-                    <button
-                      onClick={() => setCancelDialogAppointment(appointment)}
-                      disabled={loading}
-                      className="p-3 rounded-xl bg-gradient-to-r from-red-500/10 to-pink-500/10 hover:from-red-500/20 hover:to-pink-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/10"
-                      title="Reddet"
-                    >
-                      <X size={20} strokeWidth={2.5} />
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleApprove(appointment.id)}
+                        disabled={loading}
+                        className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40"
+                        title="Onayla"
+                      >
+                        <Check size={20} strokeWidth={2.5} />
+                      </button>
+                      <button
+                        onClick={() => setCancelDialogAppointment(appointment)}
+                        disabled={loading}
+                        className="p-3 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
+                        title="Reddet"
+                      >
+                        <X size={20} strokeWidth={2.5} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -251,76 +271,113 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
           </div>
         </div>
       )}
-
-      {/* Confirmed Appointments */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-semibold text-lg text-[var(--chrome-white)]">
-            Onaylanmis Randevular
-          </h3>
+      <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
+            <CheckCircle2 size={18} className="text-emerald-400" strokeWidth={2} />
+          </div>
+          <div>
+            <h3 className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
+              Onaylanmış Randevular
+            </h3>
+            <p className="text-[10px] text-[var(--muted-lead)] mt-0.5">
+              {confirmedAppointments.length} aktif randevu
+            </p>
+          </div>
         </div>
 
         {confirmedAppointments.length === 0 ? (
-          <div className="obsidian-card p-6 text-center">
-            <p className="font-body text-[var(--muted-lead)]">Onaylanmis randevu yok</p>
+          <div className="text-center py-6">
+            <p className="font-body text-xs text-[var(--muted-lead)]">Onaylanmış randevu yok</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {confirmedAppointments.map((appointment) => (
-              <div
+            {confirmedAppointments.map((appointment, index) => (
+              <motion.div
                 key={appointment.id}
-                className="obsidian-card p-4 hover:border-[var(--liquid-chrome)] transition-colors"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent backdrop-blur-xl hover:border-emerald-500/50 transition-all"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-heading font-semibold text-[var(--chrome-white)]">
-                        {appointment.customerName}
-                      </span>
-                      <StatusBadge status={appointment.status} />
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="font-mono text-[var(--silver-frost)]">
-                        {appointment.date} - {appointment.time}
-                      </span>
-                      <span className="font-body text-[var(--muted-lead)]">
-                        {appointment.staffName}
-                      </span>
+                {/* Glow Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-50" />
+                
+                <div className="relative p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      {/* User Avatar */}
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
+                        <User size={24} className="text-white" strokeWidth={2.5} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Name & Status */}
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                          <h4 className="font-heading font-bold text-base text-[var(--chrome-white)]">
+                            {appointment.customerName}
+                          </h4>
+                          <StatusBadge status={appointment.status} />
+                        </div>
+                        
+                        {/* Date & Time & Staff */}
+                        <div className="flex items-center gap-3 mb-3 flex-wrap text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={14} className="text-emerald-400" />
+                            <span className="font-mono text-[var(--silver-frost)]">
+                              {appointment.date} • {appointment.time}
+                            </span>
+                          </div>
+                          {appointment.staffName && (
+                            <span className="font-body text-[var(--muted-lead)]">
+                              • {appointment.staffName}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Services */}
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {appointment.services.map((service) => (
+                            <span
+                              key={service.id}
+                              className="px-2.5 py-1 rounded-xl bg-white/[0.08] border border-white/10 font-body text-[10px] text-[var(--chrome-white)]"
+                            >
+                              {service.name}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Price */}
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30">
+                          <span className="font-mono font-bold text-sm text-emerald-300">
+                            {appointment.totalPrice}₺
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {appointment.services.map((service) => (
-                        <span
-                          key={service.id}
-                          className="px-2 py-0.5 rounded-full bg-white/5 font-body text-xs text-[var(--silver-frost)]"
-                        >
-                          {service.name}
-                        </span>
-                      ))}
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCompleteEarlyAppointment(appointment)}
+                        disabled={loading}
+                        className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40"
+                        title="Erken Tamamla"
+                      >
+                        <CheckCircle2 size={20} strokeWidth={2.5} />
+                      </button>
+                      <button
+                        onClick={() => setCancelDialogAppointment(appointment)}
+                        disabled={loading}
+                        className="p-3 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
+                        title="İptal Et"
+                      >
+                        <X size={20} strokeWidth={2.5} />
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCompleteEarlyAppointment(appointment)}
-                      disabled={loading}
-                      className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/10"
-                      title="Erken Tamamla"
-                    >
-                      <CheckCircle2 size={20} strokeWidth={2.5} />
-                    </button>
-                    <button
-                      onClick={() => setCancelDialogAppointment(appointment)}
-                      disabled={loading}
-                      className="p-3 rounded-xl bg-gradient-to-r from-red-500/10 to-pink-500/10 hover:from-red-500/20 hover:to-pink-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/10"
-                      title="İptal Et"
-                    >
-                      <X size={20} strokeWidth={2.5} />
-                    </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}

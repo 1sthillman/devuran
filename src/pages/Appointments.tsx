@@ -71,6 +71,8 @@ export function Appointments() {
         createdAt: res.createdAt,
         hasReview: res.hasReview || false,
         _source: 'reservation' as const,
+        // 🆕 Kapora bilgilerini ekle
+        pricing: res.pricing || null,
       }));
       
       // Birleştir ve tarihe göre sırala
@@ -326,6 +328,40 @@ export function Appointments() {
                 {appointment.totalPrice} TL
               </span>
             </div>
+
+            {/* 🆕 Kapora Bilgisi */}
+            {appointment.pricing?.depositRequired && (
+              <div className="mt-3 p-3 rounded-xl bg-gradient-to-br from-[var(--liquid-chrome)]/10 to-purple-500/5 border border-[var(--liquid-chrome)]/20">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[var(--muted-lead)]">Kapora:</span>
+                      <span className="font-mono font-semibold text-[var(--liquid-chrome)]">
+                        {appointment.pricing.depositAmount} TL
+                      </span>
+                      {appointment.pricing.depositPaidAt && (
+                        <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-semibold">
+                          ✓ Ödendi
+                        </span>
+                      )}
+                    </div>
+                    {!appointment.pricing.depositPaidAt && appointment.status === 'pending' && (
+                      <p className="text-[var(--muted-lead)] text-[10px]">
+                        ⚠️ Kapora ödemesi bekleniyor
+                      </p>
+                    )}
+                    {appointment.pricing.finalAmount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--muted-lead)]">Kalan:</span>
+                        <span className="font-mono text-[var(--silver-frost)]">
+                          {appointment.pricing.finalAmount} TL
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Actions */}
             {appointment.status === 'pending' || appointment.status === 'confirmed' ? (

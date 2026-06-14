@@ -100,9 +100,9 @@ export interface BusinessSubscription {
   price: number;
   currency: 'TRY';
   
-  // Özelleştirilmiş Özellikler (custom plan için)
+  // Özelleştirilmiş Özellikler (custom plan için - sadece admin verebilir)
   customFeatures?: Partial<PlanFeatures>;
-  customPrice?: number;
+  // ⚠️ customPrice kaldırıldı - güvenlik nedeniyle artık desteklenmiyor
   
   // Ödeme Bilgileri
   lastPaymentDate?: string;

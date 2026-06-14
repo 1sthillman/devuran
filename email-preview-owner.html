@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yeni Randevu Geldi</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      line-height: 1.6; 
+      color: #333; 
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container { 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header { 
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+      color: white; 
+      padding: 40px 30px; 
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .content { 
+      padding: 30px;
+    }
+    .info-box { 
+      background: #f9f9f9; 
+      padding: 20px; 
+      border-radius: 8px; 
+      margin: 20px 0;
+      border-left: 4px solid #f5576c;
+    }
+    .info-box h3 {
+      margin-top: 0;
+      color: #f5576c;
+    }
+    .info-row { 
+      display: flex; 
+      padding: 10px 0; 
+      border-bottom: 1px solid #eee;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .info-label { 
+      font-weight: bold; 
+      width: 120px; 
+      color: #f5576c;
+    }
+    .info-value { 
+      flex: 1;
+    }
+    .services { 
+      list-style: none; 
+      padding: 0; 
+      margin: 0;
+    }
+    .services li { 
+      padding: 12px 0; 
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+    }
+    .services li:last-child {
+      border-bottom: none;
+    }
+    .total {
+      text-align: right; 
+      margin-top: 15px; 
+      padding-top: 15px;
+      border-top: 2px solid #f5576c;
+      font-size: 20px; 
+      font-weight: bold; 
+      color: #f5576c;
+    }
+    .button { 
+      display: inline-block; 
+      padding: 14px 40px; 
+      background: #f5576c; 
+      color: white !important; 
+      text-decoration: none; 
+      border-radius: 6px; 
+      margin: 20px 0;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .button:hover {
+      background: #e04560;
+    }
+    .highlight {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .footer { 
+      text-align: center; 
+      padding: 30px; 
+      color: #666; 
+      font-size: 12px;
+      background: #f9f9f9;
+      border-top: 1px solid #eee;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 8px;
+      color: white;
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: bold;
+      display: block;
+    }
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎊 Yeni Randevu!</h1>
+      <p style="margin: 10px 0 0 0; opacity: 0.9;">Salonunuza yeni bir randevu geldi</p>
+    </div>
+    
+    <div class="content">
+      <p>Merhaba,</p>
+      <p>Salonunuza yeni bir randevu geldi. Detaylar aşağıdadır:</p>
+      
+      <div class="info-box">
+        <h3>👤 Müşteri Bilgileri</h3>
+        <div class="info-row">
+          <span class="info-label">Ad Soyad:</span>
+          <span class="info-value">Ahmet Yılmaz</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Telefon:</span>
+          <span class="info-value">0555 987 6543</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Email:</span>
+          <span class="info-value">ahmet.yilmaz@example.com</span>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h3>📅 Randevu Detayları</h3>
+        <div class="info-row">
+          <span class="info-label">Personel:</span>
+          <span class="info-value">Mehmet Demir</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Tarih:</span>
+          <span class="info-value">15 Haziran 2026, Pazartesi</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Saat:</span>
+          <span class="info-value">14:00 - 15:30</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Süre:</span>
+          <span class="info-value">90 dakika</span>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h3>💇 Hizmetler</h3>
+        <ul class="services">
+          <li>
+            <span>Saç Kesimi - 30 dk</span>
+            <span>150 ₺</span>
+          </li>
+          <li>
+            <span>Sakal Düzeltme - 20 dk</span>
+            <span>75 ₺</span>
+          </li>
+          <li>
+            <span>Saç Boyama - 40 dk</span>
+            <span>250 ₺</span>
+          </li>
+        </ul>
+        <div class="total">
+          Toplam: 475 ₺
+        </div>
+      </div>
+
+      <div class="highlight">
+        <strong>💡 Hızlı İşlem:</strong> Randevu otomatik olarak onaylandı. 
+        Müşteriye onay emaili gönderildi.
+      </div>
+
+      <div class="stats">
+        <div class="stat-item">
+          <span class="stat-number">12</span>
+          <span class="stat-label">Bu Hafta</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">47</span>
+          <span class="stat-label">Bu Ay</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">4.8</span>
+          <span class="stat-label">Puan</span>
+        </div>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="https://devuran.com/owner/reservations" class="button">
+          📊 Randevuları Yönet
+        </a>
+      </div>
+
+      <p style="margin-top: 30px; color: #666; font-size: 14px; text-align: center;">
+        Randevu yönetimi için dashboard'unuza giriş yapın
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p>Bu email otomatik olarak gönderilmiştir.</p>
+      <p>© 2026 Devuran Randevu Sistemi. Tüm hakları saklıdır.</p>
+      <p style="margin-top: 10px;">
+        <a href="#" style="color: #f5576c; text-decoration: none;">Ayarlar</a> | 
+        <a href="#" style="color: #f5576c; text-decoration: none;">Destek</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

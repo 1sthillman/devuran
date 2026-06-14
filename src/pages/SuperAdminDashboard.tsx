@@ -26,6 +26,7 @@ import {
   Clock,
   Star,
   Zap,
+  Megaphone,
 } from 'lucide-react';
 
 // Admin modülleri
@@ -39,6 +40,7 @@ import { PaymentManagement } from '@/components/admin/PaymentManagement';
 import { ServiceManagement } from '@/components/admin/ServiceManagement';
 import { ApprovalManagement } from '@/components/admin/ApprovalManagement';
 import { NotificationCenter } from '@/components/admin/NotificationCenter';
+import { AnnouncementManagement } from '@/components/admin/AnnouncementManagement';
 import { SupportTickets } from '@/components/admin/SupportTickets';
 import { ReportsAnalytics } from '@/components/admin/ReportsAnalytics';
 import { SystemSettings } from '@/components/admin/SystemSettings';
@@ -58,6 +60,7 @@ type AdminTab =
   | 'services'
   | 'approvals'
   | 'notifications'
+  | 'announcements'
   | 'support'
   | 'reports'
   | 'settings'
@@ -82,6 +85,7 @@ const navigationItems: NavItem[] = [
   { id: 'services', label: 'Hizmetler', icon: Zap },
   { id: 'approvals', label: 'Onaylar', icon: CheckCircle, badge: 0 },
   { id: 'notifications', label: 'Bildirimler', icon: Bell },
+  { id: 'announcements', label: 'Duyurular', icon: Megaphone },
   { id: 'support', label: 'Destek', icon: LifeBuoy, badge: 0 },
   { id: 'reports', label: 'Raporlar', icon: TrendingUp },
   { id: 'settings', label: 'Ayarlar', icon: Settings },
@@ -162,6 +166,8 @@ export function SuperAdminDashboard() {
         return <ApprovalManagement />;
       case 'notifications':
         return <NotificationCenter />;
+      case 'announcements':
+        return <AnnouncementManagement />;
       case 'support':
         return <SupportTickets />;
       case 'reports':

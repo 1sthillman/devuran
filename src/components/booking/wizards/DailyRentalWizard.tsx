@@ -33,6 +33,7 @@ export function DailyRentalWizard() {
   const [selectedPkg, setSelectedPkg] = useState<Service | null>(null);
   const [packages, setPackages] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventNotes, setEventNotes] = useState('');
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
 
@@ -128,7 +129,7 @@ export function DailyRentalWizard() {
   ];
 
   return (
-    <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+    <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
       <div className="mb-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
@@ -232,7 +233,7 @@ export function DailyRentalWizard() {
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Tipi</h4>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                                   {eventTypes.map((type) => (
                                     <button
                                       key={type.id}
@@ -344,7 +345,7 @@ export function DailyRentalWizard() {
                                 type="text"
                                 placeholder="Ad Soyad"
                                 value={customerName}
-                                onChange={(e) => setCustomerInfo({ name: e.target.value, phone: customerPhone, email: customerEmail, notes: '' })}
+                                onChange={(e) => setCustomerInfo({ name: e.target.value, phone: customerPhone, email: customerEmail, notes: eventNotes })}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
                               <input
@@ -353,7 +354,7 @@ export function DailyRentalWizard() {
                                 value={customerPhone}
                                 onChange={(e) => {
                                   const cleaned = e.target.value.replace(/\D/g, '');
-                                  setCustomerInfo({ name: customerName, phone: cleaned.slice(0, 10), email: customerEmail, notes: '' });
+                                  setCustomerInfo({ name: customerName, phone: cleaned.slice(0, 10), email: customerEmail, notes: eventNotes });
                                 }}
                                 maxLength={10}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
@@ -362,8 +363,18 @@ export function DailyRentalWizard() {
                                 type="email"
                                 placeholder="E-posta (opsiyonel)"
                                 value={customerEmail}
-                                onChange={(e) => setCustomerInfo({ name: customerName, phone: customerPhone, email: e.target.value, notes: '' })}
+                                onChange={(e) => setCustomerInfo({ name: customerName, phone: customerPhone, email: e.target.value, notes: eventNotes })}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                              />
+                              <textarea
+                                placeholder="Etkinlik notları (opsiyonel)"
+                                value={eventNotes}
+                                onChange={(e) => {
+                                  setEventNotes(e.target.value);
+                                  setCustomerInfo({ name: customerName, phone: customerPhone, email: customerEmail, notes: e.target.value });
+                                }}
+                                rows={2}
+                                className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
                               <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                                 <div className="flex justify-between items-center">

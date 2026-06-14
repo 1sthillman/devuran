@@ -59,14 +59,6 @@ export function SubscriptionModal({
   const handleConfirmPurchase = async () => {
     if (!selectedPlan) return;
 
-    console.log('Purchasing subscription:', {
-      businessId,
-      businessName,
-      selectedPlan,
-      selectedInterval,
-      currentPlan
-    });
-
     try {
       setLoading(true);
       
@@ -182,8 +174,8 @@ export function SubscriptionModal({
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-5" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-8" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-5 max-w-[1600px] mx-auto">
               {SUBSCRIPTION_PLANS.map((plan) => {
                 const Icon = PLAN_ICONS[plan.id];
                 const isCurrentPlan = currentPlan === plan.id;
@@ -201,13 +193,13 @@ export function SubscriptionModal({
                   <div
                     key={plan.id}
                     className={cn(
-                      'relative bg-white/[0.02] backdrop-blur-xl rounded-3xl border-2 transition-all overflow-hidden will-change-transform',
+                      'relative bg-white/[0.02] backdrop-blur-xl rounded-3xl border-2 transition-all overflow-hidden will-change-transform hover:-translate-y-1',
                       isCurrentPlan
-                        ? 'border-emerald-500/50 ring-2 ring-emerald-500/20'
+                        ? 'border-emerald-500/50 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-500/10'
                         : isUpgrade
-                        ? 'border-purple-500/30 hover:border-purple-500/50'
-                        : 'border-white/[0.08] hover:border-white/20',
-                      plan.popular && 'ring-2 ring-purple-500/30'
+                        ? 'border-purple-500/30 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20'
+                        : 'border-white/[0.08] hover:border-white/20 hover:shadow-xl hover:shadow-white/5',
+                      plan.popular && 'ring-2 ring-purple-500/30 shadow-lg shadow-purple-500/10'
                     )}
                   >
                     {/* Popular Badge */}
@@ -241,29 +233,29 @@ export function SubscriptionModal({
                       </div>
                     )}
 
-                    <div className="p-5">
+                    <div className="p-5 lg:p-6">
                       {/* Icon & Name */}
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={cn('p-3 rounded-full bg-gradient-to-br', PLAN_COLORS[plan.id])}>
-                          <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
+                      <div className="flex flex-col items-center text-center mb-5">
+                        <div className={cn('w-14 h-14 rounded-2xl bg-gradient-to-br shadow-lg mb-3', PLAN_COLORS[plan.id])}>
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Icon className="w-7 h-7 text-white" strokeWidth={2.5} />
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-white font-heading">
-                            {plan.name}
-                          </h3>
-                        </div>
+                        <h3 className="text-xl font-bold text-white font-heading">
+                          {plan.name}
+                        </h3>
                       </div>
 
                       {/* Description */}
-                      <p className="text-sm text-gray-400 mb-4">
+                      <p className="text-sm text-gray-400 mb-5 text-center min-h-[40px]">
                         {plan.description}
                       </p>
 
                       {/* Pricing */}
-                      <div className="mb-4">
+                      <div className="mb-5 text-center">
                         {plan.customPricing ? (
-                          <div className="text-center py-3">
-                            <p className="text-2xl font-bold text-white">
+                          <div className="py-3">
+                            <p className="text-3xl font-bold text-white">
                               Özel Fiyat
                             </p>
                             <p className="text-xs text-gray-400 mt-1">
@@ -272,16 +264,16 @@ export function SubscriptionModal({
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-2xl font-bold text-white font-mono">
+                            <div className="flex items-baseline justify-center gap-1">
+                              <span className="text-3xl lg:text-4xl font-bold text-white font-mono">
                                 {planPrice.toLocaleString('tr-TR')}₺
                               </span>
-                              <span className="text-gray-400 text-sm">
-                                / {selectedInterval === 'monthly' ? 'ay' : 'dönem'}
-                              </span>
                             </div>
+                            <span className="text-gray-400 text-sm block mt-1">
+                              / {selectedInterval === 'monthly' ? 'ay' : 'dönem'}
+                            </span>
                             {discount > 0 && (
-                              <div className="mt-2 inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs font-bold px-2 py-1 rounded-full">
+                              <div className="mt-3 inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs font-bold px-3 py-1.5 rounded-full">
                                 <TrendingUp className="w-3 h-3" />
                                 %{discount} tasarruf
                               </div>
@@ -291,29 +283,37 @@ export function SubscriptionModal({
                       </div>
 
                       {/* Key Features */}
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Check className="w-4 h-4 text-green-400 flex-shrink-0" strokeWidth={2.5} />
-                          <span className="text-gray-300">
+                      <div className="space-y-3 mb-6">
+                        <div className="flex items-start gap-3 text-sm">
+                          <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                          </div>
+                          <span className="text-gray-300 font-medium">
                             {plan.features.maxStaff === 'unlimited' ? 'Sınırsız' : plan.features.maxStaff} Personel
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Check className="w-4 h-4 text-green-400 flex-shrink-0" strokeWidth={2.5} />
-                          <span className="text-gray-300">
+                        <div className="flex items-start gap-3 text-sm">
+                          <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                          </div>
+                          <span className="text-gray-300 font-medium">
                             {plan.features.maxServices === 'unlimited' ? 'Sınırsız' : plan.features.maxServices} Hizmet
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Check className="w-4 h-4 text-green-400 flex-shrink-0" strokeWidth={2.5} />
-                          <span className="text-gray-300">
+                        <div className="flex items-start gap-3 text-sm">
+                          <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                          </div>
+                          <span className="text-gray-300 font-medium">
                             {plan.features.maxMonthlyBookings === 'unlimited' ? 'Sınırsız' : plan.features.maxMonthlyBookings} Randevu
                           </span>
                         </div>
                         {plan.features.advancedAnalytics && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Check className="w-4 h-4 text-green-400 flex-shrink-0" strokeWidth={2.5} />
-                            <span className="text-gray-300">Gelişmiş Analitik</span>
+                          <div className="flex items-start gap-3 text-sm">
+                            <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                            </div>
+                            <span className="text-gray-300 font-medium">Gelişmiş Analitik</span>
                           </div>
                         )}
                       </div>
@@ -322,14 +322,14 @@ export function SubscriptionModal({
                       <button
                         onClick={() => handleSelectPlan(plan.id, selectedInterval)}
                         className={cn(
-                          'w-full py-3 px-4 rounded-full font-heading font-semibold transition-all hover:shadow-lg hover:scale-105 active:scale-95',
+                          'w-full py-3.5 px-4 rounded-full font-heading font-bold text-sm transition-all hover:shadow-xl hover:scale-105 active:scale-95',
                           isCurrentPlan
-                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
                             : isUpgrade
-                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30'
                             : isDowngrade
-                            ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white'
-                            : 'bg-gradient-to-r ' + PLAN_COLORS[plan.id] + ' text-white'
+                            ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg shadow-gray-600/30'
+                            : 'bg-gradient-to-r ' + PLAN_COLORS[plan.id] + ' text-white shadow-lg'
                         )}
                       >
                         {isCurrentPlan 

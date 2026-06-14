@@ -53,7 +53,7 @@ export const SalonCard = memo(function SalonCard({ salon, index = 0 }: SalonCard
         {/* Content */}
         <div className="relative">
           {/* Cover Image */}
-          <div className="relative h-[200px] overflow-hidden">
+          <div className="relative h-[160px] overflow-hidden">
             {salon.coverImage ? (
               <img
                 src={salon.coverImage}

@@ -34,6 +34,7 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
     gender: service?.gender || 'all',
     image: service?.image || '',
     isActive: service?.isActive ?? true,
+    requiresDeposit: service?.requiresDeposit ?? false, // 🆕 Kapora gerekli mi?
     pricingRules: service?.pricingRules,
     addOns: service?.addOns || [],
   });
@@ -97,6 +98,7 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
         gender: formData.gender!,
         image: formData.image || '',
         isActive: formData.isActive!,
+        requiresDeposit: formData.requiresDeposit, // 🆕 Kapora ayarı
         salonId,
         staffIds: service?.staffIds || [],
         pricingRules: formData.pricingRules,
@@ -148,7 +150,7 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 flex-shrink-0">
-                  <Scissors size={24} className="text-white" />
+                  <Scissors size={24} className="text-white" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
@@ -163,7 +165,7 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
                 onClick={onClose}
                 className="w-10 h-10 rounded-2xl bg-white/[0.05] hover:bg-white/[0.08] flex items-center justify-center transition-colors flex-shrink-0 ml-3"
               >
-                <X size={20} className="text-[var(--muted-lead)]" />
+                <X size={20} className="text-[var(--muted-lead)]" strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -261,9 +263,10 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
                 </button>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
+              <div className="space-y-4">
+                {/* Hizmet Adı - Modern Card */}
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                  <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
                     {categoryInfo.labels.service} Adı *
                   </label>
                   <input
@@ -272,12 +275,13 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                     placeholder={`Örnek: ${templates[0]?.name || 'Hizmet adı'}`}
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                    className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
+                {/* Açıklama - Modern Card */}
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                  <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
                     Açıklama
                   </label>
                   <textarea
@@ -285,120 +289,160 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
                     placeholder="Hizmet hakkında kısa açıklama..."
-                    className="w-full px-4 py-3 rounded-3xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none"
+                    className="w-full px-4 py-3 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none"
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
-                    Kategori *
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    required
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
-                  >
-                    {serviceCategories.length > 0 ? (
-                      serviceCategories.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))
-                    ) : (
-                      <option value="Genel">Genel</option>
-                    )}
-                  </select>
+                {/* Kategori ve Cinsiyet - Modern Card */}
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-4">
+                  <div>
+                    <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                      Kategori *
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      required
+                      className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-body outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                    >
+                      {serviceCategories.length > 0 ? (
+                        serviceCategories.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))
+                      ) : (
+                        <option value="Genel">Genel</option>
+                      )}
+                    </select>
+                  </div>
+
+                  {['kuafor', 'berber', 'guzellik', 'tirnak'].includes(category) && (
+                    <div>
+                      <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                        Cinsiyet
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: 'all', label: 'Hepsi' },
+                          { value: 'male', label: 'Erkek' },
+                          { value: 'female', label: 'Kadın' },
+                        ].map((gender) => (
+                          <button
+                            key={gender.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, gender: gender.value as any })}
+                            className={`h-11 px-4 rounded-2xl border-2 transition-all font-heading font-bold text-sm ${
+                              formData.gender === gender.value
+                                ? 'border-[var(--liquid-chrome)] bg-[var(--liquid-chrome)]/10 text-[var(--chrome-white)]'
+                                : 'border-[var(--obsidian-rim)] text-[var(--muted-lead)] hover:border-[var(--silver-frost)]'
+                            }`}
+                          >
+                            {gender.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {['kuafor', 'berber', 'guzellik', 'tirnak'].includes(category) && (
-                  <div className="md:col-span-2">
-                    <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
-                      Cinsiyet
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { value: 'all', label: 'Hepsi' },
-                        { value: 'male', label: 'Erkek' },
-                        { value: 'female', label: 'Kadın' },
-                      ].map((gender) => (
-                        <button
-                          key={gender.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, gender: gender.value as any })}
-                          className={`h-11 px-4 rounded-full border-2 transition-all font-heading font-medium text-sm ${
-                            formData.gender === gender.value
-                              ? 'border-[var(--liquid-chrome)] bg-white/5 text-[var(--chrome-white)]'
-                              : 'border-[var(--obsidian-rim)] text-[var(--muted-lead)] hover:border-[var(--silver-frost)]'
-                          }`}
-                        >
-                          {gender.label}
-                        </button>
-                      ))}
+                {/* Süre ve Fiyat - Modern Card */}
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                        {categoryInfo.labels.duration} *
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.duration}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
+                        required
+                        min="1"
+                        step="1"
+                        placeholder="30"
+                        className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-mono outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                      />
+                      <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
+                        {categoryInfo.labels.duration === 'Dakika' && 'Hizmetin ne kadar süreceğini belirtin'}
+                        {categoryInfo.labels.duration === 'Gece' && 'Konaklama süresi (gece sayısı)'}
+                        {categoryInfo.labels.duration === 'Gün' && 'Etkinlik süresi (gün sayısı)'}
+                        {categoryInfo.labels.duration === 'Saat' && 'Hizmet süresi (saat cinsinden)'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                        Fiyat (TL) *
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.price}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                        required
+                        min="0"
+                        step="0.01"
+                        placeholder="100"
+                        className="w-full h-12 px-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-mono outline-none focus:border-[var(--liquid-chrome)] transition-colors"
+                      />
                     </div>
                   </div>
-                )}
-
-                <div>
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
-                    {categoryInfo.labels.duration} *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.duration}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
-                    required
-                    min="1"
-                    step="1"
-                    placeholder="30"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-mono outline-none focus:border-[var(--liquid-chrome)] transition-colors"
-                  />
-                  <p className="font-body text-xs text-[var(--muted-lead)] mt-1.5">
-                    {categoryInfo.labels.duration === 'Dakika' && 'Hizmetin ne kadar süreceğini belirtin'}
-                    {categoryInfo.labels.duration === 'Gece' && 'Konaklama süresi (gece sayısı)'}
-                    {categoryInfo.labels.duration === 'Gün' && 'Etkinlik süresi (gün sayısı)'}
-                    {categoryInfo.labels.duration === 'Saat' && 'Hizmet süresi (saat cinsinden)'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
-                    Fiyat (TL) *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                    required
-                    min="0"
-                    step="0.01"
-                    placeholder="100"
-                    className="w-full h-12 px-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] font-mono outline-none focus:border-[var(--liquid-chrome)] transition-colors"
-                  />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-4 rounded-full bg-[var(--void)] border border-[var(--obsidian-rim)]">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-                  className={`relative w-12 h-7 rounded-full transition-colors ${
-                    formData.isActive ? 'bg-[var(--success)]' : 'bg-[var(--slate-elevated)]'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                      formData.isActive ? 'translate-x-5' : 'translate-x-0.5'
+              {/* Aktif Durum - Modern Card */}
+              <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${
+                      formData.isActive ? 'bg-emerald-500' : 'bg-[var(--slate-elevated)]'
                     }`}
-                  />
-                </button>
-                <div>
-                  <p className="font-heading font-medium text-[var(--chrome-white)]">
-                    Hizmet Aktif
-                  </p>
-                  <p className="font-body text-xs text-[var(--muted-lead)]">
-                    Müşteriler bu hizmeti görebilir ve rezervasyon yapabilir
-                  </p>
+                  >
+                    <div
+                      className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                        formData.isActive ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <p className="font-heading font-bold text-emerald-400">
+                      Hizmet Aktif
+                    </p>
+                    <p className="font-body text-xs text-emerald-300/80">
+                      Müşteriler bu hizmeti görebilir ve rezervasyon yapabilir
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kapora Toggle - Modern Card */}
+              <div className="rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-pink-500/10 p-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, requiresDeposit: !formData.requiresDeposit })}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${
+                      formData.requiresDeposit ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-[var(--slate-elevated)]'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                        formData.requiresDeposit ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                  <div className="flex-1">
+                    <p className="font-heading font-bold text-purple-400">
+                      Kapora Gerekli
+                    </p>
+                    <p className="font-body text-xs text-purple-300/80 mt-0.5">
+                      {formData.requiresDeposit 
+                        ? 'Bu hizmet için ön ödeme alınacak' 
+                        : 'Kapora olmadan rezervasyon alınabilir'}
+                    </p>
+                  </div>
                 </div>
               </div>
 

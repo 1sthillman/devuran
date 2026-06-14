@@ -81,18 +81,34 @@ export const appointmentsService = {
       const endMinutes = totalMinutes % 60;
       const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
       
+      // Müşteri email'ini al (eğer yoksa)
+      let customerEmail = appointmentData.customerEmail;
+      if (!customerEmail && appointmentData.userId) {
+        try {
+          const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, appointmentData.userId));
+          if (userDoc.exists()) {
+            customerEmail = userDoc.data()?.email;
+          }
+        } catch (error) {
+          console.warn('Could not fetch user email:', error);
+        }
+      }
+      
       const docRef = await addDoc(collection(db, COLLECTIONS.APPOINTMENTS), {
         ...appointmentData,
+        customerEmail, // Email'i ekle
         endTime,
         status: 'confirmed', // Otomatik onay
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
       
-      // Randevu sayısını güncelle
-      await subscriptionService.updateUsageStats(appointmentData.salonId, {
-        monthlyBookings: subscription.usage.monthlyBookings + 1
-      });
+      // ✅ GÜVENLİK: Atomic increment kullan (race condition engellendi)
+      await subscriptionService.incrementUsageStat(
+        appointmentData.salonId,
+        'monthlyBookings',
+        1
+      );
       
       return { id: docRef.id, ...appointmentData, endTime, status: 'confirmed' as const };
     } catch (error) {
@@ -380,13 +396,18 @@ export const appointmentsService = {
         const firstInQueue = snapshot.docs[0];
         const queueData = firstInQueue.data();
         
-        // Create appointment from queue
+        // ✅ GÜVENLİK: Transaction kullanarak atomic operation (race condition engellendi)
+        const batch = writeBatch(db);
+        
+        // 1. Create appointment
+        const appointmentRef = doc(collection(db, COLLECTIONS.APPOINTMENTS));
         const appointmentData = {
           userId: queueData.userId,
           salonId: queueData.salonId,
           staffId: queueData.staffId,
           customerName: queueData.customerName,
           customerPhone: queueData.customerPhone,
+          customerEmail: queueData.customerEmail || '',
           services: queueData.services,
           date,
           time,
@@ -401,22 +422,25 @@ export const appointmentsService = {
           staffPhoto: '',
           whatsappNumber: '',
           endTime: '',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         };
         
-        await this.create(appointmentData);
+        batch.set(appointmentRef, appointmentData);
         
-        // Remove from queue
-        await deleteDoc(firstInQueue.ref);
+        // 2. Remove from queue (aynı batch'te - atomicity garantisi)
+        batch.delete(firstInQueue.ref);
         
-        // Update queue positions for remaining
+        // 3. Update queue positions for remaining
         const remaining = snapshot.docs.slice(1);
-        const batch = writeBatch(db);
         remaining.forEach((doc, index) => {
           batch.update(doc.ref, { queuePosition: index + 1 });
         });
+        
+        // ✅ Tüm işlemler başarılı olursa commit (hepsi birlikte başarılı/başarısız)
         await batch.commit();
         
-        // Müşteriye bildirim gönder (notificationService import edilmeli)
+        // Müşteriye bildirim gönder (batch dışında - kritik değil)
         // TODO: notificationService.sendQueueToAppointment çağrısı eklenecek
       }
     } catch (error) {
@@ -575,9 +599,17 @@ export const appointmentsService = {
 // ==================== SALONS ====================
 
 export const salonsService = {
-  // Get all salons (sadece aktif aboneliği olanlar)
+  // Get all salons - Admin tüm salonları görür, normal kullanıcılar sadece aktif aboneliği olanları
   async getAll() {
     try {
+      // Auth kontrolü yap
+      const { auth } = await import('@/lib/firebase');
+      const currentUser = auth.currentUser;
+      
+      // Super admin email listesi
+      const superAdminEmails = ['adistow@gmail.com', 'admin@restoqr.com', 'minif@restoqr.com', 'minifinise@gmail.com'];
+      const isAdmin = currentUser && superAdminEmails.includes(currentUser.email || '');
+      
       const snapshot = await getDocs(collection(db, COLLECTIONS.SALONS));
       const allSalons = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Salon));
       
@@ -585,36 +617,21 @@ export const salonsService = {
         return [];
       }
       
-      // Tüm abonelikleri tek seferde çek (daha hızlı)
-      const { subscriptionService } = await import('./subscriptionService');
-      const subscriptionsSnapshot = await getDocs(collection(db, 'subscriptions'));
+      // ✅ Admin tüm salonları görebilir
+      if (isAdmin) {
+        console.log('🔑 Admin access: showing all salons');
+        return allSalons;
+      }
       
-      // Abonelikleri businessId'ye göre map'e çevir
-      const subscriptionMap = new Map<string, any>();
-      subscriptionsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const existing = subscriptionMap.get(data.businessId);
-        
-        // En yeni aboneliği tut
-        if (!existing || new Date(data.createdAt) > new Date(existing.createdAt)) {
-          subscriptionMap.set(data.businessId, data);
-        }
-      });
-      
-      // Sadece aktif aboneliği olanları filtrele
-      const now = new Date();
+      // ✅ Normal kullanıcılar sadece aktif aboneliği olanları görebilir
       const salonsWithActiveSubscription = allSalons.filter(salon => {
-        const subscription = subscriptionMap.get(salon.id);
-        
-        if (!subscription || subscription.status !== 'active') {
-          return false;
-        }
-        
-        const endDate = new Date(subscription.endDate);
-        return now <= endDate;
+        return salon.subscriptionActive === true;
       });
+      
+      console.log(`📊 Showing ${salonsWithActiveSubscription.length}/${allSalons.length} salons with active subscriptions`);
       
       return salonsWithActiveSubscription;
+      
     } catch (error) {
       console.error('Error fetching salons:', error);
       throw error;
@@ -641,6 +658,7 @@ export const salonsService = {
     try {
       const docRef = await addDoc(collection(db, COLLECTIONS.SALONS), {
         ...salonData,
+        subscriptionActive: false, // ✅ Yeni salonlar GÖRÜNMEZ (trial veya abonelik başlatmalı)
         createdAt: Timestamp.now(),
       });
       return { id: docRef.id, ...salonData };
@@ -653,11 +671,72 @@ export const salonsService = {
   // Update salon
   async update(salonId: string, updates: Partial<Salon>) {
     try {
+      // ✅ GÜVENLİK: Korumalı alanları değiştirme
+      const protectedFields = ['ownerId', 'id', 'stats', 'createdAt'];
+      const attemptedProtectedUpdates = Object.keys(updates).filter(
+        key => protectedFields.includes(key)
+      );
+      
+      if (attemptedProtectedUpdates.length > 0) {
+        console.error('Attempt to modify protected fields:', attemptedProtectedUpdates);
+        throw new Error(`Korumalı alanlar değiştirilemez: ${attemptedProtectedUpdates.join(', ')}`);
+      }
+      
+      // ✅ GÜVENLİK: Salon varlık kontrolü
+      const salonDoc = await getDoc(doc(db, COLLECTIONS.SALONS, salonId));
+      if (!salonDoc.exists()) {
+        throw new Error('İşletme bulunamadı');
+      }
+      
+      // ✅ Undefined değerleri temizle (Firestore undefined kabul etmiyor)
+      const cleanUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          // Eğer obje ise, içindeki undefined'ları da temizle
+          if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Timestamp)) {
+            const cleanedObj = Object.entries(value).reduce((objAcc, [objKey, objValue]) => {
+              if (objValue !== undefined) {
+                // İç içe objeler için de kontrol et
+                if (objValue && typeof objValue === 'object' && !Array.isArray(objValue) && !(objValue instanceof Timestamp)) {
+                  const deepCleanedObj = Object.entries(objValue).reduce((deepAcc, [deepKey, deepValue]) => {
+                    if (deepValue !== undefined) {
+                      deepAcc[deepKey] = deepValue;
+                    }
+                    return deepAcc;
+                  }, {} as any);
+                  if (Object.keys(deepCleanedObj).length > 0) {
+                    objAcc[objKey] = deepCleanedObj;
+                  }
+                } else {
+                  objAcc[objKey] = objValue;
+                }
+              }
+              return objAcc;
+            }, {} as any);
+            if (Object.keys(cleanedObj).length > 0) {
+              acc[key] = cleanedObj;
+            }
+          } else {
+            acc[key] = value;
+          }
+        }
+        return acc;
+      }, {} as any);
+      
+      // ✅ Debug: Update edilecek veriyi logla
+      console.log('💾 Updating salon with data:', {
+        salonId,
+        galleryImages: cleanUpdates.galleryImages,
+        galleryImagesLength: cleanUpdates.galleryImages?.length || 0,
+        hasGalleryImages: 'galleryImages' in cleanUpdates,
+      });
+      
       const docRef = doc(db, COLLECTIONS.SALONS, salonId);
       await updateDoc(docRef, {
-        ...updates,
+        ...cleanUpdates,
         updatedAt: Timestamp.now(),
       });
+      
+      console.log('✅ Salon updated successfully');
     } catch (error) {
       console.error('Error updating salon:', error);
       throw error;
@@ -725,19 +804,36 @@ export const servicesService = {
       if (!serviceData.name || serviceData.name.trim().length === 0) {
         throw new Error('Hizmet adı boş olamaz');
       }
-      if (serviceData.duration <= 0) {
+      
+      // Duration kontrolü sadece randevu-based kategoriler için
+      // Reservation-based kategorilerde (catering, organizasyon vb.) duration optional
+      const slotBasedCategories = ['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'];
+      const requiresDuration = slotBasedCategories.includes(serviceData.category || '');
+      
+      if (requiresDuration && serviceData.duration <= 0) {
         throw new Error('Hizmet süresi 0\'dan büyük olmalıdır');
       }
+      
       if (serviceData.price < 0) {
         throw new Error('Hizmet fiyatı negatif olamaz');
       }
       
-      const docRef = await addDoc(collection(db, COLLECTIONS.SERVICES), serviceData);
+      // Remove undefined values from serviceData
+      const cleanServiceData: any = {};
+      for (const [key, value] of Object.entries(serviceData)) {
+        if (value !== undefined) {
+          cleanServiceData[key] = value;
+        }
+      }
       
-      // Hizmet sayısını güncelle
-      await subscriptionService.updateUsageStats(serviceData.salonId, {
-        serviceCount: currentServiceCount + 1
-      });
+      const docRef = await addDoc(collection(db, COLLECTIONS.SERVICES), cleanServiceData);
+      
+      // ✅ GÜVENLİK: Atomic increment kullan (race condition engellendi)
+      await subscriptionService.incrementUsageStat(
+        serviceData.salonId,
+        'serviceCount',
+        1
+      );
       
       return { id: docRef.id, ...serviceData };
     } catch (error) {
@@ -749,8 +845,16 @@ export const servicesService = {
   // Update service
   async update(serviceId: string, updates: Partial<Service>) {
     try {
+      // ✅ Remove undefined values (Firestore doesn't accept undefined)
+      const cleanUpdates: any = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) {
+          cleanUpdates[key] = value;
+        }
+      }
+      
       const docRef = doc(db, COLLECTIONS.SERVICES, serviceId);
-      await updateDoc(docRef, updates);
+      await updateDoc(docRef, cleanUpdates);
     } catch (error) {
       console.error('Error updating service:', error);
       throw error;
@@ -847,10 +951,12 @@ export const staffService = {
       
       const docRef = await addDoc(collection(db, COLLECTIONS.STAFF), staffData);
       
-      // Personel sayısını güncelle
-      await subscriptionService.updateUsageStats(staffData.salonId, {
-        staffCount: currentStaffCount + 1
-      });
+      // ✅ GÜVENLİK: Atomic increment kullan (race condition engellendi)
+      await subscriptionService.incrementUsageStat(
+        staffData.salonId,
+        'staffCount',
+        1
+      );
       
       return { id: docRef.id, ...staffData };
     } catch (error) {

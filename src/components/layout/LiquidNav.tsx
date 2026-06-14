@@ -3,8 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
+import { SupportMenu } from '@/components/support/SupportMenu';
 import { cn } from '@/lib/utils';
-import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star, Shield } from 'lucide-react';
+import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star, Shield, LifeBuoy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [
@@ -26,6 +27,7 @@ export function LiquidNav() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
+  const [supportMenuOpen, setSupportMenuOpen] = useState(false);
 
   const isOwner = user?.role === 'owner' || user?.role === 'admin';
   const isSuperAdmin = user?.email === 'minifinise@gmail.com';
@@ -176,6 +178,17 @@ export function LiquidNav() {
                     Randevularim
                   </Link>
                   
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setSupportMenuOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-full text-sm text-[var(--silver-frost)] hover:bg-white/5 transition-colors"
+                  >
+                    <LifeBuoy size={16} />
+                    Yardım Merkezi
+                  </button>
+                  
                   {isOwner && !isOnDashboard && (
                     <Link
                       to="/dashboard"
@@ -260,6 +273,17 @@ export function LiquidNav() {
         </div>
       )}
       </nav>
+      
+      {/* Support Menu Modal */}
+      {isAuthenticated && (
+        <SupportMenu
+          isOpen={supportMenuOpen}
+          onClose={() => setSupportMenuOpen(false)}
+          businessId={user?.salonId}
+          businessName={user?.displayName || undefined}
+          userType={isOwner ? 'owner' : 'customer'}
+        />
+      )}
     </div>
   );
 }

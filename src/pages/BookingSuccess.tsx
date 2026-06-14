@@ -16,6 +16,9 @@ export function BookingSuccess() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Otomatik yukarı scroll
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     if (reservationId) {
       loadReservation();
     }
@@ -206,9 +209,28 @@ export function BookingSuccess() {
             </div>
           </div>
 
+          {/* 🆕 Kapora Bilgisi ve Ödeme */}
+          {/* ✅ IBAN kontrolü: Hem bankTransfer aktif olmalı HEM de geçerli IBAN içeren hesap olmalı */}
+          {salon?.paymentSettings?.bankTransferEnabled && 
+           salon.paymentSettings.bankAccounts && 
+           salon.paymentSettings.bankAccounts.length > 0 &&
+           salon.paymentSettings.bankAccounts.some(acc => acc.iban && acc.iban.trim().length > 0) && (
+            <div className="relative z-10 mb-4">
+              <PaymentInformation
+                bankAccounts={salon.paymentSettings.bankAccounts.filter(acc => acc.iban && acc.iban.trim().length > 0)}
+                paymentInstructions={salon.paymentSettings.paymentInstructions}
+                totalAmount={reservation.pricing?.totalAmount || 0}
+                reservationId={reservation.id}
+                depositRequired={reservation.pricing?.depositRequired}
+                depositAmount={reservation.pricing?.depositAmount}
+                remainingAmount={reservation.pricing?.finalAmount}
+              />
+            </div>
+          )}
+
           {/* Status Badge */}
           <div className={cn(
-            "relative z-10 rounded-2xl p-4 mb-6 border",
+            "relative z-10 rounded-3xl p-4 mb-6 border",
             reservation.status === 'confirmed' 
               ? "bg-emerald-500/10 border-emerald-500/30"
               : "bg-blue-500/10 border-blue-500/30"
@@ -217,8 +239,8 @@ export function BookingSuccess() {
               "text-sm font-heading font-medium text-center",
               reservation.status === 'confirmed' ? "text-emerald-400" : "text-blue-400"
             )}>
-              {reservation.status === 'pending' && '✨ Rezervasyonunuz işletme tarafından onaylanacaktır'}
-              {reservation.status === 'confirmed' && '✅ Rezervasyonunuz onaylandı'}
+              {reservation.status === 'pending' && 'Rezervasyonunuz işletme tarafından onaylanacaktır'}
+              {reservation.status === 'confirmed' && 'Rezervasyonunuz onaylandı'}
             </p>
           </div>
 

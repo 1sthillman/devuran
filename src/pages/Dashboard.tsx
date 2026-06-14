@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useAppointmentsStore } from '@/store/appointmentsStore';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { FloatingSupport } from '@/components/support/FloatingSupport';
+import { AnnouncementPopup } from '@/components/announcement/AnnouncementPopup';
 import { motion } from 'framer-motion';
 import {
   Calendar as CalendarIcon,
@@ -215,6 +217,12 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Floating Support & Feedback */}
+      <FloatingSupport userType="customer" />
+      
+      {/* Announcement Popup */}
+      <AnnouncementPopup userType="customer" />
     </div>
   );
 }

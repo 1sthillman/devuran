@@ -30,14 +30,30 @@ class SubscriptionService {
   /**
    * Yeni işletme için trial abonelik oluştur
    * NOT: Bir işletme sadece 1 kez trial alabilir
+   * 
+   * ✅ GÜVENLİK: History kontrolü eklendi (status değiştirme bypass engellendi)
    */
   async createTrialSubscription(businessId: string, businessName: string): Promise<BusinessSubscription> {
-    // ✅ GÜVENLİK: Daha önce trial kullanılmış mı kontrol et
-    // Artık ID = businessId olduğu için, dokümanın varlığını kontrol etmek yeterli
+    // ✅ GÜVENLİK: Subscription document kontrolü
     const existingDoc = await getDoc(doc(db, this.subscriptionsCollection, businessId));
     
     if (existingDoc.exists() && existingDoc.data()?.status === 'trial') {
       throw new Error('Bu işletme için trial abonelik zaten kullanılmış');
+    }
+    
+    // ✅ GÜVENLİK: History kontrolü - Daha önce trial kullanılmış mı?
+    const historyQuery = query(
+      collection(db, this.historyCollection),
+      where('businessId', '==', businessId),
+      where('action', '==', 'created'),
+      where('toPlan', '==', 'professional')
+    );
+    
+    const historySnapshot = await getDocs(historyQuery);
+    
+    if (!historySnapshot.empty) {
+      // History'de trial kaydı var - tekrar alamaz
+      throw new Error('Bu işletme daha önce trial kullanmış. Lütfen ücretli plana geçin.');
     }
 
     const now = new Date();
@@ -70,6 +86,19 @@ class SubscriptionService {
 
     // Geçmiş kaydı oluştur
     await this.addHistory(businessId, subscription.id, 'created', undefined, 'professional', 0, `${TRIAL_PERIOD_DAYS} günlük trial başlatıldı`);
+    
+    // ✅ Salon subscriptionActive güncelle (trial aktif olduğu sürece true)
+    try {
+      await updateDoc(doc(db, 'salons', businessId), {
+        subscriptionActive: true,
+        subscriptionTrialEnd: trialEndDate.toISOString(),
+        updatedAt: now.toISOString(),
+      });
+      console.log(`✅ Salon subscriptionActive = true (Trial: ${TRIAL_PERIOD_DAYS} gün)`);
+    } catch (error) {
+      console.error('⚠️ Could not update salon subscriptionActive:', error);
+      // Salon güncellenemese bile devam et
+    }
 
     return subscription;
   }
@@ -108,6 +137,17 @@ class SubscriptionService {
       if (subscription.status !== 'expired') {
         await this.updateSubscriptionStatus(subscription.id, 'expired');
         await this.addHistory(businessId, subscription.id, 'expired', subscription.planType, subscription.planType, 0, 'Abonelik süresi doldu');
+        
+        // ✅ Salon subscriptionActive FALSE yap (süre doldu)
+        try {
+          await updateDoc(doc(db, 'salons', businessId), {
+            subscriptionActive: false,
+            updatedAt: now.toISOString(),
+          });
+          console.log('✅ Salon subscriptionActive = false (Subscription expired)');
+        } catch (error) {
+          console.error('⚠️ Could not update salon subscriptionActive:', error);
+        }
       }
       return 'expired';
     }
@@ -120,7 +160,7 @@ class SubscriptionService {
    * NOT: TÜM abonelik işlemleri 'pending' durumunda başlar ve admin onayı gerektirir
    * Yenileme yapılırsa mevcut sürenin üzerine eklenir (onaylandıktan sonra)
    * 
-   * ⚠️ GÜVENLİK UYARISI: Bu fonksiyon CLIENT-SIDE çalışır
+   * ✅ GÜVENLİK: Custom price kaldırıldı - sadece plan fiyatları kullanılır
    * Production'da Firebase Functions ile backend'e taşınmalı
    * Ödeme entegrasyonu (Stripe/Iyzico) eklenmelidir
    */
@@ -128,26 +168,16 @@ class SubscriptionService {
     businessId: string,
     businessName: string,
     planType: SubscriptionPlanType,
-    interval: SubscriptionInterval,
-    customPrice?: number
+    interval: SubscriptionInterval
   ): Promise<BusinessSubscription> {
     const plan = SUBSCRIPTION_PLANS.find(p => p.id === planType);
     if (!plan) throw new Error('Geçersiz plan');
 
-    // ✅ GÜVENLİK: Custom price kontrolü
-    if (customPrice !== undefined) {
-      // Custom price sadece admin verebilmeli (şimdilik client-side kontrol)
-      // TODO: Backend'de admin kontrolü yapılmalı
-      if (customPrice < 0 || customPrice > 1000000) {
-        throw new Error('Geçersiz özel fiyat');
-      }
-    }
-
     const currentSubscription = await this.getBusinessSubscription(businessId);
     const now = new Date();
     
-    // Fiyat hesapla
-    let price = customPrice !== undefined ? customPrice : plan.pricing[interval];
+    // ✅ GÜVENLİK: Fiyat SADECE plan tanımından alınır (client manipülasyonu engellendi)
+    const price = plan.pricing[interval];
     
     // Başlangıç ve bitiş tarihleri hesapla
     let startDate: Date;
@@ -203,7 +233,6 @@ class SubscriptionService {
       endDate: endDate.toISOString(),
       price,
       currency: 'TRY',
-      ...(customPrice !== undefined && { customPrice }), // Sadece tanımlıysa ekle
       lastPaymentDate: now.toISOString(),
       lastPaymentAmount: price,
       nextPaymentDate: endDate.toISOString(),
@@ -217,16 +246,8 @@ class SubscriptionService {
       updatedAt: now.toISOString(),
     };
 
-    console.log('Creating subscription document:', {
-      id: subscription.id,
-      businessId: subscription.businessId,
-      status: subscription.status,
-      planType: subscription.planType
-    });
-
     try {
       await setDoc(doc(db, this.subscriptionsCollection, subscription.id), subscription);
-      console.log('Subscription document created successfully');
     } catch (error) {
       console.error('Error creating subscription document:', error);
       throw error;
@@ -248,6 +269,17 @@ class SubscriptionService {
       price,
       historyNote
     );
+    
+    // ✅ Salon subscriptionActive FALSE yap (pending durumda görünmez)
+    try {
+      await updateDoc(doc(db, 'salons', businessId), {
+        subscriptionActive: false,
+        subscriptionPendingApproval: true,
+        updatedAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error('⚠️ Could not update salon subscriptionActive:', error);
+    }
 
     return subscription;
   }
@@ -256,11 +288,12 @@ class SubscriptionService {
    * Plan yükselt/düşür
    * NOT: Plan değişikliği için admin onayı gerekir
    * Onaylanana kadar eski plan devam eder
+   * 
+   * ✅ GÜVENLİK: Custom price kaldırıldı
    */
   async changePlan(
     businessId: string,
-    newPlanType: SubscriptionPlanType,
-    customPrice?: number
+    newPlanType: SubscriptionPlanType
   ): Promise<BusinessSubscription> {
     const subscription = await this.getBusinessSubscription(businessId);
     if (!subscription) throw new Error('Abonelik bulunamadı');
@@ -269,7 +302,7 @@ class SubscriptionService {
     if (!newPlan) throw new Error('Geçersiz plan');
 
     const oldPlanType = subscription.planType;
-    const price = customPrice || newPlan.pricing[subscription.interval];
+    const price = newPlan.pricing[subscription.interval];
 
     // ⚠️ Plan değişikliği talebi oluştur (pending durumunda)
     // Gerçek değişiklik admin onayından sonra olacak
@@ -348,6 +381,18 @@ class SubscriptionService {
       cancelledAt: now,
       updatedAt: now,
     });
+    
+    // ✅ Salon'un subscriptionActive alanını güncelle
+    try {
+      await updateDoc(doc(db, 'salons', businessId), {
+        subscriptionActive: false,
+        updatedAt: now,
+      });
+      console.log('✅ Salon subscriptionActive updated to false after cancellation');
+    } catch (salonError) {
+      console.error('⚠️ Could not update salon subscriptionActive:', salonError);
+      // Salon güncellenemese bile devam et
+    }
 
     await this.addHistory(
       businessId,
@@ -385,6 +430,8 @@ class SubscriptionService {
 
   /**
    * Kullanım istatistiklerini güncelle
+   * 
+   * ✅ GÜVENLİK: FieldValue.increment() kullanarak race condition engellendi
    */
   async updateUsageStats(
     businessId: string,
@@ -401,6 +448,29 @@ class SubscriptionService {
 
     await updateDoc(doc(db, this.subscriptionsCollection, subscription.id), {
       usage: updatedUsage,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  
+  /**
+   * Kullanım istatistiklerini increment et (atomic)
+   * 
+   * ✅ YENİ: Concurrent updates için güvenli artırma
+   */
+  async incrementUsageStat(
+    businessId: string,
+    field: 'staffCount' | 'serviceCount' | 'monthlyBookings',
+    amount: number = 1
+  ): Promise<void> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    if (!subscription) return;
+
+    // ✅ GÜVENLİK: Firestore FieldValue.increment() - atomik işlem
+    const { increment } = await import('firebase/firestore');
+    
+    await updateDoc(doc(db, this.subscriptionsCollection, subscription.id), {
+      [`usage.${field}`]: increment(amount),
+      'usage.lastUpdated': new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
   }

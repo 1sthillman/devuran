@@ -124,6 +124,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
     staff: salon?.staff || [],
     settings: salon?.settings || {
       advanceBookingDays: 30,
+      minOrderDays: 0, // Varsayılan olarak anında sipariş alabilir
       autoConfirm: true,
       allowCancellation: true,
       cancellationHours: 24,
@@ -236,16 +237,16 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 overflow-y-auto">
+      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center p-3 sm:p-4 pt-8 sm:pt-12">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.1 }}
-          className="w-full max-w-3xl bg-[var(--slate-surface)] border border-white/10 rounded-2xl sm:rounded-[32px] shadow-2xl my-4 sm:my-8 max-h-[calc(100vh-2rem)] sm:max-h-none overflow-hidden flex flex-col"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.2 }}
+          className="w-full max-w-3xl bg-[var(--slate-surface)] border border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[88vh]"
         >
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-white/10 flex-shrink-0">
+        <div className="p-3 sm:p-5 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-heading font-bold text-xl sm:text-2xl text-[var(--chrome-white)]">
@@ -264,17 +265,17 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
           </div>
         </div>
 
-        <form id="salon-form" onSubmit={handleSubmit} className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <form id="salon-form" onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Basic Info */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-xs sm:text-sm">1</span>
               </div>
               <h4 className="font-heading font-bold text-base sm:text-lg text-[var(--chrome-white)]">Temel Bilgiler</h4>
             </div>
             
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
                   İşletme Adı *
@@ -285,7 +286,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                   placeholder="Örnek: Güzellik Salonu, Bungalov Tesisi"
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-all text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-all text-base"
                 />
               </div>
 
@@ -293,7 +294,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                 <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
                   Kategori *
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5 max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
                   {getAllCategories().map((cat) => (
                     <CategoryButton
                       key={cat.id}
@@ -320,7 +321,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     required
                     placeholder="5XX XXX XX XX"
                     maxLength={10}
-                    className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                    className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                   />
                   <p className="text-xs text-[var(--muted-lead)] mt-1">
                     10 haneli telefon numarası (5XX XXX XX XX)
@@ -340,7 +341,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     }}
                     placeholder="5XX XXX XX XX"
                     maxLength={10}
-                    className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                    className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                   />
                 </div>
               </div>
@@ -354,7 +355,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="salon@example.com"
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                 />
               </div>
 
@@ -374,9 +375,9 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
           </div>
 
           {/* Görseller */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-xs sm:text-sm">2</span>
               </div>
               <h4 className="font-heading font-bold text-base sm:text-lg text-[var(--chrome-white)]">Görseller</h4>
@@ -387,7 +388,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                 <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
               </div>
             }>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <ImageUploader
                   label="Logo"
                   value={formData.logo}
@@ -414,15 +415,15 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
           </div>
 
           {/* Sosyal Medya */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-xs sm:text-sm">3</span>
               </div>
               <h4 className="font-heading font-bold text-base sm:text-lg text-[var(--chrome-white)]">Sosyal Medya</h4>
             </div>
             
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2.5">
               <div>
                 <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
                   Instagram
@@ -435,7 +436,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     socialMedia: { ...formData.socialMedia, instagram: e.target.value }
                   })}
                   placeholder="https://instagram.com/..."
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                 />
               </div>
 
@@ -451,7 +452,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     socialMedia: { ...formData.socialMedia, tiktok: e.target.value }
                   })}
                   placeholder="https://tiktok.com/@..."
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                 />
               </div>
 
@@ -467,7 +468,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     socialMedia: { ...formData.socialMedia, youtube: e.target.value }
                   })}
                   placeholder="https://youtube.com/@..."
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                 />
               </div>
             </div>
@@ -476,13 +477,13 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
           {/* Address */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
                 <MapPin size={14} className="sm:size-4 text-white" strokeWidth={2.5} />
               </div>
               <h4 className="font-heading font-bold text-base sm:text-lg text-[var(--chrome-white)]">Adres Bilgileri</h4>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-1.5">
                   Şehir *
@@ -494,7 +495,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     address: { ...formData.address, city: e.target.value }
                   })}
                   required
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                 >
                   {CITIES.map((city) => (
                     <option key={city} value={city}>{city}</option>
@@ -515,7 +516,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                   })}
                   required
                   placeholder="Örnek: Kadıköy"
-                  className="w-full h-12 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
+                  className="w-full h-11 px-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--chrome-white)] font-body outline-none focus:border-purple-500 focus:bg-white/10 transition-colors text-base"
                 />
               </div>
 
@@ -557,7 +558,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     type="button"
                     onClick={handleGetLocation}
                     disabled={gettingLocation}
-                    className="h-12 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-heading font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="h-11 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-heading font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {gettingLocation ? (
                       <>
@@ -567,7 +568,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                     ) : (
                       <>
                         <Navigation size={16} className="sm:size-[18px]" strokeWidth={2.5} />
-                        <span>Konumumu Al ve Haritada Göster</span>
+                        <span>Konumu Al</span>
                       </>
                     )}
                   </button>
@@ -582,7 +583,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
         </form>
 
         {/* Footer */}
-        <div className="p-4 sm:p-6 border-t border-white/10 bg-gradient-to-r from-white/[0.02] to-transparent flex-shrink-0">
+        <div className="p-3 sm:p-5 border-t border-white/10 bg-[var(--slate-surface)] flex-shrink-0">
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
@@ -618,7 +619,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
     {showMapPicker && (
       <div 
         data-map-modal
-        className="fixed inset-0 z-[60] flex items-start justify-center p-4 bg-black/70 overflow-y-auto pt-4"
+        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             setShowMapPicker(false);
@@ -626,13 +627,13 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
         }}
       >
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.1 }}
-          className="w-full max-w-4xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-3xl p-5 my-4"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="w-full max-w-4xl max-h-[90vh] bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-3xl overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="p-5 border-b border-white/10 flex items-center justify-between flex-shrink-0">
             <div>
               <h3 className="font-display font-bold text-lg text-[var(--chrome-white)]">
                 Haritadan Konum İşaretle
@@ -649,9 +650,9 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="p-5 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
             {/* Map Container */}
-            <div className="relative w-full h-[300px] sm:h-[400px] rounded-3xl overflow-hidden border-2 border-[var(--obsidian-rim)]">
+            <div className="relative w-full h-[350px] sm:h-[450px] rounded-3xl overflow-hidden border-2 border-[var(--obsidian-rim)]">
               <iframe
                 src={`https://www.google.com/maps?q=${tempCoordinates.lat},${tempCoordinates.lng}&z=15&output=embed`}
                 className="w-full h-full"

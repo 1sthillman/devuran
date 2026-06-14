@@ -14,9 +14,13 @@ import {
   FileText,
   Eye,
   AlertCircle,
-  Plus
+  Plus,
+  Search,
+  Mail,
+  MessageCircle
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { reservationService } from '@/services/reservationService';
 import { soundService } from '@/services/soundService';
 import { useUIStore } from '@/store/uiStore';
@@ -33,11 +37,73 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { addToast } = useUIStore();
   const modalContentRef = useRef<HTMLDivElement>(null);
 
-  const pendingReservations = reservations.filter(r => r.status === 'pending');
-  const confirmedReservations = reservations.filter(r => 
+  // Kopyalama fonksiyonu
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      addToast(`${label} kopyalandı`, 'success');
+    }).catch(() => {
+      addToast('Kopyalanamadı', 'error');
+    });
+  };
+
+  // WhatsApp linki
+  const getWhatsAppLink = (phone: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    return `https://wa.me/90${cleanPhone}`;
+  };
+
+  // Google Maps linki
+  const getGoogleMapsLink = (address: string, location?: { lat: number; lng: number }) => {
+    if (location) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}`;
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  };
+
+  // Rezervasyon tipi label fonksiyonu (arama için gerekli - önce tanımlanmalı)
+  const getReservationTypeLabel = (type: string): string => {
+    const labels: Record<string, string> = {
+      slot: 'Randevu',
+      daily: 'Günlük Kiralama',
+      nightly: 'Konaklama',
+      project: 'Proje/Organizasyon',
+      order: 'Sipariş'
+    };
+    return labels[type] || type;
+  };
+
+  const formatDate = (reservation: Reservation): string => {
+    if ('date' in reservation) return reservation.date;
+    if ('eventDate' in reservation) return reservation.eventDate;
+    if ('checkIn' in reservation) return reservation.checkIn;
+    if ('deliveryDate' in reservation) return reservation.deliveryDate;
+    return '';
+  };
+
+  // Arama fonksiyonu
+  const filteredReservations = reservations.filter(reservation => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const searchableText = [
+      reservation.id,
+      reservation.userName,
+      reservation.userPhone,
+      reservation.userEmail,
+      getReservationTypeLabel(reservation.type),
+      formatDate(reservation),
+      reservation.notes
+    ].filter(Boolean).join(' ').toLowerCase();
+    
+    return searchableText.includes(query);
+  });
+
+  const pendingReservations = filteredReservations.filter(r => r.status === 'pending');
+  const confirmedReservations = filteredReservations.filter(r => 
     r.status === 'confirmed' || r.status === 'deposit_paid' || r.status === 'fully_paid'
   );
 
@@ -107,14 +173,6 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
     setLoading(false);
   };
 
-  const formatDate = (reservation: Reservation): string => {
-    if ('date' in reservation) return reservation.date;
-    if ('eventDate' in reservation) return reservation.eventDate;
-    if ('checkIn' in reservation) return reservation.checkIn;
-    if ('deliveryDate' in reservation) return reservation.deliveryDate;
-    return '';
-  };
-
   const formatDateRange = (reservation: Reservation): { start: string; end: string; nights?: number } | null => {
     if (reservation.type === 'nightly') {
       const nightly = reservation as any;
@@ -148,19 +206,41 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
     return '-';
   };
 
-  const getReservationTypeLabel = (type: string): string => {
-    const labels: Record<string, string> = {
-      slot: 'Randevu',
-      daily: 'Günlük Kiralama',
-      nightly: 'Konaklama',
-      project: 'Proje/Organizasyon',
-      order: 'Sipariş'
-    };
-    return labels[type] || type;
-  };
-
   return (
     <div className="space-y-6">
+      {/* Arama Kutusu - Daha Oval Modern */}
+      <div className="relative">
+        <div className="relative">
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+            <Search size={18} className="text-purple-400" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Müşteri adı, telefon, rezervasyon ID ile ara..."
+            className="w-full h-16 pl-20 pr-16 rounded-[2rem] bg-gradient-to-br from-white/[0.05] to-white/[0.02] border border-white/[0.08] text-[var(--chrome-white)] placeholder:text-[var(--muted-lead)] outline-none focus:border-purple-500/40 focus:bg-white/[0.05] focus:shadow-lg focus:shadow-purple-500/10 transition-all"
+          />
+        </div>
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-95"
+          >
+            <X size={16} className="text-[var(--muted-lead)]" />
+          </button>
+        )}
+      </div>
+
+      {/* Sonuç sayısı */}
+      {searchQuery && (
+        <div className="text-center">
+          <p className="text-sm text-[var(--muted-lead)]">
+            <span className="font-bold text-[var(--chrome-white)]">{filteredReservations.length}</span> rezervasyon bulundu
+          </p>
+        </div>
+      )}
+
       {/* Pending Reservations */}
       {pendingReservations.length > 0 && (
         <div>
@@ -500,28 +580,88 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                   WebkitOverflowScrolling: 'touch'
                 }}
               >
-                {/* Customer Info - Compact */}
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <User size={16} className="text-purple-400" />
+                {/* Customer Info - Modern Oval */}
+                <div className="rounded-[2rem] border border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-white/[0.01] p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                      <User size={14} className="text-purple-400" />
+                    </div>
                     <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
                       Müşteri Bilgileri
                     </h4>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-3">
+                    {/* Telefon */}
                     <div>
-                      <p className="text-[var(--muted-lead)] text-xs mb-1">Telefon</p>
-                      <p className="font-mono text-[var(--chrome-white)]">{selectedReservation.userPhone}</p>
+                      <p className="text-[var(--muted-lead)] text-xs mb-2">Telefon</p>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${selectedReservation.userPhone}`}
+                          className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all group"
+                        >
+                          <Phone size={14} className="text-purple-400 group-hover:text-purple-300" />
+                          <span className="font-mono text-sm text-[var(--chrome-white)]">
+                            {selectedReservation.userPhone}
+                          </span>
+                        </a>
+                        <CopyButton 
+                          text={selectedReservation.userPhone} 
+                          onCopy={() => addToast('Telefon kopyalandı', 'success')}
+                        />
+                        <a
+                          href={getWhatsAppLink(selectedReservation.userPhone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-10 h-10 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all"
+                          title="WhatsApp'ta Aç"
+                        >
+                          <MessageCircle size={14} className="text-emerald-400" />
+                        </a>
+                      </div>
                     </div>
+                    
+                    {/* E-posta */}
+                    {selectedReservation.userEmail && (
+                      <div>
+                        <p className="text-[var(--muted-lead)] text-xs mb-2">E-posta</p>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`mailto:${selectedReservation.userEmail}`}
+                            className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all group min-w-0"
+                          >
+                            <Mail size={14} className="text-cyan-400 group-hover:text-cyan-300 flex-shrink-0" />
+                            <span className="font-mono text-sm text-[var(--chrome-white)] truncate">
+                              {selectedReservation.userEmail}
+                            </span>
+                          </a>
+                          <CopyButton 
+                            text={selectedReservation.userEmail} 
+                            onCopy={() => addToast('E-posta kopyalandı', 'success')}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Rezervasyon ID */}
                     <div>
-                      <p className="text-[var(--muted-lead)] text-xs mb-1">E-posta</p>
-                      <p className="font-mono text-[var(--chrome-white)] text-xs truncate">{selectedReservation.userEmail}</p>
+                      <p className="text-[var(--muted-lead)] text-xs mb-2">Rezervasyon ID</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 px-4 py-2.5 rounded-full bg-white/5 border border-white/10">
+                          <span className="font-mono text-xs text-[var(--chrome-white)]">
+                            {selectedReservation.id}
+                          </span>
+                        </div>
+                        <CopyButton 
+                          text={selectedReservation.id} 
+                          onCopy={() => addToast('Rezervasyon ID kopyalandı', 'success')}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Date & Time - Compact */}
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                {/* Date & Time - Modern Oval */}
+                <div className="rounded-[2rem] border border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-white/[0.01] p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Calendar size={16} className="text-cyan-400" />
                     <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
@@ -594,8 +734,8 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                   )}
                 </div>
 
-                {/* Pricing - Compact */}
-                <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-4">
+                {/* Pricing - Modern Oval */}
+                <div className="rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <DollarSign size={16} className="text-emerald-400" />
                     <h4 className="font-heading font-bold text-sm text-emerald-400">
@@ -636,9 +776,9 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                   </div>
                 </div>
 
-                {/* Services - Compact */}
+                {/* Services - Modern Oval */}
                 {selectedReservation.type === 'slot' && (
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                  <div className="rounded-[2rem] border border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-white/[0.01] p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <FileText size={16} className="text-purple-400" />
                       <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
@@ -661,9 +801,312 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                   </div>
                 )}
 
+                {/* Address - For Slot Reservations */}
+                {selectedReservation.type === 'slot' && (selectedReservation as any).address && (
+                  <div className="rounded-[2rem] border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                        <MapPin size={14} className="text-cyan-400" />
+                      </div>
+                      <h4 className="font-heading font-bold text-sm text-cyan-400">
+                        Müşteri Adresi
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-cyan-300 leading-relaxed">
+                        {(selectedReservation as any).address}
+                      </p>
+                      <div className="flex items-center gap-2 pt-2">
+                        <CopyButton 
+                          text={(selectedReservation as any).address}
+                          onCopy={() => addToast('Adres kopyalandı', 'success')}
+                          variant="button"
+                          label="Kopyala"
+                        />
+                        {(selectedReservation as any).gpsLocation ? (
+                          <a
+                            href={getGoogleMapsLink('', (selectedReservation as any).gpsLocation)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 h-10 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 flex items-center justify-center gap-2 transition-all group"
+                            title="Yol Tarifi Al"
+                          >
+                            <MapPin size={14} className="text-emerald-400 group-hover:text-emerald-300" />
+                            <span className="text-xs font-semibold text-emerald-400 group-hover:text-emerald-300">Yol Tarifi</span>
+                          </a>
+                        ) : (
+                          <a
+                            href={getGoogleMapsLink((selectedReservation as any).address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 h-10 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 flex items-center justify-center gap-2 transition-all group"
+                            title="Haritada Aç"
+                          >
+                            <MapPin size={14} className="text-emerald-400 group-hover:text-emerald-300" />
+                            <span className="text-xs font-semibold text-emerald-400 group-hover:text-emerald-300">Haritada Aç</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Order Items - For Catering/Orders */}
+                {selectedReservation.type === 'order' && (
+                  <>
+                    <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FileText size={16} className="text-orange-400" />
+                        <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                          Sipariş Ürünleri
+                        </h4>
+                      </div>
+                      <div className="space-y-2">
+                        {(selectedReservation as any).items?.map((item: any, index: number) => (
+                          <div
+                            key={index}
+                            className="p-3 rounded-xl bg-white/5 text-sm"
+                          >
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-semibold text-[var(--chrome-white)]">{item.name}</span>
+                              <span className="font-mono font-semibold text-[var(--chrome-white)]">
+                                {item.price.toLocaleString('tr-TR')} ₺
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-[var(--muted-lead)]">
+                              <span>Miktar: {item.quantity} {item.unit}</span>
+                              {item.customization && (
+                                <span className="text-cyan-400">Özelleştirme var</span>
+                              )}
+                            </div>
+                            {item.customization && (
+                              <p className="mt-2 text-xs text-[var(--muted-lead)] italic">
+                                {item.customization}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Delivery Address with Location */}
+                    {((selectedReservation as any).deliveryAddress || (selectedReservation as any).address) && (
+                      <div className="rounded-[2rem] border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                            <MapPin size={14} className="text-cyan-400" />
+                          </div>
+                          <h4 className="font-heading font-bold text-sm text-cyan-400">
+                            {(selectedReservation as any).deliveryAddress ? 'Teslimat Adresi' : 'Adres'}
+                          </h4>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-cyan-300 leading-relaxed">
+                            {(selectedReservation as any).deliveryAddress || (selectedReservation as any).address}
+                          </p>
+                          <div className="flex items-center gap-2 pt-2">
+                            <CopyButton 
+                              text={(selectedReservation as any).deliveryAddress || (selectedReservation as any).address}
+                              onCopy={() => addToast('Adres kopyalandı', 'success')}
+                              variant="button"
+                              label="Kopyala"
+                            />
+                            {(selectedReservation as any).gpsLocation ? (
+                              <a
+                                href={getGoogleMapsLink('', (selectedReservation as any).gpsLocation)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 h-10 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 flex items-center justify-center gap-2 transition-all group"
+                                title="Yol Tarifi Al"
+                              >
+                                <MapPin size={14} className="text-emerald-400 group-hover:text-emerald-300" />
+                                <span className="text-xs font-semibold text-emerald-400 group-hover:text-emerald-300">Yol Tarifi</span>
+                              </a>
+                            ) : (
+                              <a
+                                href={getGoogleMapsLink((selectedReservation as any).deliveryAddress || (selectedReservation as any).address)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 h-10 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 flex items-center justify-center gap-2 transition-all group"
+                                title="Haritada Aç"
+                              >
+                                <MapPin size={14} className="text-emerald-400 group-hover:text-emerald-300" />
+                                <span className="text-xs font-semibold text-emerald-400 group-hover:text-emerald-300">Haritada Aç</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Project Details - For Organization */}
+                {selectedReservation.type === 'project' && (
+                  <>
+                    <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FileText size={16} className="text-purple-400" />
+                        <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                          Etkinlik Detayları
+                        </h4>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        {(selectedReservation as any).venue && (
+                          <div className="flex justify-between">
+                            <span className="text-[var(--muted-lead)]">Mekan</span>
+                            <span className="font-semibold text-[var(--chrome-white)]">
+                              {(selectedReservation as any).venue}
+                            </span>
+                          </div>
+                        )}
+                        {(selectedReservation as any).guestCount && (
+                          <div className="flex justify-between">
+                            <span className="text-[var(--muted-lead)]">Misafir Sayısı</span>
+                            <span className="font-semibold text-[var(--chrome-white)]">
+                              {(selectedReservation as any).guestCount} kişi
+                            </span>
+                          </div>
+                        )}
+                        {(selectedReservation as any).package && (
+                          <div className="mt-3 pt-3 border-t border-white/[0.08]">
+                            <p className="text-[var(--muted-lead)] text-xs mb-2">Paket</p>
+                            <div className="p-2 rounded-xl bg-white/5">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="font-semibold text-[var(--chrome-white)]">
+                                  {(selectedReservation as any).package.name}
+                                </span>
+                                <span className="font-mono text-xs text-purple-400 uppercase">
+                                  {(selectedReservation as any).package.tier}
+                                </span>
+                              </div>
+                              {(selectedReservation as any).package.includes?.length > 0 && (
+                                <ul className="mt-2 space-y-1">
+                                  {(selectedReservation as any).package.includes.slice(0, 3).map((item: string, i: number) => (
+                                    <li key={i} className="text-xs text-[var(--muted-lead)]">
+                                      • {item}
+                                    </li>
+                                  ))}
+                                  {(selectedReservation as any).package.includes.length > 3 && (
+                                    <li className="text-xs text-purple-400">
+                                      +{(selectedReservation as any).package.includes.length - 3} daha fazla
+                                    </li>
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Daily Rental Details - For Venues */}
+                {selectedReservation.type === 'daily' && (
+                  <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText size={16} className="text-amber-400" />
+                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                        Salon Detayları
+                      </h4>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      {(selectedReservation as any).eventType && (
+                        <div className="flex justify-between">
+                          <span className="text-[var(--muted-lead)]">Etkinlik Türü</span>
+                          <span className="font-semibold text-[var(--chrome-white)] capitalize">
+                            {(selectedReservation as any).eventType}
+                          </span>
+                        </div>
+                      )}
+                      {(selectedReservation as any).capacity && (
+                        <div className="flex justify-between">
+                          <span className="text-[var(--muted-lead)]">Kapasite</span>
+                          <span className="font-semibold text-[var(--chrome-white)]">
+                            {(selectedReservation as any).capacity} kişi
+                          </span>
+                        </div>
+                      )}
+                      {(selectedReservation as any).package && (
+                        <div className="mt-3 pt-3 border-t border-white/[0.08]">
+                          <p className="text-[var(--muted-lead)] text-xs mb-2">Paket</p>
+                          <div className="p-2 rounded-xl bg-white/5">
+                            <p className="font-semibold text-[var(--chrome-white)]">
+                              {(selectedReservation as any).package.name}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {(selectedReservation as any).extras?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/[0.08]">
+                          <p className="text-[var(--muted-lead)] text-xs mb-2">Ekstralar</p>
+                          <div className="space-y-1">
+                            {(selectedReservation as any).extras.map((extra: any, i: number) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-[var(--muted-lead)]">
+                                  {extra.name} x{extra.quantity}
+                                </span>
+                                <span className="font-mono text-[var(--chrome-white)]">
+                                  {extra.price.toLocaleString('tr-TR')} ₺
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Nightly Booking Details */}
+                {selectedReservation.type === 'nightly' && (
+                  <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText size={16} className="text-blue-400" />
+                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                        Konaklama Detayları
+                      </h4>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      {(selectedReservation as any).mealPlan && (
+                        <div className="flex justify-between">
+                          <span className="text-[var(--muted-lead)]">Pansiyon Türü</span>
+                          <span className="font-semibold text-[var(--chrome-white)] capitalize">
+                            {(selectedReservation as any).mealPlan}
+                          </span>
+                        </div>
+                      )}
+                      {(selectedReservation as any).specialRequests && (
+                        <div className="mt-3 pt-3 border-t border-white/[0.08]">
+                          <p className="text-[var(--muted-lead)] text-xs mb-2">Özel İstekler</p>
+                          <p className="text-xs text-[var(--chrome-white)]">
+                            {(selectedReservation as any).specialRequests}
+                          </p>
+                        </div>
+                      )}
+                      {(selectedReservation as any).extras?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/[0.08]">
+                          <p className="text-[var(--muted-lead)] text-xs mb-2">Ekstra Hizmetler</p>
+                          <div className="space-y-1">
+                            {(selectedReservation as any).extras.map((extra: any, i: number) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-[var(--muted-lead)]">{extra.name}</span>
+                                <span className="font-mono text-[var(--chrome-white)]">
+                                  {extra.price.toLocaleString('tr-TR')} ₺
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Notes */}
                 {selectedReservation.notes && (
-                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                  <div className="rounded-[2rem] border border-blue-500/20 bg-blue-500/10 p-5">
                     <div className="flex items-center gap-2 mb-2">
                       <FileText size={16} className="text-blue-400" />
                       <h4 className="font-heading font-bold text-sm text-blue-400">

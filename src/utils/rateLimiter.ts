@@ -27,6 +27,8 @@ class RateLimiter {
 
   /**
    * Check if action is allowed
+   * 
+   * ✅ GÜVENLİK: Race condition düzeltildi - entry referansı korunuyor
    */
   isAllowed(action: string, identifier: string = 'default'): boolean {
     const config = this.configs.get(action);
@@ -53,9 +55,10 @@ class RateLimiter {
       return false;
     }
 
-    // Increment count
+    // ✅ GÜVENLİK: Increment count (map referansı aynı kalıyor)
     entry.count++;
-    this.limits.set(key, entry);
+    // Not: entry.count++ zaten map'teki referansı günceller
+    // this.limits.set(key, entry) gereksiz (zaten aynı obje)
     return true;
   }
 

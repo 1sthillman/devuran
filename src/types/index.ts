@@ -10,6 +10,7 @@ export interface Service {
   staffIds: string[];
   image?: string; // Hizmet görseli
   isActive: boolean;
+  requiresDeposit?: boolean; // 🆕 Bu hizmet için kapora gerekli mi?
   includes?: string[]; // Paket içeriği (paket hizmetleri için)
   
   // Gelişmiş Fiyatlandırma
@@ -97,6 +98,7 @@ export interface MediaItem {
 export interface Salon {
   id: string;
   ownerId: string; // User ID of the salon owner
+  ownerEmail?: string; // Salon sahibinin email adresi (bildirimler için)
   name: string;
   slug: string;
   category: 
@@ -136,6 +138,7 @@ export interface Salon {
   };
   settings: {
     advanceBookingDays: number;
+    minOrderDays?: number; // Minimum sipariş süresi (gün) - sipariş bazlı işletmeler için
     autoConfirm: boolean;
     allowCancellation: boolean;
     cancellationHours: number;
@@ -152,12 +155,26 @@ export interface Salon {
       branch?: string;
     }[];
     paymentInstructions?: string;
+    // 🆕 Kapora/Depozit Ayarları
+    depositSettings?: {
+      enabled: boolean; // Kapora zorunlu mu?
+      type: 'percentage' | 'fixed'; // Yüzde mi yoksa sabit tutar mı?
+      amount: number; // %30 veya 500 TL gibi
+      minimumReservationAmount?: number; // Minimum randevu tutarı (örn: 1000 TL üzeri)
+      paymentDeadlineHours: number; // Kapora ödenme süresi (saat cinsinden, örn: 48)
+      autoConfirmOnPayment: boolean; // Ödeme onaylandığında randevu otomatik onaylansın mı?
+      requireProof: boolean; // Dekont/makbuz zorunlu mu?
+    };
   };
   capacity?: {
     enabled: boolean;
     maxCapacity?: number;
     minCapacity?: number;
   };
+  // ✅ Abonelik durumu (müşterilerin işletmeyi görebilmesi için)
+  subscriptionActive?: boolean; // Aktif aboneliği var mı? (true = görünür, false = görünmez)
+  subscriptionPendingApproval?: boolean; // Admin onayı bekliyor mu?
+  subscriptionTrialEnd?: string; // Trial bitiş tarihi (varsa)
   isPremium: boolean;
   isActive: boolean;
   isAcceptingBookings: boolean; // Anlık randevu açık/kapalı
@@ -266,6 +283,7 @@ export interface SlotReservation extends BaseReservation {
   }[];
   location?: 'studio' | 'outdoor' | 'home' | 'business';
   address?: string;
+  gpsLocation?: { lat: number; lng: number };
 }
 
 // Günlük Kiralama (Salon, Etkinlik)
@@ -404,6 +422,7 @@ export interface Appointment {
   salonAddress: string;
   customerName: string;
   customerPhone: string;
+  customerEmail?: string; // Email adresi (opsiyonel)
   staffId: string;
   staffName: string;
   staffPhoto: string;
@@ -425,6 +444,8 @@ export interface Appointment {
   cancelledAt?: string;
   completedAt?: string;
   actualEndTime?: string;
+  // 🆕 Kapora bilgileri (reservation'dan geliyorsa)
+  pricing?: PaymentInfo;
 }
 
 export interface QueueEntry {

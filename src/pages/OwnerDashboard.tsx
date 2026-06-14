@@ -25,6 +25,9 @@ import {
   Database,
   X,
   CreditCard,
+  Link2,
+  ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppointmentManager } from '@/components/dashboard/AppointmentManager';
@@ -41,11 +44,13 @@ import { ReviewList } from '@/components/reviews/ReviewList';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { FloatingNavMenu } from '@/components/dashboard/FloatingNavMenu';
 import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus';
 import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
 import { SubscriptionGuard } from '@/components/subscription/SubscriptionGuard';
 import { SubscriptionOverviewCard } from '@/components/subscription/SubscriptionOverviewCard';
+import { AnnouncementPopup } from '@/components/announcement/AnnouncementPopup';
 import { appointmentsService, salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
@@ -53,7 +58,7 @@ import { subscriptionService } from '@/services/subscriptionService';
 import type { Appointment, Salon, Service, Staff, BusinessSubscription } from '@/types';
 
 const sidebarItems = [
-  { key: 'overview', label: 'Genel Bakis', icon: LayoutDashboard },
+  { key: 'overview', label: 'Genel Bakış', icon: LayoutDashboard },
   { key: 'subscription', label: 'Abonelik', icon: CreditCard },
   { key: 'appointments', label: 'Randevular', icon: CalendarIcon },
   { key: 'analytics', label: 'Analitik', icon: BarChart3 },
@@ -85,11 +90,14 @@ export function OwnerDashboard() {
   const [expandedSettings, setExpandedSettings] = useState<Record<string, boolean>>({
     salonInfo: false,
     bookingSystem: true,
+    bookingSettings: false,
     payment: false,
     workingHours: false,
   });
   const [subscription, setSubscription] = useState<BusinessSubscription | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showBusinessLink, setShowBusinessLink] = useState(false); // Default: KAPALI
+  const [showSubscriptionCard, setShowSubscriptionCard] = useState(false); // Default: KAPALI
 
   // Restore active tab from URL on mount
   useEffect(() => {
@@ -370,40 +378,13 @@ export function OwnerDashboard() {
 
   const todayStr = new Date().toISOString().split('T')[0];
   
-  console.log('📊 Dashboard Stats Debug:', {
-    todayStr,
-    reservationsCount: reservations.length,
-    appointmentsCount: appointments.length,
-    reservations: reservations.map(r => ({
-      date: r.date || r.eventDate || r.checkIn || r.deliveryDate,
-      status: r.status
-    })),
-    appointments: appointments.map(a => ({
-      date: a.date,
-      status: a.status
-    }))
+  // SADECE reservations'dan hesapla (appointments içinde zaten _source='reservation' olanlar var)
+  const todayApps = reservations.filter((r: any) => {
+    const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+    const isToday = resDate === todayStr;
+    const isActive = r.status === 'confirmed' || r.status === 'pending' || r.status === 'deposit_paid';
+    return isToday && isActive;
   });
-  
-  // Hem reservations hem de appointments'dan hesapla
-  const todayApps = [
-    ...reservations.filter((r: any) => {
-      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
-      const isToday = resDate === todayStr;
-      // Sadece confirmed ve pending status'leri say
-      const isActive = r.status === 'confirmed' || r.status === 'pending';
-      console.log('Reservation check:', { resDate, todayStr, isToday, status: r.status, isActive });
-      return isToday && isActive;
-    }),
-    ...appointments.filter((a: Appointment) => {
-      const isToday = a.date === todayStr;
-      // Sadece confirmed ve pending status'leri say
-      const isActive = a.status === 'confirmed' || a.status === 'pending';
-      console.log('Appointment check:', { date: a.date, todayStr, isToday, status: a.status, isActive });
-      return isToday && isActive;
-    })
-  ];
-  
-  console.log('📊 Today Apps Result:', todayApps.length, todayApps);
   
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
@@ -411,45 +392,27 @@ export function OwnerDashboard() {
   weekEnd.setDate(weekEnd.getDate() + 7);
   weekEnd.setHours(23, 59, 59, 999);
   
-  // Hem reservations hem de appointments'dan hesapla
-  const weekApps = [
-    ...reservations.filter((r: any) => {
-      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
-      if (!resDate) return false;
-      const appDate = new Date(resDate);
-      const inWeek = appDate >= weekStart && appDate <= weekEnd;
-      const isActive = r.status === 'confirmed' || r.status === 'pending';
-      return inWeek && isActive;
-    }),
-    ...appointments.filter((a: Appointment) => {
-      if (!a.date) return false;
-      const appDate = new Date(a.date);
-      const inWeek = appDate >= weekStart && appDate <= weekEnd;
-      const isActive = a.status === 'confirmed' || a.status === 'pending';
-      return inWeek && isActive;
-    })
-  ];
+  // SADECE reservations'dan hesapla
+  const weekApps = reservations.filter((r: any) => {
+    const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+    if (!resDate) return false;
+    const appDate = new Date(resDate);
+    const inWeek = appDate >= weekStart && appDate <= weekEnd;
+    const isActive = r.status === 'confirmed' || r.status === 'pending' || r.status === 'deposit_paid';
+    return inWeek && isActive;
+  });
   
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
   
-  // Hem reservations hem de appointments'dan hesapla
-  const monthlyRevenue = [
-    ...reservations
-      .filter((r: any) => {
-        const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
-        const isCompleted = r.status === 'completed' || r.status === 'confirmed';
-        const isThisMonth = resDate.startsWith(currentMonth);
-        return isCompleted && isThisMonth;
-      })
-      .map((r: any) => r.pricing?.totalAmount || r.totalPrice || 0),
-    ...appointments
-      .filter((a: Appointment) => {
-        const isCompleted = a.status === 'completed' || a.status === 'confirmed';
-        const isThisMonth = a.date.startsWith(currentMonth);
-        return isCompleted && isThisMonth;
-      })
-      .map((a: Appointment) => a.totalPrice || 0)
-  ].reduce((sum: number, price: number) => sum + price, 0);
+  // SADECE reservations'dan hesapla (appointments içinde zaten _source='reservation' olanlar var, iki kere saymayalım)
+  const monthlyRevenue = reservations
+    .filter((r: any) => {
+      const resDate = r.date || r.eventDate || r.checkIn || r.deliveryDate || '';
+      const isCompleted = r.status === 'completed' || r.status === 'confirmed' || r.status === 'fully_paid';
+      const isThisMonth = resDate.startsWith(currentMonth);
+      return isCompleted && isThisMonth;
+    })
+    .reduce((sum: number, r: any) => sum + (r.pricing?.totalAmount || r.totalPrice || 0), 0);
 
   const handleSaveWorkingHours = async (hours: any) => {
     if (!salon) {
@@ -724,12 +687,180 @@ export function OwnerDashboard() {
               })}
             </div>
 
-            {/* Subscription Overview Card */}
+            {/* Abonelik Kartı - Modern Collapsible */}
             {salon && (
-              <SubscriptionOverviewCard
-                businessId={salon.id}
-                onViewPlans={() => setShowSubscriptionModal(true)}
-              />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.04 }}
+                className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] via-transparent to-teal-500/[0.02] pointer-events-none" />
+                
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSubscriptionCard(!showSubscriptionCard)}
+                    className="w-full p-6 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-white/[0.08] flex items-center justify-center">
+                        <CreditCard size={20} className="text-emerald-400" strokeWidth={2} />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
+                          Abonelik Durumu
+                        </h3>
+                        <p className="text-xs text-[var(--muted-lead)] mt-0.5">
+                          Plan ve kullanım bilgileri
+                        </p>
+                      </div>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: showSubscriptionCard ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence>
+                    {showSubscriptionCard && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-6 pb-6 border-t border-white/[0.08] pt-4">
+                          <SubscriptionOverviewCard
+                            businessId={salon.id}
+                            onViewPlans={() => setShowSubscriptionModal(true)}
+                            className="border-0"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+
+            {/* İşletme Linki - Modern Tasarım */}
+            {salon?.slug && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 }}
+                className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] via-transparent to-blue-500/[0.02] pointer-events-none" />
+                
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBusinessLink(!showBusinessLink)}
+                    className="w-full p-6 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-white/[0.08] flex items-center justify-center">
+                        <Link2 size={20} className="text-cyan-400" strokeWidth={2} />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
+                          İşletme Linkim
+                        </h3>
+                        <p className="text-xs text-[var(--muted-lead)] mt-0.5">
+                          Müşterilerle paylaş ve rezervasyon al
+                        </p>
+                      </div>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: showBusinessLink ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence>
+                    {showBusinessLink && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-6 pb-6 border-t border-white/[0.08] space-y-3 pt-4">
+                          {/* Link Display */}
+                          <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+                            <label className="block mb-4">
+                              <span className="font-heading font-semibold text-sm text-[var(--chrome-white)] flex items-center gap-2">
+                                <Link2 size={16} className="text-cyan-400" />
+                                İşletme Bağlantısı
+                              </span>
+                              <span className="text-xs text-[var(--muted-lead)] block mt-1.5">
+                                Bu linki müşterilerinizle paylaşın
+                              </span>
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 h-12 px-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center">
+                                <code className="text-sm font-mono font-semibold text-cyan-400 truncate">
+                                  randevu.app/{salon.slug}
+                                </code>
+                              </div>
+                              <CopyButton 
+                                text={`https://app-ruby-ten-20.vercel.app/salon/${salon.slug}`}
+                                onCopy={() => addToast('📋 Link kopyalandı!', 'success')}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <a
+                              href={`/salon/${salon.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="h-12 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/15 border border-cyan-500/20 flex items-center justify-center gap-2 transition-all font-heading font-semibold text-sm text-cyan-400 hover:text-cyan-300"
+                            >
+                              <ExternalLink size={16} strokeWidth={2} />
+                              Önizle
+                            </a>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`https://app-ruby-ten-20.vercel.app/salon/${salon.slug}`);
+                                addToast('🎉 Link kopyalandı!', 'success');
+                              }}
+                              className="h-12 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center gap-2 transition-all font-heading font-semibold text-sm text-emerald-400 hover:text-emerald-300"
+                            >
+                              <Link2 size={16} strokeWidth={2} />
+                              Paylaş
+                            </button>
+                          </div>
+
+                          {/* Info */}
+                          <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                                <Sparkles size={14} className="text-purple-400" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-heading font-semibold text-purple-300 mb-1">
+                                  Linki Nerede Paylaşabilirsiniz?
+                                </p>
+                                <p className="text-xs text-purple-300/80 leading-relaxed">
+                                  Instagram bio, WhatsApp durumu, Google Business profili, Facebook sayfası veya doğrudan müşterilerle paylaşabilirsiniz
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
             )}
 
             {/* Quick Actions */}
@@ -1140,29 +1271,202 @@ export function OwnerDashboard() {
               </div>
             </motion.div>
 
+            {/* Rezervasyon Ayarları */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 }}
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-500/[0.02] via-transparent to-slate-600/[0.02] pointer-events-none" />
+              
+              <div className="relative">
+                <button
+                  onClick={() => setExpandedSettings(prev => ({ ...prev, bookingSettings: !prev.bookingSettings }))}
+                  className="w-full p-6 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-slate-500/10 to-slate-600/10 border border-white/[0.08] flex items-center justify-center">
+                      <Clock size={20} className="text-slate-400" strokeWidth={2} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
+                        Rezervasyon Ayarları
+                      </h3>
+                      <p className="text-xs text-[var(--muted-lead)] mt-0.5">
+                        Randevu ve sipariş kuralları
+                      </p>
+                    </div>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: expandedSettings.bookingSettings ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                  </motion.div>
+                </button>
+                
+                <AnimatePresence>
+                  {expandedSettings.bookingSettings && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-6 pb-6 border-t border-white/[0.08] space-y-3 pt-4">
+                        {/* Minimum Sipariş Süresi */}
+                        <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+                          <label className="block mb-4">
+                            <span className="font-heading font-semibold text-sm text-[var(--chrome-white)] flex items-center gap-2">
+                              <CalendarIcon size={16} className="text-slate-400" />
+                              Minimum Sipariş/Rezervasyon Süresi
+                            </span>
+                            <span className="text-xs text-[var(--muted-lead)] block mt-1.5">
+                              Müşteriler en az kaç gün önceden sipariş verebilir? (0 = anında sipariş alınabilir)
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="30"
+                              value={salon.settings.minOrderDays || 0}
+                              onChange={async (e) => {
+                                const value = parseInt(e.target.value) || 0;
+                                try {
+                                  await salonsService.update(salon.id, {
+                                    settings: {
+                                      ...salon.settings,
+                                      minOrderDays: value,
+                                    },
+                                  });
+                                  await loadData();
+                                  addToast('Minimum sipariş süresi güncellendi', 'success');
+                                } catch (error) {
+                                  console.error('Error updating minOrderDays:', error);
+                                  addToast('Ayar güncellenemedi', 'error');
+                                }
+                              }}
+                              className="w-24 h-11 px-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[var(--chrome-white)] font-heading font-semibold text-center outline-none focus:border-[var(--liquid-chrome)] focus:bg-white/[0.05] transition-all"
+                            />
+                            <span className="text-sm text-[var(--muted-lead)] font-heading">gün</span>
+                          </div>
+                          <p className="text-xs text-[var(--muted-lead)] mt-3 p-3 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
+                            {(salon.settings.minOrderDays || 0) === 0 
+                              ? 'Müşteriler bugün için bile sipariş verebilir'
+                              : `Müşteriler en az ${salon.settings.minOrderDays} gün önceden sipariş verebilir`}
+                          </p>
+                        </div>
+
+                        {/* İleri Rezervasyon Süresi */}
+                        <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+                          <label className="block mb-4">
+                            <span className="font-heading font-semibold text-sm text-[var(--chrome-white)] flex items-center gap-2">
+                              <TrendingUp size={16} className="text-slate-400" />
+                              Maksimum İleri Rezervasyon
+                            </span>
+                            <span className="text-xs text-[var(--muted-lead)] block mt-1.5">
+                              Müşteriler en fazla kaç gün sonrasına rezervasyon yapabilir?
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min="7"
+                              max="365"
+                              value={salon.settings.advanceBookingDays || 30}
+                              onChange={async (e) => {
+                                const value = parseInt(e.target.value) || 30;
+                                try {
+                                  await salonsService.update(salon.id, {
+                                    settings: {
+                                      ...salon.settings,
+                                      advanceBookingDays: value,
+                                    },
+                                  });
+                                  await loadData();
+                                  addToast('İleri rezervasyon süresi güncellendi', 'success');
+                                } catch (error) {
+                                  console.error('Error updating advanceBookingDays:', error);
+                                  addToast('Ayar güncellenemedi', 'error');
+                                }
+                              }}
+                              className="w-24 h-11 px-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[var(--chrome-white)] font-heading font-semibold text-center outline-none focus:border-[var(--liquid-chrome)] focus:bg-white/[0.05] transition-all"
+                            />
+                            <span className="text-sm text-[var(--muted-lead)] font-heading">gün</span>
+                          </div>
+                        </div>
+
+                        {/* İptal Ayarları */}
+                        <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+                          <label className="block mb-4">
+                            <span className="font-heading font-semibold text-sm text-[var(--chrome-white)] flex items-center gap-2">
+                              <X size={16} className="text-slate-400" />
+                              İptal Süresi
+                            </span>
+                            <span className="text-xs text-[var(--muted-lead)] block mt-1.5">
+                              Müşteriler randevudan en az kaç saat önce iptal edebilir?
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min="1"
+                              max="72"
+                              value={salon.settings.cancellationHours || 24}
+                              onChange={async (e) => {
+                                const value = parseInt(e.target.value) || 24;
+                                try {
+                                  await salonsService.update(salon.id, {
+                                    settings: {
+                                      ...salon.settings,
+                                      cancellationHours: value,
+                                    },
+                                  });
+                                  await loadData();
+                                  addToast('İptal süresi güncellendi', 'success');
+                                } catch (error) {
+                                  console.error('Error updating cancellationHours:', error);
+                                  addToast('Ayar güncellenemedi', 'error');
+                                }
+                              }}
+                              className="w-24 h-11 px-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[var(--chrome-white)] font-heading font-semibold text-center outline-none focus:border-[var(--liquid-chrome)] focus:bg-white/[0.05] transition-all"
+                            />
+                            <span className="text-sm text-[var(--muted-lead)] font-heading">saat</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
             {/* Ödeme Ayarları */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl"
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-500/[0.02] via-transparent to-slate-600/[0.02] pointer-events-none" />
               
               <div className="relative">
                 <button
                   onClick={() => setExpandedSettings(prev => ({ ...prev, payment: !prev.payment }))}
-                  className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                  className="w-full p-6 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-                      <DollarSign size={22} className="text-white" strokeWidth={2.5} />
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-slate-500/10 to-slate-600/10 border border-white/[0.08] flex items-center justify-center">
+                      <DollarSign size={20} className="text-slate-400" strokeWidth={2} />
                     </div>
                     <div className="text-left">
-                      <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                      <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
                         Ödeme Ayarları
                       </h3>
-                      <p className="text-xs text-[var(--muted-lead)]">
+                      <p className="text-xs text-[var(--muted-lead)] mt-0.5">
                         Havale/EFT bilgileri
                       </p>
                     </div>
@@ -1184,16 +1488,14 @@ export function OwnerDashboard() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-5 pb-5 border-t border-white/[0.08]">
-                        <div className="mt-4">
-                          <PaymentSettingsForm
-                            settings={salon.paymentSettings || { bankTransferEnabled: false }}
-                            onSave={async (paymentSettings) => {
-                              await salonsService.update(salon.id, { paymentSettings });
-                              await loadData();
-                            }}
-                          />
-                        </div>
+                      <div className="px-6 pb-6 border-t border-white/[0.08] pt-4">
+                        <PaymentSettingsForm
+                          settings={salon.paymentSettings || { bankTransferEnabled: false }}
+                          onSave={async (paymentSettings) => {
+                            await salonsService.update(salon.id, { paymentSettings });
+                            await loadData();
+                          }}
+                        />
                       </div>
                     </motion.div>
                   )}
@@ -1206,24 +1508,24 @@ export function OwnerDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl"
+              className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-500/[0.02] via-transparent to-slate-600/[0.02] pointer-events-none" />
               
               <div className="relative">
                 <button
                   onClick={() => setExpandedSettings(prev => ({ ...prev, workingHours: !prev.workingHours }))}
-                  className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                  className="w-full p-6 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                      <Clock size={22} className="text-white" strokeWidth={2.5} />
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-slate-500/10 to-slate-600/10 border border-white/[0.08] flex items-center justify-center">
+                      <Clock size={20} className="text-slate-400" strokeWidth={2} />
                     </div>
                     <div className="text-left">
-                      <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                      <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
                         Çalışma Saatleri
                       </h3>
-                      <p className="text-xs text-[var(--muted-lead)]">
+                      <p className="text-xs text-[var(--muted-lead)] mt-0.5">
                         Haftalık çalışma programı
                       </p>
                     </div>
@@ -1347,6 +1649,16 @@ export function OwnerDashboard() {
 
       </div>
     </div>
+
+    {/* Announcement Popup for Business Owners */}
+    {salon && (
+      <>
+        <AnnouncementPopup 
+          userType="owner" 
+          businessId={salon.id}
+        />
+      </>
+    )}
     </>
   );
 }

@@ -44,6 +44,7 @@ export function NightlyBookingWizard() {
   const [localName, setLocalName] = useState(customerName || '');
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
+  const [specialRequests, setSpecialRequests] = useState('');
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
 
@@ -161,7 +162,7 @@ export function NightlyBookingWizard() {
       name: localName,
       phone: localPhone,
       email: localEmail,
-      notes: ''
+      notes: specialRequests
     });
 
     setAccommodationDetails({
@@ -171,7 +172,8 @@ export function NightlyBookingWizard() {
       roomType: selectedRoom?.id,
       selectedPackage: selectedRoom,
       extras: selectedExtras.map(id => extraServices.find(e => e.id === id)).filter(Boolean),
-      totalPrice
+      totalPrice,
+      specialRequests
     });
 
     try {
@@ -206,7 +208,7 @@ export function NightlyBookingWizard() {
   ];
 
   return (
-    <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+    <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
       <div className="mb-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
@@ -704,6 +706,13 @@ export function NightlyBookingWizard() {
                                 value={localEmail}
                                 onChange={(e) => setLocalEmail(e.target.value)}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                              />
+                              <textarea
+                                placeholder="Özel istekleriniz (opsiyonel)"
+                                value={specialRequests}
+                                onChange={(e) => setSpecialRequests(e.target.value)}
+                                rows={2}
+                                className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
                               <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                                 <div className="flex justify-between items-center">

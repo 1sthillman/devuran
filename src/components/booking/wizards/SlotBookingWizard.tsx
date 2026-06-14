@@ -3,7 +3,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors, ArrowLeft, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors, ArrowLeft, Loader2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
 import { TimeSlotGrid } from '../TimeSlotGrid';
@@ -12,6 +12,7 @@ import { WorkingHoursDisplay } from '../WorkingHoursDisplay';
 import { QueueJoinButton } from '../QueueJoinButton';
 import { availabilityService } from '@/services/availabilityService';
 import { useAuthStore } from '@/store/authStore';
+import { getStaffAvatarUrl } from '@/utils/avatarHelpers';
 import type { TimeSlot } from '@/services/availabilityService';
 import { cn, formatDateToString } from '@/lib/utils';
 
@@ -45,10 +46,97 @@ export function SlotBookingWizard() {
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
+  const [localAddress, setLocalAddress] = useState('');
+  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
+
+  // 🆕 Kapora hesaplama
+  const [depositInfo, setDepositInfo] = useState<{
+    required: boolean;
+    amount: number;
+    remaining: number;
+  }>({ required: false, amount: 0, remaining: 0 });
+
+  // Kapora hesapla - hem işletme ayarları hem hizmet bazlı kontrol
+  useEffect(() => {
+    // ✅ IBAN kontrolü: Kapora için IBAN şart
+    const hasValidIBAN = salon?.paymentSettings?.bankTransferEnabled && 
+                         salon?.paymentSettings?.bankAccounts &&
+                         salon.paymentSettings.bankAccounts.length > 0 &&
+                         salon.paymentSettings.bankAccounts.some(acc => acc.iban && acc.iban.trim().length > 0);
+    
+    if (hasValidIBAN && salon?.paymentSettings?.depositSettings && totalPrice > 0) {
+      const settings = salon.paymentSettings.depositSettings;
+      
+      // ✅ YENİ: Hizmetlerin herhangi biri kapora gerektiriyor mu kontrol et
+      const anyServiceRequiresDeposit = selectedServices.some(service => service.requiresDeposit === true);
+      
+      // Kapora gerekli mi? 3 koşul:
+      // 1. Ayar aktif olmalı
+      // 2. Minimum tutar kontrolü
+      // 3. Seçili hizmetlerden en az biri kapora gerektirmeli
+      const depositEnabled = settings.enabled && 
+                            (!settings.minimumReservationAmount || totalPrice >= settings.minimumReservationAmount) &&
+                            anyServiceRequiresDeposit;
+      
+      if (!depositEnabled) {
+        console.log('💰 Kapora Devre Dışı:', {
+          settingsEnabled: settings.enabled,
+          minAmount: settings.minimumReservationAmount,
+          totalPrice,
+          anyServiceRequiresDeposit
+        });
+        setDepositInfo({ required: false, amount: 0, remaining: totalPrice });
+        return;
+      }
+
+      // Kapora miktarını hesapla
+      let depositAmount = 0;
+      if (settings.type === 'percentage') {
+        // Yüzde bazlı: Toplam tutarın %X'i
+        depositAmount = Math.round(totalPrice * (settings.amount / 100));
+      } else {
+        // Sabit tutar bazlı
+        depositAmount = settings.amount;
+      }
+
+      // ✅ KONTROL: Kapora toplam tutardan fazla olamaz
+      if (depositAmount > totalPrice) {
+        depositAmount = totalPrice;
+      }
+
+      const depositData = {
+        required: true,
+        amount: depositAmount,
+        remaining: totalPrice - depositAmount
+      };
+
+      console.log('💰 Kapora Hesaplandı:', {
+        type: settings.type,
+        percentage: settings.type === 'percentage' ? settings.amount : null,
+        fixedAmount: settings.type === 'fixed' ? settings.amount : null,
+        totalPrice,
+        depositAmount,
+        remaining: depositData.remaining,
+        servicesWithDeposit: selectedServices.filter(s => s.requiresDeposit).map(s => s.name)
+      });
+
+      setDepositInfo(depositData);
+    } else {
+      if (totalPrice > 0) {
+        console.log('💰 Kapora YOK - Koşullar Sağlanmadı:', {
+          hasValidIBAN,
+          hasDepositSettings: !!salon?.paymentSettings?.depositSettings,
+          totalPrice
+        });
+      }
+      setDepositInfo({ required: false, amount: 0, remaining: totalPrice });
+    }
+  }, [totalPrice, selectedServices, salon?.paymentSettings?.depositSettings, salon?.paymentSettings?.bankTransferEnabled, salon?.paymentSettings?.bankAccounts]);
 
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
@@ -69,18 +157,33 @@ export function SlotBookingWizard() {
   }, [user, activeStep]);
 
   useEffect(() => {
-    // Personel seçimi zorunlu - sadece personel seçiliyse slot yükle
-    if (selectedDate && selectedStaffId && salon) {
-      loadAvailableSlots();
-    } else if (selectedDate && !selectedStaffId) {
-      // Personel seçilmemişse slotları temizle
-      setAvailableSlots([]);
+    // Personel varsa ve seçilmişse slot yükle
+    // Personel yoksa doğrudan tarih seçimine göre slot yükle
+    const hasStaff = salon?.staff && salon.staff.length > 0;
+    
+    if (selectedDate && salon) {
+      if (hasStaff && selectedStaffId) {
+        // Personel varsa ve seçiliyse, personele özel slotları yükle
+        loadAvailableSlots();
+      } else if (!hasStaff) {
+        // Personel yoksa, genel slotları yükle
+        loadAvailableSlots();
+      } else if (hasStaff && !selectedStaffId) {
+        // Personel var ama seçilmemiş, slotları temizle
+        setAvailableSlots([]);
+      }
     }
   }, [selectedDate, selectedStaffId, salon, totalDuration]);
 
   const loadAvailableSlots = async () => {
-    if (!selectedDate || !salon || !selectedStaffId) {
-      console.log('Slot yükleme için gerekli bilgiler eksik:', { selectedDate, selectedStaffId });
+    if (!selectedDate || !salon) {
+      return;
+    }
+    
+    const hasStaff = salon.staff && salon.staff.length > 0;
+    
+    // Personel varsa ama seçilmemişse çık
+    if (hasStaff && !selectedStaffId) {
       return;
     }
     
@@ -91,18 +194,18 @@ export function SlotBookingWizard() {
       console.log('Slot yükleniyor:', {
         businessId: salon.id,
         date: selectedDate,
-        staffId: selectedStaffId,
+        staffId: selectedStaffId || 'Personel yok',
         duration: totalDuration
       });
       
-      // Personel seçimi zorunlu - sadece seçili personelin slotlarını al
+      // Personel varsa personele özel, yoksa genel slotları al
       const slots = await availabilityService.getAvailableSlots({
         businessId: salon.id,
         date,
         duration: totalDuration || 30,
-        staffId: selectedStaffId, // Zorunlu
+        staffId: hasStaff ? selectedStaffId : undefined, // Personel yoksa undefined
         workingHours: salon.workingHours,
-        staff: undefined // Personel seçimi zorunlu olduğu için liste gerekmez
+        staff: hasStaff ? salon.staff : undefined
       });
       
       console.log(`${slots.length} müsait slot bulundu`);
@@ -158,7 +261,10 @@ export function SlotBookingWizard() {
       return;
     }
 
-    if (!selectedStaffId) {
+    const hasStaff = salon?.staff && salon.staff.length > 0;
+    
+    // Personel varsa ve seçilmemişse uyar
+    if (hasStaff && !selectedStaffId) {
       addToast('Lütfen personel seçin', 'error');
       return;
     }
@@ -167,7 +273,9 @@ export function SlotBookingWizard() {
       name: localName,
       phone: localPhone,
       email: localEmail,
-      notes: localNotes
+      notes: localNotes,
+      address: localAddress,
+      location: gpsLocation || undefined
     });
 
     try {
@@ -191,7 +299,7 @@ export function SlotBookingWizard() {
   // Hizmet kontrolü
   if (!salon.services || salon.services.length === 0) {
     return (
-      <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+      <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
         <div className="mb-6 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
             <Sparkles size={16} className="text-purple-400" />
@@ -216,13 +324,15 @@ export function SlotBookingWizard() {
 
   const steps = [
     { id: 1, title: 'Hizmet Seçimi', icon: Scissors, gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' },
-    { id: 2, title: 'Personel', icon: User, gradient: 'from-amber-500 via-orange-500 to-red-500' },
-    { id: 3, title: 'Tarih & Saat', icon: Calendar, gradient: 'from-cyan-500 via-blue-500 to-indigo-500' },
-    { id: 4, title: 'İletişim', icon: Clock, gradient: 'from-emerald-500 via-teal-500 to-cyan-500' }
+    ...(salon.staff && salon.staff.length > 0 ? [
+      { id: 2, title: 'Personel', icon: User, gradient: 'from-amber-500 via-orange-500 to-red-500' }
+    ] : []),
+    { id: salon.staff && salon.staff.length > 0 ? 3 : 2, title: 'Tarih & Saat', icon: Calendar, gradient: 'from-cyan-500 via-blue-500 to-indigo-500' },
+    { id: salon.staff && salon.staff.length > 0 ? 4 : 3, title: 'İletişim', icon: Clock, gradient: 'from-emerald-500 via-teal-500 to-cyan-500' }
   ];
 
   return (
-    <div className="max-w-lg mx-auto pb-24 px-4 py-6">
+    <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
       <div className="mb-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
@@ -289,9 +399,9 @@ export function SlotBookingWizard() {
                           <p className="text-xs text-emerald-400/80 mt-0.5 flex items-center gap-1">
                             <CheckCircle2 size={12} />
                             {step.id === 1 && `${selectedServices.length} hizmet`}
-                            {step.id === 2 && salon.staff.find(s => s.id === selectedStaffId)?.name}
-                            {step.id === 3 && `${selectedDate} - ${selectedTime}`}
-                            {step.id === 4 && 'Tamamlandı'}
+                            {step.id === 2 && salon.staff && salon.staff.length > 0 && salon.staff.find(s => s.id === selectedStaffId)?.name}
+                            {step.id === (salon.staff && salon.staff.length > 0 ? 3 : 2) && `${selectedDate} - ${selectedTime}`}
+                            {step.id === (salon.staff && salon.staff.length > 0 ? 4 : 3) && 'Tamamlandı'}
                           </p>
                         )}
                       </div>
@@ -374,76 +484,60 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === 2 && (
+                          {step.id === 2 && salon.staff && salon.staff.length > 0 && (
                             <>
-                              {(!salon.staff || salon.staff.length === 0) ? (
-                                <div className="text-center py-8">
-                                  <User size={32} className="mx-auto text-[var(--muted-lead)] mb-3" />
-                                  <p className="text-sm text-[var(--muted-lead)] mb-2">
-                                    Bu işletmede henüz personel bulunmuyor.
-                                  </p>
-                                  <p className="text-xs text-red-400">
-                                    Randevu alabilmek için personel seçimi gereklidir.
-                                  </p>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="mb-3 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                                    <p className="text-xs text-purple-300 text-center">
-                                      ⚠️ Personel seçimi zorunludur. Seçtiğiniz personelin müsait saatlerini görebilirsiniz.
-                                    </p>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-3">
-                              {salon.staff.map((staff) => (
-                                <button
-                                  key={staff.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    selectStaff(staff.id);
-                                    handleStepComplete(2);
-                                  }}
-                                  className={cn(
-                                    "p-4 rounded-2xl border text-center transition-all duration-200",
-                                    selectedStaffId === staff.id
-                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
-                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
-                                  )}
-                                >
-                                  <img
-                                    src={staff.photo}
-                                    alt={staff.name}
-                                    className="w-16 h-16 rounded-2xl mx-auto mb-3 object-cover ring-2 ring-white/10"
-                                  />
-                                  <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
-                                    {staff.name}
-                                  </h4>
-                                  <p className="text-xs text-[var(--muted-lead)]">{staff.title}</p>
-                                  {selectedStaffId === staff.id && (
-                                    <div className="mt-2 flex items-center justify-center gap-1 text-emerald-400">
-                                      <CheckCircle2 size={14} />
-                                      <span className="text-xs font-semibold">Seçildi</span>
-                                    </div>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                                </>
-                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {salon.staff.map((staff) => {
+                                  const avatarUrl = getStaffAvatarUrl(staff.photo, staff.name);
+                                  return (
+                                    <button
+                                      key={staff.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectStaff(staff.id);
+                                        handleStepComplete(2);
+                                      }}
+                                      className={cn(
+                                        "p-4 rounded-2xl border text-center transition-all duration-200",
+                                        selectedStaffId === staff.id
+                                          ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                      )}
+                                    >
+                                      <img
+                                        src={avatarUrl}
+                                        alt={staff.name}
+                                        className="w-16 h-16 rounded-2xl mx-auto mb-3 object-cover ring-2 ring-white/10"
+                                      />
+                                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
+                                        {staff.name}
+                                      </h4>
+                                      <p className="text-xs text-[var(--muted-lead)]">{staff.title}</p>
+                                      {selectedStaffId === staff.id && (
+                                        <div className="mt-2 flex items-center justify-center gap-1 text-emerald-400">
+                                          <CheckCircle2 size={14} />
+                                          <span className="text-xs font-semibold">Seçildi</span>
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </>
                           )}
 
-                          {step.id === 3 && (
+                          {step.id === (salon.staff && salon.staff.length > 0 ? 3 : 2) && (
                             <>
-                              {!selectedStaffId && (
-                                <div className="mb-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/30">
-                                  <p className="text-sm text-red-300 text-center">
-                                    ⚠️ Önce personel seçmelisiniz
+                              {salon.staff && salon.staff.length > 0 && !selectedStaffId && (
+                                <div className="mb-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                                  <p className="text-sm text-amber-300 text-center">
+                                    ⚠️ Önce personel seçmeniz gerekiyor
                                   </p>
                                 </div>
                               )}
                               <div className={cn(
                                 "rounded-2xl border transition-all duration-200",
-                                !selectedStaffId && "opacity-50 pointer-events-none",
+                                (salon.staff && salon.staff.length > 0 && !selectedStaffId) && "opacity-50 pointer-events-none",
                                 activeSubStep === 'date' 
                                   ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" 
                                   : selectedDate 
@@ -529,9 +623,9 @@ export function SlotBookingWizard() {
                                               <p className="text-sm font-semibold text-[var(--chrome-white)] mb-1">Müsait saatler yükleniyor...</p>
                                               <p className="text-xs text-[var(--muted-lead)]">Lütfen bekleyin</p>
                                             </div>
-                                          ) : !selectedStaffId ? (
-                                            <div className="text-center py-6 text-sm text-red-400">
-                                              Önce personel seçmelisiniz
+                                          ) : (salon.staff && salon.staff.length > 0 && !selectedStaffId) ? (
+                                            <div className="text-center py-6 text-sm text-amber-400">
+                                              Önce personel seçmeniz gerekiyor
                                             </div>
                                           ) : availableSlots.length > 0 ? (
                                             <>
@@ -612,7 +706,7 @@ export function SlotBookingWizard() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleStepComplete(3);
+                                    handleStepComplete(salon.staff && salon.staff.length > 0 ? 3 : 2);
                                   }}
                                   className="w-full h-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
                                 >
@@ -622,7 +716,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === 4 && (
+                          {step.id === (salon.staff && salon.staff.length > 0 ? 4 : 3) && (
                             <>
                               <input
                                 type="text"
@@ -656,14 +750,107 @@ export function SlotBookingWizard() {
                                 rows={2}
                                 className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
-                              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
-                                  <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
-                                    {totalPrice}₺
-                                  </span>
+                              
+                              {/* 🆕 Adres Bilgisi */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={localAddress}
+                                    onChange={(e) => setLocalAddress(e.target.value)}
+                                    placeholder="Adres (opsiyonel)"
+                                    className="flex-1 h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setGettingLocation(true);
+                                      try {
+                                        if (!navigator.geolocation) {
+                                          addToast('Tarayıcınız konum almayı desteklemiyor', 'error');
+                                          return;
+                                        }
+                                        
+                                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                                          navigator.geolocation.getCurrentPosition(resolve, reject);
+                                        });
+                                        
+                                        const { latitude, longitude } = position.coords;
+                                        setGpsLocation({ lat: latitude, lng: longitude });
+                                        
+                                        // Reverse geocoding ile adres al
+                                        const response = await fetch(
+                                          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                                        );
+                                        const data = await response.json();
+                                        setLocalAddress(data.display_name || `${latitude}, ${longitude}`);
+                                        addToast('Konum alındı!', 'success');
+                                      } catch (error) {
+                                        addToast('Konum alınamadı. Lütfen izin verin.', 'error');
+                                      } finally {
+                                        setGettingLocation(false);
+                                      }
+                                    }}
+                                    disabled={gettingLocation}
+                                    className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-500/30 flex items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+                                    title="Konumu Al"
+                                  >
+                                    {gettingLocation ? (
+                                      <Loader2 size={18} className="text-cyan-400 animate-spin" />
+                                    ) : (
+                                      <MapPin size={18} className="text-cyan-400" />
+                                    )}
+                                  </button>
                                 </div>
+                                {gpsLocation && (
+                                  <p className="text-xs text-cyan-400 flex items-center gap-1">
+                                    <MapPin size={12} />
+                                    GPS koordinatları kaydedildi
+                                  </p>
+                                )}
                               </div>
+                              
+                              {/* 🆕 Kapora Bilgisi */}
+                              {depositInfo.required ? (
+                                <div className="space-y-2">
+                                  <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/[0.08]">
+                                    <div className="flex justify-between items-center text-sm mb-1">
+                                      <span className="text-[var(--muted-lead)]">Toplam Tutar</span>
+                                      <span className="font-mono text-[var(--silver-frost)]">{totalPrice}₺</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-2 border-purple-500/40">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                                        <span className="text-sm font-semibold text-purple-300">Şimdi Ödenecek Kapora</span>
+                                      </div>
+                                      <span className="font-bold text-2xl text-purple-300">{depositInfo.amount}₺</span>
+                                    </div>
+                                    <p className="text-xs text-purple-300/70 mt-1">
+                                      Randevunuzu garantilemek için kapora ödemesi gereklidir
+                                    </p>
+                                  </div>
+                                  
+                                  <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/[0.08]">
+                                    <div className="flex justify-between items-center text-sm">
+                                      <span className="text-[var(--muted-lead)]">Randevuda Ödenecek</span>
+                                      <span className="font-mono text-[var(--chrome-white)]">{depositInfo.remaining}₺</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
+                                    <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                      {totalPrice}₺
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

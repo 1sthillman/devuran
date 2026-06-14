@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { Staff } from '@/types';
 import { StarRating } from '@/components/ui/StarRating';
+import { getStaffAvatarUrl } from '@/utils/avatarHelpers';
 
 interface StaffCardProps {
   staff: Staff;
@@ -10,6 +11,8 @@ interface StaffCardProps {
 }
 
 export function StaffCard({ staff, selected, onSelect, variant = 'detailed' }: StaffCardProps) {
+  const avatarUrl = getStaffAvatarUrl(staff.photo, staff.name);
+
   if (variant === 'compact') {
     return (
       <button
@@ -24,15 +27,7 @@ export function StaffCard({ staff, selected, onSelect, variant = 'detailed' }: S
               : 'ring-1 ring-[var(--obsidian-rim)] hover:ring-[var(--liquid-chrome)]'
           )}
         >
-          {staff.photo ? (
-            <img src={staff.photo} alt={staff.name} className="w-full h-full object-cover" loading="lazy" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-              <span className="text-[var(--chrome-white)] font-heading font-bold text-xl">
-                {staff.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
+          <img src={avatarUrl} alt={staff.name} className="w-full h-full object-cover" loading="lazy" />
         </div>
         <span className="font-heading font-medium text-sm text-[var(--chrome-white)] text-center">
           {staff.name}
@@ -51,15 +46,7 @@ export function StaffCard({ staff, selected, onSelect, variant = 'detailed' }: S
   return (
     <div className="flex items-center gap-4 p-4 obsidian-card">
       <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
-        {staff.photo ? (
-          <img src={staff.photo} alt={staff.name} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-            <span className="text-[var(--chrome-white)] font-heading font-bold">
-              {staff.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
-        )}
+        <img src={avatarUrl} alt={staff.name} className="w-full h-full object-cover" loading="lazy" />
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="font-heading font-semibold text-[var(--chrome-white)]">{staff.name}</h4>
