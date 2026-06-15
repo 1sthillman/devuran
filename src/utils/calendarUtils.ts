@@ -451,16 +451,14 @@ export function openAppleCalendar(event: CalendarEvent): void {
  * Get default calendar action based on platform
  */
 export function getDefaultCalendarAction(event: CalendarEvent): () => void {
-  const platform = detectPlatform();
   const userAgent = navigator.userAgent.toLowerCase();
   const isAndroid = /android/i.test(userAgent);
   const isIOS = /iphone|ipad|ipod/i.test(userAgent);
+  const isMobile = isAndroid || isIOS;
   
   if (isAndroid) {
     // Android - Google Calendar intent URL kullan
     return () => {
-      const startMs = event.startDate.getTime();
-      const endMs = event.endDate.getTime();
       const title = encodeURIComponent(event.title);
       const details = encodeURIComponent(event.description);
       const location = encodeURIComponent(event.location || '');
@@ -483,8 +481,8 @@ export function getDefaultCalendarAction(event: CalendarEvent): () => void {
     return () => openAppleCalendar(event);
   }
   
-  // Windows/Mac Desktop - ICS indir
-  return () => downloadICSFile(event, `randevu-${Date.now()}.ics`);
+  // PC/Desktop - Google Calendar web sayfasını aç
+  return () => window.open(generateGoogleCalendarLink(event), '_blank');
 }
 
 /**
