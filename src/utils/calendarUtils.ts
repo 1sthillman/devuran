@@ -529,8 +529,8 @@ function detectManufacturer(): string {
 
 /**
  * Add event to calendar - Smart platform detection
- * iOS: data URL ile direkt Calendar açar
- * Android: ICS dosyası indirir, sistem otomatik takvim seçici açar
+ * iOS: data URL ile direkt Calendar açar (indirme yok)
+ * Android: Google Calendar URL (uygulama varsa açar, yoksa web açar)
  * Desktop: Google Calendar web açar
  */
 export function addToCalendar(event: CalendarEvent): void {
@@ -542,9 +542,10 @@ export function addToCalendar(event: CalendarEvent): void {
     // iOS - data URL ile direkt Calendar açılır (indirme yok)
     openIOSCalendar(event);
   } else if (isAndroid) {
-    // Android - ICS dosyası indir, sistem otomatik takvim uygulaması seçici açar
-    // Kullanıcı Samsung Calendar, Google Calendar, Xiaomi Calendar vb. seçebilir
-    downloadAndroidICS(event);
+    // Android - Google Calendar URL
+    // Google Calendar uygulaması varsa açar, yoksa web açar
+    // NOT: Native takvim uygulamalarını (Samsung, Xiaomi vb.) web'den açmak mümkün değil
+    window.open(generateGoogleCalendarLink(event), '_blank');
   } else {
     // Desktop - Google Calendar web
     window.open(generateGoogleCalendarLink(event), '_blank');
@@ -559,39 +560,6 @@ function openIOSCalendar(event: CalendarEvent): void {
   // data: URL - Safari otomatik olarak Calendar uygulamasını açar
   const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
   window.location.href = dataUrl;
-}
-
-/**
- * Download ICS for Android
- * Android otomatik olarak "Hangi uygulamayla açmak istersiniz?" diye sorar
- * Kullanıcı istediği takvim uygulamasını seçer:
- * - Samsung Calendar
- * - Xiaomi/MIUI Calendar  
- * - Google Calendar
- * - Huawei Calendar
- * - Oppo/ColorOS Calendar
- * - Vivo Calendar
- * - OnePlus Calendar
- * - Diğer tüm takvim uygulamaları
- */
-function downloadAndroidICS(event: CalendarEvent): void {
-  const icsContent = generateICSFile(event);
-  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  
-  // ICS dosyası indir - Android otomatik takvim seçici açar
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `randevu-${Date.now()}.ics`;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  link.click();
-  
-  // Cleanup
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, 100);
 }
 
 /**
