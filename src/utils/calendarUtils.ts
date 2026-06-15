@@ -222,7 +222,7 @@ export function generateGoogleCalendarLink(event: CalendarEvent): string {
 }
 
 /**
- * Generate Apple Calendar (ICS) content with enhanced alarm support
+ * Generate ICS file with enhanced alarm support
  */
 export function generateICSFile(event: CalendarEvent): string {
   // Randevu zamanına göre alarm ayarla
@@ -307,6 +307,86 @@ export function generateICSFile(event: CalendarEvent): string {
       'END:VALARM'
     ].filter(Boolean)),
     'END:VEVENT',
+    'END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+  
+  return icsContent;
+}
+
+/**
+ * Generate ICS file with multiple events (bulk calendar add)
+ */
+export function generateMultipleEventsICS(events: CalendarEvent[]): string {
+  const eventsContent = events.map(event => {
+    const now = new Date();
+    const eventTime = event.startDate;
+    const timeDiff = eventTime.getTime() - now.getTime();
+    const hoursUntilEvent = Math.floor(timeDiff / (1000 * 60 * 60));
+    
+    const alarms = [];
+    alarms.push({
+      trigger: '-PT1H',
+      action: 'AUDIO',
+      description: '1 Saat Sonra Randevunuz Var!'
+    });
+    alarms.push({
+      trigger: '-PT15M',
+      action: 'DISPLAY',
+      description: '15 Dakika Sonra Randevunuz'
+    });
+    if (hoursUntilEvent > 24) {
+      alarms.push({
+        trigger: '-P1D',
+        action: 'DISPLAY',
+        description: 'Yarın Randevunuz Var'
+      });
+    }
+    
+    return [
+      'BEGIN:VEVENT',
+      `DTSTART;TZID=Europe/Istanbul:${formatCalendarDate(event.startDate)}`,
+      `DTEND;TZID=Europe/Istanbul:${formatCalendarDate(event.endDate)}`,
+      `SUMMARY:${event.title}`,
+      `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
+      event.location ? `LOCATION:${event.location}` : '',
+      'STATUS:CONFIRMED',
+      'PRIORITY:5',
+      'SEQUENCE:0',
+      `UID:${Date.now()}-${Math.random()}@randevu-sistemi.com`,
+      `DTSTAMP:${formatCalendarDate(new Date())}`,
+      'CLASS:PUBLIC',
+      'TRANSP:OPAQUE',
+      ...alarms.flatMap(alarm => [
+        'BEGIN:VALARM',
+        `TRIGGER:${alarm.trigger}`,
+        `ACTION:${alarm.action}`,
+        `DESCRIPTION:${alarm.description}`,
+        alarm.action === 'AUDIO' ? 'ATTACH;VALUE=URI:Chord' : '',
+        'END:VALARM'
+      ].filter(Boolean)),
+      'END:VEVENT'
+    ].filter(Boolean).join('\r\n');
+  }).join('\r\n');
+
+  const icsContent = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Randevu Sistemi//TR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:Randevu Hatırlatıcıları',
+    'X-WR-TIMEZONE:Europe/Istanbul',
+    'X-WR-CALDESC:Toplu randevu hatırlatıcısı',
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Istanbul',
+    'BEGIN:STANDARD',
+    'DTSTART:19701025T040000',
+    'TZOFFSETFROM:+0300',
+    'TZOFFSETTO:+0300',
+    'TZNAME:+03',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+    eventsContent,
     'END:VCALENDAR'
   ].filter(Boolean).join('\r\n');
   

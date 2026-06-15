@@ -33,6 +33,7 @@ import { AddToCalendarButton } from '@/components/calendar/AddToCalendarButton';
 import { salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { useUIStore } from '@/store/uiStore';
+import { reservationToCalendarEvent, generateICSFile } from '@/utils/calendarUtils';
 import type { Salon, Service, Staff } from '@/types';
 
 // 8 ana sekme - tüm özellikler dahil
@@ -644,6 +645,7 @@ function ReservationsList({
 }) {
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'pending'>('all');
   const [cancelDialogReservation, setCancelDialogReservation] = useState<any | null>(null);
+  const [bulkCalendarDate, setBulkCalendarDate] = useState<string | null>(null);
   const { addToast } = useUIStore();
 
   const handleCancelReservation = async (reason: string) => {
@@ -670,6 +672,80 @@ function ReservationsList({
     return res.status === filter;
   });
 
+  // Tarihe göre gruplama
+  const groupedByDate = filteredReservations.reduce((acc, res) => {
+    const date = res.date || res.checkIn || res.eventDate || res.deliveryDate;
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(res);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Toplu takvime ekleme
+  const handleBulkAddToCalendar = (date: string) => {
+    const dateReservations = groupedByDate[date];
+    if (!dateReservations || dateReservations.length === 0) return;
+
+    // Tüm randevuları CalendarEvent'e çevir
+    const events = dateReservations.map(res => reservationToCalendarEvent(res));
+    
+    // Çoklu event ICS dosyası oluştur
+    const icsContent = events.map(event => {
+      // Her event için ayrı ICS bloğu
+      const lines = [
+        'BEGIN:VEVENT',
+        `DTSTART:${event.startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+        `DTEND:${event.endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+        `SUMMARY:${event.title}`,
+        `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
+        event.location ? `LOCATION:${event.location}` : '',
+        `UID:${Date.now()}-${Math.random().toString(36).substring(2)}@randevu-sistemi.com`,
+        `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+        'STATUS:CONFIRMED',
+        // Alarmlar
+        'BEGIN:VALARM',
+        'TRIGGER:-PT1H',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:1 Saat Sonra Randevunuz',
+        'END:VALARM',
+        'BEGIN:VALARM',
+        'TRIGGER:-PT15M',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:15 Dakika Sonra Randevunuz',
+        'END:VALARM',
+        'END:VEVENT'
+      ].filter(Boolean);
+      return lines.join('\r\n');
+    }).join('\r\n');
+
+    // ICS dosyası oluştur
+    const fullICS = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Randevu Sistemi//TR',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      icsContent,
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    // Dosyayı indir
+    const blob = new Blob([fullICS], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `randevular-${date}.ics`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+
+    addToast(`${dateReservations.length} randevu takvime eklendi`, 'success');
+  };
+
   if (reservations.length === 0) {
     return (
       <div className="text-center py-16">
@@ -689,7 +765,7 @@ function ReservationsList({
   return (
     <div className="space-y-4">
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setFilter('all')}
           className={cn(
@@ -725,9 +801,47 @@ function ReservationsList({
         </button>
       </div>
 
-      {/* Reservations Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredReservations.map((reservation, index) => (
+      {/* Tarihe Göre Gruplu Gösterim */}
+      <div className="space-y-6">
+        {Object.entries(groupedByDate).map(([date, dateReservations]) => {
+          const reservationsArray = dateReservations as any[];
+          
+          return (
+            <div key={date} className="space-y-3">
+              {/* Tarih Başlığı ve Toplu Takvim Butonu */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                    <Calendar size={20} className="text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-base text-[var(--chrome-white)]">
+                      {new Date(date).toLocaleDateString('tr-TR', { 
+                        day: 'numeric', 
+                        month: 'long', 
+                        year: 'numeric',
+                        weekday: 'long'
+                      })}
+                    </h3>
+                    <p className="text-xs text-[var(--muted-lead)]">
+                      {reservationsArray.length} randevu
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Toplu Takvime Ekle Butonu */}
+                <button
+                  onClick={() => handleBulkAddToCalendar(date)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 font-heading font-semibold text-sm transition-all duration-200"
+                >
+                  <Calendar size={16} />
+                  Tümünü Takvime Ekle
+                </button>
+              </div>
+
+              {/* Reservations Grid for this date */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {reservationsArray.map((reservation, index) => (
           <motion.div
             key={reservation.id}
             initial={{ opacity: 0, y: 20 }}
@@ -809,7 +923,11 @@ function ReservationsList({
               </div>
             </div>
           </motion.div>
-        ))}
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Cancel Dialog */}
