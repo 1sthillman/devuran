@@ -529,6 +529,9 @@ function detectManufacturer(): string {
 
 /**
  * Add event to calendar - Smart platform detection
+ * iOS: data URL ile direkt Calendar açar
+ * Android: ICS dosyası indirir, sistem otomatik takvim seçici açar
+ * Desktop: Google Calendar web açar
  */
 export function addToCalendar(event: CalendarEvent): void {
   const userAgent = navigator.userAgent.toLowerCase();
@@ -536,11 +539,12 @@ export function addToCalendar(event: CalendarEvent): void {
   const isAndroid = /android/i.test(userAgent);
   
   if (isIOS) {
-    // iOS - data URL ile direkt Calendar açılır
+    // iOS - data URL ile direkt Calendar açılır (indirme yok)
     openIOSCalendar(event);
   } else if (isAndroid) {
-    // Android - Marka native takvimi → Google Calendar → Google Play
-    openAndroidCalendarWithFallback(event);
+    // Android - ICS dosyası indir, sistem otomatik takvim uygulaması seçici açar
+    // Kullanıcı Samsung Calendar, Google Calendar, Xiaomi Calendar vb. seçebilir
+    downloadAndroidICS(event);
   } else {
     // Desktop - Google Calendar web
     window.open(generateGoogleCalendarLink(event), '_blank');
@@ -548,7 +552,7 @@ export function addToCalendar(event: CalendarEvent): void {
 }
 
 /**
- * Open iOS Calendar directly
+ * Open iOS Calendar directly - NO DOWNLOAD
  */
 function openIOSCalendar(event: CalendarEvent): void {
   const icsContent = generateICSFile(event);
@@ -558,93 +562,36 @@ function openIOSCalendar(event: CalendarEvent): void {
 }
 
 /**
- * Open Android Calendar with Smart Fallback
- * 1. Marka native takvimi varsa aç
- * 2. Yoksa Google Calendar uygulamasını aç
- * 3. O da yoksa Google Play'e yönlendir (Google Calendar indirilsin)
+ * Download ICS for Android
+ * Android otomatik olarak "Hangi uygulamayla açmak istersiniz?" diye sorar
+ * Kullanıcı istediği takvim uygulamasını seçer:
+ * - Samsung Calendar
+ * - Xiaomi/MIUI Calendar  
+ * - Google Calendar
+ * - Huawei Calendar
+ * - Oppo/ColorOS Calendar
+ * - Vivo Calendar
+ * - OnePlus Calendar
+ * - Diğer tüm takvim uygulamaları
  */
-function openAndroidCalendarWithFallback(event: CalendarEvent): void {
-  const manufacturer = detectManufacturer();
-  const startMs = event.startDate.getTime();
-  const endMs = event.endDate.getTime();
+function downloadAndroidICS(event: CalendarEvent): void {
+  const icsContent = generateICSFile(event);
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
   
-  // Marka bazlı Calendar package isimleri
-  const calendarPackages: Record<string, string> = {
-    'samsung': 'com.samsung.android.calendar',
-    'xiaomi': 'com.android.calendar', // MIUI Calendar
-    'huawei': 'com.huawei.calendar',
-    'oppo': 'com.coloros.calendar',
-    'vivo': 'com.bbk.calendar',
-    'oneplus': 'com.oneplus.calendar',
-    'realme': 'com.coloros.calendar',
-    'google': 'com.google.android.calendar',
-    'nokia': 'com.hmdglobal.calendar',
-    'motorola': 'com.motorola.calendar',
-    'asus': 'com.asus.calendar',
-    'lg': 'com.lge.calendar',
-    'sony': 'com.sonymobile.calendar',
-    'htc': 'com.htc.calendar',
-    'lenovo': 'com.lenovo.calendar',
-    'infinix': 'com.transsion.calendar',
-    'tecno': 'com.transsion.calendar',
-    'itel': 'com.transsion.calendar',
-    'zte': 'com.zte.calendar',
-    'meizu': 'com.meizu.calendar',
-    'casper': 'com.android.calendar',
-    'vestel': 'com.android.calendar',
-    'generalmobile': 'com.android.calendar',
-    'generic': 'com.android.calendar'
-  };
+  // ICS dosyası indir - Android otomatik takvim seçici açar
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `randevu-${Date.now()}.ics`;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
   
-  const brandPackage = calendarPackages[manufacturer] || calendarPackages['generic'];
-  
-  // Intent URL parametreleri
-  const intentParams = {
-    action: 'android.intent.action.INSERT',
-    type: 'vnd.android.cursor.item/event',
-    title: encodeURIComponent(event.title),
-    description: encodeURIComponent(event.description),
-    location: encodeURIComponent(event.location || ''),
-    beginTime: startMs,
-    endTime: endMs
-  };
-  
-  // Google Play fallback URL (Google Calendar indirme)
-  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.google.android.calendar';
-  
-  // 1. Önce marka native takvimini dene
-  const brandIntent = 
-    `intent:#Intent;` +
-    `action=${intentParams.action};` +
-    `type=${intentParams.type};` +
-    `S.title=${intentParams.title};` +
-    `S.description=${intentParams.description};` +
-    `S.eventLocation=${intentParams.location};` +
-    `l.beginTime=${intentParams.beginTime};` +
-    `l.endTime=${intentParams.endTime};` +
-    `package=${brandPackage};` +
-    `S.browser_fallback_url=${encodeURIComponent(createGoogleCalendarIntent(intentParams, playStoreUrl))};` +
-    `end`;
-  
-  // Intent URL'i aç
-  window.location.href = brandIntent;
-}
-
-/**
- * Create Google Calendar Intent with Play Store fallback
- */
-function createGoogleCalendarIntent(params: any, playStoreUrl: string): string {
-  return `intent:#Intent;` +
-    `action=${params.action};` +
-    `type=${params.type};` +
-    `S.title=${params.title};` +
-    `S.description=${params.description};` +
-    `S.eventLocation=${params.location};` +
-    `l.beginTime=${params.beginTime};` +
-    `l.endTime=${params.endTime};` +
-    `package=com.google.android.calendar;` +
-    `S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};` +
-    `end`;
+  // Cleanup
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
 /**

@@ -773,6 +773,14 @@ function ReservationsList({
               </div>
             </div>
 
+            {/* Calendar Button - Full Width */}
+            <div className="mb-3">
+              <AddToCalendarButton 
+                reservation={reservation} 
+                variant="compact"
+              />
+            </div>
+
             {/* Price and Actions */}
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/[0.08]">
               <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
