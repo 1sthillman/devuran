@@ -326,7 +326,7 @@ export function generateICSFile(event: CalendarEvent): string {
 }
 
 /**
- * Download ICS file
+ * Download ICS file with mobile optimization
  */
 export function downloadICSFile(event: CalendarEvent, filename: string = 'randevu.ics'): void {
   const icsContent = generateICSFile(event);
@@ -338,21 +338,34 @@ export function downloadICSFile(event: CalendarEvent, filename: string = 'randev
   
   if (isIOS && isSafari) {
     // iOS Safari'de direkt Calendar uygulamasını aç
-    // Blob URL yerine data URL kullan
     const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
     window.location.href = dataUrl;
     return;
   }
   
-  // Diğer cihazlar için normal indirme
+  // Android ve diğer cihazlar için ICS dosyası indir
+  // Bu dosya tüm takvim uygulamalarıyla uyumludur:
+  // - Samsung Calendar
+  // - Xiaomi Calendar
+  // - Huawei Calendar
+  // - Google Calendar
+  // - Microsoft Outlook
+  // - Diğer tüm takvim uygulamaları
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  
+  // Mobile browser'larda çalışması için
+  link.style.display = 'none';
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  
+  // Cleanup
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
 /**
@@ -448,37 +461,67 @@ export function openAppleCalendar(event: CalendarEvent): void {
 }
 
 /**
+ * Open calendar chooser on mobile devices
+ */
+export function openMobileCalendar(event: CalendarEvent): void {
+  const icsContent = generateICSFile(event);
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isIOS = /iphone|ipad|ipod/i.test(userAgent);
+  const isAndroid = /android/i.test(userAgent);
+  
+  if (isIOS) {
+    // iOS - data URL direkt Calendar uygulamasını açar
+    const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+    window.location.href = dataUrl;
+  } else if (isAndroid) {
+    // Android - Blob URL kullan, sistem takvim seçiciyi gösterir
+    // Kullanıcı yüklü tüm takvim uygulamaları arasından seçim yapabilir:
+    // Google Calendar, Samsung Calendar, Xiaomi Calendar, Outlook, vb.
+    const blob = new Blob([icsContent], { 
+      type: 'text/calendar;charset=utf-8;' 
+    });
+    
+    // Android'de dosya indirmek yerine "Open with" seçiciyi tetikle
+    const url = URL.createObjectURL(blob);
+    
+    // Yeni pencerede aç - Android bunu "hangi uygulamayla açmak istersiniz" olarak yorumlar
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    
+    // Android için download yerine view modunda aç
+    // Bu sayede takvim seçici açılır
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+}
+
+/**
  * Get default calendar action based on platform
  */
 export function getDefaultCalendarAction(event: CalendarEvent): () => void {
   const userAgent = navigator.userAgent.toLowerCase();
-  const isAndroid = /android/i.test(userAgent);
   const isIOS = /iphone|ipad|ipod/i.test(userAgent);
-  const isMobile = isAndroid || isIOS;
+  const isAndroid = /android/i.test(userAgent);
+  const isMobile = isIOS || isAndroid;
   
-  if (isAndroid) {
-    // Android - Google Calendar intent URL kullan
-    return () => {
-      const title = encodeURIComponent(event.title);
-      const details = encodeURIComponent(event.description);
-      const location = encodeURIComponent(event.location || '');
-      
-      // Intent URL - Google Calendar uygulamasını direkt açar
-      const intentUrl = `intent://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatCalendarDate(event.startDate)}/${formatCalendarDate(event.endDate)}&details=${details}&location=${location}&ctz=Europe/Istanbul#Intent;scheme=https;package=com.google.android.calendar;end`;
-      
-      // Intent URL'i dene, yoksa web linkini aç
-      window.location.href = intentUrl;
-      
-      // Fallback: 2 saniye sonra web linkini aç (eğer uygulama açılmadıysa)
-      setTimeout(() => {
-        window.open(generateGoogleCalendarLink(event), '_blank');
-      }, 2000);
-    };
-  }
-  
-  if (isIOS) {
-    // iOS - direkt Calendar uygulamasını aç
-    return () => openAppleCalendar(event);
+  if (isMobile) {
+    // Mobil cihazlar - sistem takvim seçiciyi aç
+    // iOS: Direkt Calendar uygulaması
+    // Android: Tüm yüklü takvim uygulamaları arasından seçim
+    //   - Samsung Calendar
+    //   - Xiaomi Calendar  
+    //   - Huawei Calendar
+    //   - Google Calendar
+    //   - Outlook
+    //   - Diğer tüm takvim uygulamaları
+    return () => openMobileCalendar(event);
   }
   
   // PC/Desktop - Google Calendar web sayfasını aç
