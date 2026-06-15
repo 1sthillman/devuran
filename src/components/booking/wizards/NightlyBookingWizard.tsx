@@ -4,7 +4,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Users, Bed, CheckCircle2, ChevronDown, Sparkles, AlertCircle } from 'lucide-react';
+import { Calendar, Users, Bed, CheckCircle2, ChevronDown, Sparkles, AlertCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
 import { QueueJoinButton } from '../QueueJoinButton';
@@ -167,7 +167,9 @@ export function NightlyBookingWizard() {
 
     setAccommodationDetails({
       checkIn: checkInDate ? formatDateToString(checkInDate) : undefined,
+      checkInTime: '14:00', // 🆕 Sabit check-in saati
       checkOut: checkOutDate ? formatDateToString(checkOutDate) : undefined,
+      checkOutTime: '11:00', // 🆕 Sabit check-out saati
       guests,
       roomType: selectedRoom?.id,
       selectedPackage: selectedRoom,
@@ -410,6 +412,35 @@ export function NightlyBookingWizard() {
                                       {nights} Gece Konaklama
                                     </span>
                                   </div>
+                                </motion.div>
+                              )}
+
+                              {/* Check-in/out Saat Bilgisi */}
+                              {nights > 0 && (
+                                <motion.div
+                                  initial={{ scale: 0.95, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ duration: 0.2, delay: 0.1 }}
+                                  className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20"
+                                >
+                                  <div className="flex items-center justify-center gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <Clock size={16} className="text-blue-400" />
+                                      <span className="text-blue-300">
+                                        <strong>Check-in:</strong> 14:00
+                                      </span>
+                                    </div>
+                                    <div className="w-px h-4 bg-white/20" />
+                                    <div className="flex items-center gap-2">
+                                      <Clock size={16} className="text-cyan-400" />
+                                      <span className="text-cyan-300">
+                                        <strong>Check-out:</strong> 11:00
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-center text-[var(--muted-lead)] mt-2">
+                                    Özel saat talebi için lütfen notlar bölümünü kullanın
+                                  </p>
                                 </motion.div>
                               )}
 

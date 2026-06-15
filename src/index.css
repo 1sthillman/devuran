@@ -55,6 +55,20 @@
     }
   }
   
+  @keyframes gradient-x {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+  
+  .animate-gradient-x {
+    background-size: 200% auto;
+    animation: gradient-x 3s ease infinite;
+  }
+  
   .animate-fadeIn {
     animation: fadeIn 0.2s ease-out;
     will-change: opacity;

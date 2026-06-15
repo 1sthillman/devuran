@@ -5,7 +5,7 @@ import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { ModernCalendar } from '../ModernCalendar';
-import { Calendar, Users, DollarSign, Package, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
+import { Calendar, Users, DollarSign, Package, CheckCircle2, ChevronDown, Sparkles, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { servicesService } from '@/services/firebaseService';
 import type { Service } from '@/types';
@@ -36,6 +36,7 @@ export function ProjectBookingWizard() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [localEventType, setLocalEventType] = useState<string | null>(null);
   const [localEventDate, setLocalEventDate] = useState('');
+  const [localEventStartTime, setLocalEventStartTime] = useState<string>('18:00');
   const [localGuestCount, setLocalGuestCount] = useState(100);
   const [localBudget, setLocalBudget] = useState({ min: 20000, max: 50000 });
   const [localPackage, setLocalPackage] = useState<Service | null>(null);
@@ -108,6 +109,7 @@ export function ProjectBookingWizard() {
     
     setEventDetails({
       eventDate: localEventDate,
+      eventStartTime: localEventStartTime, // 🆕 Etkinlik başlangıç saati
       eventType: localEventType,
       guestCount: localGuestCount,
       budget: localBudget,
@@ -285,6 +287,18 @@ export function ProjectBookingWizard() {
                                   <Calendar size={12} />
                                   Minimum 90 gün önceden rezervasyon gereklidir
                                 </p>
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Başlangıç Saati</h4>
+                                <div className="relative">
+                                  <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--silver-frost)]" />
+                                  <input
+                                    type="time"
+                                    value={localEventStartTime}
+                                    onChange={(e) => setLocalEventStartTime(e.target.value)}
+                                    className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                                  />
+                                </div>
                               </div>
                               {localEventType && localEventDate && (
                                 <button

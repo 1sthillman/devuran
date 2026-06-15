@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
+import { ModernRoleSelection } from '@/components/auth/ModernRoleSelection';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 
@@ -142,7 +143,7 @@ export function Login() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Adınız"
                     required
-                    className="w-full h-[52px] px-4 rounded-2xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
+                    className="w-full h-[52px] px-4 rounded-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
                   />
                 </div>
 
@@ -156,7 +157,7 @@ export function Login() {
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="5XX XXX XX XX"
                     required
-                    className="w-full h-[52px] px-4 rounded-2xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
+                    className="w-full h-[52px] px-4 rounded-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
                   />
                 </div>
 
@@ -164,41 +165,10 @@ export function Login() {
                   <label className="block font-heading font-medium text-sm text-[var(--silver-frost)] mb-2">
                     Hesap Tipi
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setRole('customer')}
-                      className={`h-[52px] px-4 rounded-2xl border-2 transition-all font-heading font-medium text-[15px] ${
-                        role === 'customer'
-                          ? 'border-[var(--liquid-chrome)] bg-white/5 text-[var(--chrome-white)]'
-                          : 'border-[var(--obsidian-rim)] text-[var(--muted-lead)] hover:border-[var(--silver-frost)]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        {role === 'customer' && <Check size={16} />}
-                        <span>Müşteri</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('owner')}
-                      className={`h-[52px] px-4 rounded-2xl border-2 transition-all font-heading font-medium text-[15px] ${
-                        role === 'owner'
-                          ? 'border-[var(--liquid-chrome)] bg-white/5 text-[var(--chrome-white)]'
-                          : 'border-[var(--obsidian-rim)] text-[var(--muted-lead)] hover:border-[var(--silver-frost)]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        {role === 'owner' && <Check size={16} />}
-                        <span>İşletme</span>
-                      </div>
-                    </button>
-                  </div>
-                  <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
-                    {role === 'customer' 
-                      ? 'Randevu almak ve salonları keşfetmek için' 
-                      : 'Salonunuzu yönetmek ve randevuları takip etmek için'}
-                  </p>
+                  <ModernRoleSelection
+                    selectedRole={role}
+                    onRoleChange={setRole}
+                  />
                 </div>
               </>
             )}
@@ -213,7 +183,7 @@ export function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ornek@email.com"
                 required
-                className="w-full h-[52px] px-4 rounded-2xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
+                className="w-full h-[52px] px-4 rounded-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
               />
             </div>
 
@@ -228,12 +198,12 @@ export function Login() {
                 placeholder="••••••••"
                 required
                 minLength={6}
-                className="w-full h-[52px] px-4 rounded-2xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
+                className="w-full h-[52px] px-4 rounded-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-[15px] outline-none transition-all focus:border-[var(--liquid-chrome)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
               />
             </div>
 
             {isRegister && (
-              <div className="p-4 rounded-2xl bg-[var(--void)] border border-[var(--obsidian-rim)]">
+              <div className="p-4 rounded-3xl bg-[var(--void)] border border-[var(--obsidian-rim)]">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -290,7 +260,7 @@ export function Login() {
           <button
             onClick={handleGoogle}
             disabled={loading}
-            className="w-full h-[52px] flex items-center justify-center gap-3 rounded-2xl bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] font-heading font-medium text-[15px] text-[var(--chrome-white)] transition-all hover:border-[var(--liquid-chrome)] active:scale-[0.98]"
+            className="w-full h-[52px] flex items-center justify-center gap-3 rounded-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] font-heading font-medium text-[15px] text-[var(--chrome-white)] transition-all hover:border-[var(--liquid-chrome)] active:scale-[0.98]"
           >
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path

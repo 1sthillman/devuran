@@ -365,22 +365,29 @@ export function BusinessManagement() {
 
       {/* Edit Business Modal */}
       {showEditModal && editingBusiness && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-slate-800 border border-white/10 rounded-2xl p-4 sm:p-6 w-full sm:max-w-2xl max-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem)] sm:max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white">İşletme Düzenle</h3>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingBusiness(null);
-                }}
-                className="text-white/60 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="fixed inset-x-0 bottom-0 sm:relative sm:inset-auto w-full sm:max-w-4xl h-[92vh] sm:h-auto sm:max-h-[90vh] bg-slate-800 border-t sm:border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            {/* Header - Sticky */}
+            <div className="flex-shrink-0 p-6 border-b border-white/10 bg-slate-800/95 backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">İşletme Düzenle</h3>
+                  <p className="text-sm text-white/60 mt-1">{editingBusiness.name}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingBusiness(null);
+                  }}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5 text-white/60" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white/80 mb-2">İşletme Adı</label>
                 <input
@@ -495,26 +502,26 @@ export function BusinessManagement() {
                   <span className="text-sm text-white/80">Rezervasyon Açık</span>
                 </label>
               </div>
+            </div>
 
-              {/* Sticky Footer with Buttons */}
-              <div className="sticky bottom-0 bg-slate-800 pt-4 border-t border-white/10 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-4">
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSaveBusiness}
-                    className="flex-1 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl transition-all"
-                  >
-                    Kaydet
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setEditingBusiness(null);
-                    }}
-                    className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all"
-                  >
-                    İptal
-                  </button>
-                </div>
+            {/* Footer - Sticky */}
+            <div className="flex-shrink-0 p-6 border-t border-white/10 bg-slate-800/95 backdrop-blur-xl">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveBusiness}
+                  className="flex-1 h-12 px-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 active:scale-95"
+                >
+                  Değişiklikleri Kaydet
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingBusiness(null);
+                  }}
+                  className="px-6 h-12 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl transition-all active:scale-95"
+                >
+                  İptal
+                </button>
               </div>
             </div>
           </div>
@@ -523,19 +530,26 @@ export function BusinessManagement() {
 
       {/* Add Business Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-slate-800 border border-white/10 rounded-2xl p-4 sm:p-6 w-full sm:max-w-2xl max-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem)] sm:max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white">Yeni İşletme Ekle</h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="text-white/60 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="fixed inset-x-0 bottom-0 sm:relative sm:inset-auto w-full sm:max-w-4xl h-[92vh] sm:h-auto sm:max-h-[90vh] bg-slate-800 border-t sm:border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            {/* Header - Sticky */}
+            <div className="flex-shrink-0 p-6 border-b border-white/10 bg-slate-800/95 backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Yeni İşletme Ekle</h3>
+                  <p className="text-sm text-white/60 mt-1">İşletme bilgilerini girin</p>
+                </div>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5 text-white/60" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white/80 mb-2">İşletme Adı *</label>
                 <input
@@ -628,22 +642,23 @@ export function BusinessManagement() {
                 />
               </div>
 
-              {/* Sticky Footer with Buttons */}
-              <div className="sticky bottom-0 bg-slate-800 pt-4 border-t border-white/10 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-4">
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleAddBusiness}
-                    className="flex-1 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl transition-all"
-                  >
-                    Ekle
-                  </button>
-                  <button
-                    onClick={() => setShowAddModal(false)}
-                    className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all"
-                  >
-                    İptal
-                  </button>
-                </div>
+            </div>
+
+            {/* Footer - Sticky */}
+            <div className="flex-shrink-0 p-6 border-t border-white/10 bg-slate-800/95 backdrop-blur-xl">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAddBusiness}
+                  className="flex-1 h-12 px-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/20 active:scale-95"
+                >
+                  İşletme Ekle
+                </button>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="px-6 h-12 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-xl transition-all active:scale-95"
+                >
+                  İptal
+                </button>
               </div>
             </div>
           </div>

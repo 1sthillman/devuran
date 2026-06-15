@@ -18,6 +18,8 @@ import {
   Plus,
   Save,
   Star,
+  Store,
+  Sparkles,
   BarChart3,
   UserCheck,
   ChevronDown,
@@ -27,7 +29,6 @@ import {
   CreditCard,
   Link2,
   ExternalLink,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppointmentManager } from '@/components/dashboard/AppointmentManager';
@@ -35,7 +36,7 @@ import { ReservationManager } from '@/components/dashboard/ReservationManager';
 import { ModernQueueManager } from '@/components/dashboard/ModernQueueManager';
 import { WorkingHoursEditor } from '@/components/dashboard/WorkingHoursEditor';
 import { ServiceForm } from '@/components/dashboard/ServiceForm';
-import { SalonSetupForm } from '@/components/dashboard/SalonSetupForm';
+import { BusinessSetupWizard } from '@/components/dashboard/BusinessSetupWizard';
 import { StaffForm } from '@/components/dashboard/StaffForm';
 import { PaymentSettingsForm } from '@/components/dashboard/PaymentSettingsForm';
 import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
@@ -311,7 +312,7 @@ export function OwnerDashboard() {
       <>
       {/* Salon Setup/Edit Modal */}
       {showSalonSetup && (
-        <SalonSetupForm
+        <BusinessSetupWizard
           salon={salon || undefined}
           onSave={async (salonData) => {
             if (salon) {
@@ -349,27 +350,120 @@ export function OwnerDashboard() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center max-w-md"
+            className="text-center max-w-lg"
           >
-            <div className="w-20 h-20 rounded-full bg-[var(--liquid-chrome)]/10 flex items-center justify-center mx-auto mb-6">
-              <Scissors size={40} className="text-[var(--liquid-chrome)]" />
-            </div>
-            <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-3">
-              İşletmenizi Oluşturun
-            </h2>
-            <p className="font-body text-[var(--muted-lead)] mb-6">
-              İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor.
-            </p>
-            <ChromaticButton
-              onClick={() => setShowSalonSetup(true)}
-              className="flex items-center gap-2 mx-auto"
+            {/* Modern Icon with Gradient Background */}
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ 
+                type: "spring",
+                stiffness: 200,
+                damping: 20
+              }}
+              className="mb-8"
             >
-              <Plus size={20} />
-              <span>İşletme Oluştur</span>
-            </ChromaticButton>
-            <p className="font-body text-xs text-[var(--muted-lead)] mt-6">
+              <div className="relative w-24 h-24 mx-auto">
+                {/* Glowing Background */}
+                <motion.div
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.3, 0.6, 0.3]
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500 via-pink-500 to-cyan-500 blur-2xl"
+                />
+                
+                {/* Icon Container */}
+                <div className="relative w-full h-full rounded-3xl bg-gradient-to-br from-purple-500 via-pink-500 to-cyan-500 p-[2px]">
+                  <div className="w-full h-full rounded-3xl bg-[var(--void)] flex items-center justify-center">
+                    <Store size={48} className="text-white" strokeWidth={1.5} />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Welcome Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-6"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-4">
+                <Sparkles size={16} className="text-purple-400" />
+                <span className="text-sm font-semibold text-purple-300">Hoşgeldiniz</span>
+              </div>
+              
+              <h2 className="font-heading font-bold text-3xl sm:text-4xl text-[var(--chrome-white)] mb-3">
+                İşletmenizi Oluşturun
+              </h2>
+              
+              <p className="text-base text-[var(--muted-lead)] leading-relaxed">
+                İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor.
+              </p>
+            </motion.div>
+            
+            {/* Main Action Button */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+              className="mb-6"
+            >
+              <motion.button
+                onClick={() => setShowSalonSetup(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="group relative inline-flex items-center gap-2.5 px-8 py-4 rounded-full font-heading font-bold text-base text-white overflow-hidden transition-all shadow-2xl shadow-purple-500/20"
+              >
+                {/* Animated Background */}
+                <motion.div
+                  animate={{ 
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 via-purple-600 to-pink-600 bg-[length:200%_100%]"
+                />
+                
+                {/* Glow Effect */}
+                <motion.div
+                  animate={{ 
+                    opacity: [0.4, 0.8, 0.4],
+                    scale: [1, 1.05, 1]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 blur-xl"
+                />
+                
+                <span className="relative z-10 flex items-center gap-2.5">
+                  <Plus size={20} strokeWidth={2.5} />
+                  <span>İşletme Oluştur</span>
+                </span>
+              </motion.button>
+            </motion.div>
+
+            {/* Info Text */}
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="text-sm text-[var(--muted-lead)] leading-relaxed"
+            >
               İşletme bilgilerinizi girdikten sonra randevu yönetimi, hizmet ekleme ve daha fazlasına erişebileceksiniz.
-            </p>
+            </motion.p>
           </motion.div>
         </div>
       </>
@@ -499,7 +593,7 @@ export function OwnerDashboard() {
       <div className="flex flex-col lg:flex-row gap-6">
       {/* Salon Setup/Edit Modal */}
       {showSalonSetup && (
-        <SalonSetupForm
+        <BusinessSetupWizard
           salon={salon || undefined}
           onSave={async (salonData) => {
             if (salon) {
@@ -535,31 +629,242 @@ export function OwnerDashboard() {
 
       {/* If owner has no salon yet, show setup message */}
       {(!user?.salonId || !salon) ? (
-        <div className="min-h-[60vh] flex items-center justify-center px-4 w-full">
+        <div className="min-h-screen flex items-center justify-center px-4 w-full relative overflow-hidden">
+          {/* Background Effects */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-1/4 -left-20 w-96 h-96 bg-purple-500/20 rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-pink-500/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-conic from-purple-500/10 via-pink-500/10 to-purple-500/10 rounded-full blur-3xl animate-spin" style={{ animationDuration: '20s' }} />
+          </div>
+
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center max-w-md"
+            transition={{ duration: 0.6 }}
+            className="text-center max-w-2xl relative z-10"
           >
-            <div className="w-20 h-20 rounded-full bg-[var(--liquid-chrome)]/10 flex items-center justify-center mx-auto mb-6">
-              <Scissors size={40} className="text-[var(--liquid-chrome)]" />
+            {/* Animated Scissors with Ribbon */}
+            <div className="relative mb-12">
+              {/* Ribbon */}
+              <motion.div
+                initial={{ scaleX: 1 }}
+                animate={{ scaleX: [1, 0.3, 0] }}
+                transition={{ duration: 1.5, delay: 1.2, ease: "easeInOut" }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-2 bg-gradient-to-r from-red-500 via-rose-400 to-red-500 rounded-full origin-center"
+                style={{ transformOrigin: 'center' }}
+              />
+              
+              {/* Glow Effect */}
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 0.8, 0.5]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30 rounded-full blur-2xl"
+              />
+              
+              {/* Scissors Icon */}
+              <motion.div
+                initial={{ x: -100, rotate: 0 }}
+                animate={{ x: 0, rotate: [0, -15, 15, 0] }}
+                transition={{ 
+                  x: { duration: 1, delay: 0.3 },
+                  rotate: { duration: 0.6, delay: 1, repeat: 2 }
+                }}
+                className="relative w-32 h-32 mx-auto flex items-center justify-center"
+              >
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-purple-500/20 backdrop-blur-sm border border-white/10" />
+                <Scissors size={64} className="text-transparent bg-clip-text bg-gradient-to-br from-purple-400 via-pink-400 to-purple-400" strokeWidth={1.5} />
+              </motion.div>
+              
+              {/* Confetti Effect */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 0] }}
+                transition={{ duration: 1, delay: 2.5 }}
+                className="absolute inset-0 pointer-events-none"
+              >
+                {[...Array(12)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ 
+                      x: '50%', 
+                      y: '50%',
+                      scale: 0,
+                      opacity: 1
+                    }}
+                    animate={{ 
+                      x: `${50 + (Math.cos(i * 30 * Math.PI / 180) * 150)}%`,
+                      y: `${50 + (Math.sin(i * 30 * Math.PI / 180) * 150)}%`,
+                      scale: [0, 1.5, 0],
+                      opacity: [1, 1, 0]
+                    }}
+                    transition={{ 
+                      duration: 1.2,
+                      delay: 2.5,
+                      ease: "easeOut"
+                    }}
+                    className={`absolute w-2 h-2 rounded-full ${
+                      i % 3 === 0 ? 'bg-purple-400' : i % 3 === 1 ? 'bg-pink-400' : 'bg-cyan-400'
+                    }`}
+                  />
+                ))}
+              </motion.div>
             </div>
-            <h2 className="font-display font-bold text-2xl text-[var(--chrome-white)] mb-3">
-              İşletmenizi Oluşturun
-            </h2>
-            <p className="font-body text-[var(--muted-lead)] mb-6">
-              İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor.
-            </p>
-            <ChromaticButton
-              onClick={() => setShowSalonSetup(true)}
-              className="flex items-center gap-2 mx-auto"
+
+            {/* Welcome Text */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
             >
-              <Plus size={20} />
-              <span>İşletme Oluştur</span>
-            </ChromaticButton>
-            <p className="font-body text-xs text-[var(--muted-lead)] mt-6">
-              İşletme bilgilerinizi girdikten sonra randevu yönetimi, hizmet ekleme ve daha fazlasına erişebileceksiniz.
-            </p>
+              <h1 className="font-heading font-bold text-4xl sm:text-5xl md:text-6xl mb-4 relative">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 animate-gradient-x">
+                  Hoşgeldiniz{user?.displayName ? `, ${user.displayName}` : ''}
+                </span>
+                <motion.span
+                  animate={{ 
+                    opacity: [0.5, 1, 0.5],
+                    textShadow: [
+                      '0 0 20px rgba(168, 85, 247, 0.5)',
+                      '0 0 40px rgba(236, 72, 153, 0.8)',
+                      '0 0 20px rgba(168, 85, 247, 0.5)'
+                    ]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="absolute inset-0 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 blur-sm"
+                >
+                  Hoşgeldiniz{user?.displayName ? `, ${user.displayName}` : ''}
+                </motion.span>
+              </h1>
+            </motion.div>
+
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+              className="font-display font-bold text-3xl sm:text-4xl text-[var(--chrome-white)] mb-4"
+            >
+              İşletmenizi Oluşturun
+            </motion.h2>
+            
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.6 }}
+              className="font-body text-lg text-[var(--muted-lead)] mb-10 max-w-xl mx-auto leading-relaxed"
+            >
+              İşletme panelinizi kullanmaya başlamak için önce işletmenizi oluşturmanız gerekiyor. 
+              Randevu yönetimi, hizmet ekleme ve daha fazlasına erişin.
+            </motion.p>
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 1, duration: 0.6 }}
+            >
+              <motion.button
+                onClick={() => setShowSalonSetup(true)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-heading font-bold text-lg text-white overflow-hidden transition-all mx-auto"
+              >
+                {/* Animated Background */}
+                <motion.div
+                  animate={{ 
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 via-purple-600 to-pink-600 bg-[length:200%_100%]"
+                />
+                
+                {/* Glow Effect */}
+                <motion.div
+                  animate={{ 
+                    opacity: [0.5, 1, 0.5],
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 blur-xl opacity-75"
+                />
+                
+                {/* Border Shine */}
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 360]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                  className="absolute inset-0 rounded-2xl"
+                  style={{
+                    background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
+                  }}
+                />
+                
+                <span className="relative z-10 flex items-center gap-3">
+                  <Plus size={24} strokeWidth={2.5} />
+                  <span>İşletme Oluştur</span>
+                  <motion.span
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ 
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    →
+                  </motion.span>
+                </span>
+              </motion.button>
+            </motion.div>
+
+            {/* Features */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2, duration: 0.6 }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12"
+            >
+              {[
+                { icon: '📅', text: 'Randevu Yönetimi' },
+                { icon: '💼', text: 'Hizmet Ekleme' },
+                { icon: '📊', text: 'Detaylı Raporlar' }
+              ].map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.4 + (i * 0.1), duration: 0.6 }}
+                  className="relative group"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                    <div className="text-2xl mb-2">{feature.icon}</div>
+                    <p className="text-sm font-medium text-[var(--silver-frost)]">{feature.text}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
           </motion.div>
         </div>
       ) : (
@@ -1569,7 +1874,7 @@ export function OwnerDashboard() {
 
       {/* Salon Setup/Edit Modal */}
       {showSalonSetup && (
-        <SalonSetupForm
+        <BusinessSetupWizard
           salon={salon || undefined}
           onSave={async (salonData) => {
             if (salon) {

@@ -4,7 +4,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Users, Package, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
+import { Calendar, Users, Package, CheckCircle2, ChevronDown, Sparkles, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
 import { servicesService } from '@/services/firebaseService';
@@ -28,6 +28,7 @@ export function DailyRentalWizard() {
   const [activeStep, setActiveStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [eventStartTime, setEventStartTime] = useState<string>('18:00');
   const [selectedEventType, setSelectedEventType] = useState<string>('');
   const [guestCount, setGuestCount] = useState<number>(100);
   const [selectedPkg, setSelectedPkg] = useState<Service | null>(null);
@@ -84,6 +85,7 @@ export function DailyRentalWizard() {
 
     setEventDetails({
       eventDate: selectedDate ? formatDateToString(selectedDate) : undefined,
+      eventStartTime, // 🆕 Etkinlik başlangıç saati
       eventType: selectedEventType || 'other',
       capacity: guestCount,
       selectedPackage: selectedPkg,
@@ -278,6 +280,18 @@ export function DailyRentalWizard() {
                                       +
                                     </button>
                                   </div>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Başlangıç Saati</h4>
+                                <div className="relative">
+                                  <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--silver-frost)]" />
+                                  <input
+                                    type="time"
+                                    value={eventStartTime}
+                                    onChange={(e) => setEventStartTime(e.target.value)}
+                                    className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
+                                  />
                                 </div>
                               </div>
                               {selectedDate && selectedEventType && (

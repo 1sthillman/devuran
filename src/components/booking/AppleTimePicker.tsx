@@ -6,17 +6,32 @@ interface AppleTimePickerProps {
   value: string; // "HH:MM" format
   onChange: (time: string) => void;
   className?: string;
+  minTime?: string; // "HH:MM" format - minimum selectable time
+  maxTime?: string; // "HH:MM" format - maximum selectable time
+  workingHours?: {
+    start: string; // "HH:MM"
+    end: string; // "HH:MM"
+  };
+  intervalMinutes?: number; // Time slot interval (e.g., 15, 30)
 }
 
-export function AppleTimePicker({ value, onChange, className }: AppleTimePickerProps) {
-  const [hour, setHour] = useState('00');
+export function AppleTimePicker({ 
+  value, 
+  onChange, 
+  className,
+  minTime,
+  maxTime,
+  workingHours,
+  intervalMinutes = 15 // Default: 15 dakika aralıklarla
+}: AppleTimePickerProps) {
+  const [hour, setHour] = useState('09');
   const [minute, setMinute] = useState('00');
   const [showPicker, setShowPicker] = useState(false);
   
   const hourRef = useRef<HTMLDivElement>(null);
   const minuteRef = useRef<HTMLDivElement>(null);
 
-  // Parse initial value - only once
+  // Parse initial value
   useEffect(() => {
     if (value && value.includes(':')) {
       const [h, m] = value.split(':');
@@ -25,10 +40,47 @@ export function AppleTimePicker({ value, onChange, className }: AppleTimePickerP
         setMinute(m.padStart(2, '0'));
       }
     }
-  }, []); // Run only once on mount
+  }, [value]);
 
-  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+  // Calculate available hours based on working hours or min/max time
+  const getAvailableHours = () => {
+    let startHour = 0;
+    let endHour = 23;
+
+    if (workingHours) {
+      const [startH] = workingHours.start.split(':').map(Number);
+      const [endH] = workingHours.end.split(':').map(Number);
+      startHour = startH;
+      endHour = endH;
+    } else if (minTime || maxTime) {
+      if (minTime) {
+        const [h] = minTime.split(':').map(Number);
+        startHour = h;
+      }
+      if (maxTime) {
+        const [h] = maxTime.split(':').map(Number);
+        endHour = h;
+      }
+    }
+
+    const hours: string[] = [];
+    for (let i = startHour; i <= endHour; i++) {
+      hours.push(i.toString().padStart(2, '0'));
+    }
+    return hours;
+  };
+
+  // Calculate available minutes based on interval
+  const getAvailableMinutes = () => {
+    const minutes: string[] = [];
+    for (let i = 0; i < 60; i += intervalMinutes) {
+      minutes.push(i.toString().padStart(2, '0'));
+    }
+    return minutes;
+  };
+
+  const hours = getAvailableHours();
+  const minutes = getAvailableMinutes();
 
   const handleHourChange = (newHour: string) => {
     setHour(newHour);
@@ -64,7 +116,7 @@ export function AppleTimePicker({ value, onChange, className }: AppleTimePickerP
         scrollToSelected(minuteRef, minute);
       }, 100);
     }
-  }, [showPicker]);
+  }, [showPicker, hour, minute]);
 
   return (
     <div className={cn('relative z-50', className)}>
@@ -97,6 +149,7 @@ export function AppleTimePicker({ value, onChange, className }: AppleTimePickerP
             <div 
               ref={hourRef}
               className="flex-1 h-full overflow-y-auto scrollbar-hide relative"
+              style={{ scrollBehavior: 'smooth' }}
             >
               <div className="py-[95px]">
                 {hours.map((h) => (
@@ -125,6 +178,7 @@ export function AppleTimePicker({ value, onChange, className }: AppleTimePickerP
             <div 
               ref={minuteRef}
               className="flex-1 h-full overflow-y-auto scrollbar-hide relative"
+              style={{ scrollBehavior: 'smooth' }}
             >
               <div className="py-[95px]">
                 {minutes.map((m) => (
@@ -147,6 +201,13 @@ export function AppleTimePicker({ value, onChange, className }: AppleTimePickerP
             </div>
           </div>
 
+          {/* Info text */}
+          {workingHours && (
+            <div className="px-4 py-2 text-xs text-center text-[var(--muted-lead)] border-t border-white/[0.08]">
+              Çalışma Saatleri: {workingHours.start} - {workingHours.end}
+            </div>
+          )}
+
           {/* Done button */}
           <div className="p-3 border-t border-white/[0.08] bg-[var(--slate-surface)]">
             <button
@@ -162,3 +223,4 @@ export function AppleTimePicker({ value, onChange, className }: AppleTimePickerP
     </div>
   );
 }
+

@@ -362,6 +362,13 @@ export function OrderBookingWizard() {
                                 <AppleTimePicker
                                   value={localDeliveryTime}
                                   onChange={(time) => setLocalDeliveryTime(time)}
+                                  workingHours={
+                                    salon?.workingHours?.start ? {
+                                      start: salon.workingHours.start.open,
+                                      end: salon.workingHours.end.close
+                                    } : undefined
+                                  }
+                                  intervalMinutes={30} // 30 dakika aralıklarla teslimat
                                 />
                               </div>
                               <div>

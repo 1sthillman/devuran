@@ -38,7 +38,7 @@ export function LiquidNav() {
     : navLinks;
 
   return (
-    <div className="sticky top-0 z-40 px-2 sm:px-4 pt-2 sm:pt-4">
+    <div className="sticky top-0 z-30 px-2 sm:px-4 pt-2 sm:pt-4">
       <nav className="liquid-nav-container">
         {/* Brand */}
         <Link to="/" className="font-display font-bold text-lg text-[var(--chrome-white)] tracking-tight">
@@ -124,8 +124,8 @@ export function LiquidNav() {
             {/* Dropdown - Maximum Opacity */}
             {menuOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-14 z-50 w-56 sm:w-64 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)] backdrop-blur-3xl border border-white/20 max-h-[80vh] overflow-y-auto">
+                <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-14 z-40 w-56 sm:w-64 rounded-3xl p-2 shadow-2xl bg-[var(--slate-surface)] backdrop-blur-3xl border border-white/20 max-h-[80vh] overflow-y-auto">
                   <div className="px-3 py-2 border-b border-white/20 mb-2">
                     <p className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
                       {user?.displayName}
@@ -249,7 +249,7 @@ export function LiquidNav() {
 
       {/* Mobile menu */}
       {menuOpen && !isAuthenticated && (
-        <div className="absolute top-16 left-0 right-0 mx-4 md:hidden liquid-glass p-4 flex flex-col gap-1 z-50">
+        <div className="absolute top-16 left-0 right-0 mx-4 md:hidden liquid-glass p-4 flex flex-col gap-1 z-40">
           {allLinks.map((link) => {
             const isActive = location.pathname === link.path;
             const Icon = link.icon;
