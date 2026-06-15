@@ -52,6 +52,7 @@ import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
 import { SubscriptionGuard } from '@/components/subscription/SubscriptionGuard';
 import { SubscriptionOverviewCard } from '@/components/subscription/SubscriptionOverviewCard';
 import { AnnouncementPopup } from '@/components/announcement/AnnouncementPopup';
+import { QRCodeCard } from '@/components/qr/ModernQRGenerator';
 import { appointmentsService, salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
@@ -99,6 +100,131 @@ export function OwnerDashboard() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showBusinessLink, setShowBusinessLink] = useState(false); // Default: KAPALI
   const [showSubscriptionCard, setShowSubscriptionCard] = useState(false); // Default: KAPALI
+  const [showQRCodes, setShowQRCodes] = useState(false); // QR codes collapsible
+
+  // QR Styles - Minimal and professional
+  const qrStyles = [
+    {
+      id: 'classic',
+      name: 'Klasik',
+      config: {
+        width: 400,
+        height: 400,
+        margin: 10,
+        dotsOptions: {
+          type: 'rounded' as const,
+          color: '#1a1a1a'
+        },
+        cornersSquareOptions: {
+          type: 'extra-rounded' as const,
+          color: '#1a1a1a'
+        },
+        cornersDotOptions: {
+          type: 'dot' as const,
+          color: '#1a1a1a'
+        },
+        backgroundOptions: {
+          color: '#ffffff'
+        }
+      }
+    },
+    {
+      id: 'modern',
+      name: 'Modern',
+      config: {
+        width: 400,
+        height: 400,
+        margin: 10,
+        dotsOptions: {
+          type: 'dots' as const,
+          color: '#2563eb'
+        },
+        cornersSquareOptions: {
+          type: 'extra-rounded' as const,
+          color: '#1d4ed8'
+        },
+        cornersDotOptions: {
+          type: 'dot' as const,
+          color: '#2563eb'
+        },
+        backgroundOptions: {
+          color: '#ffffff'
+        }
+      }
+    },
+    {
+      id: 'minimal',
+      name: 'Minimal',
+      config: {
+        width: 400,
+        height: 400,
+        margin: 10,
+        dotsOptions: {
+          type: 'square' as const,
+          color: '#0f172a'
+        },
+        cornersSquareOptions: {
+          type: 'square' as const,
+          color: '#0f172a'
+        },
+        cornersDotOptions: {
+          type: 'square' as const,
+          color: '#0f172a'
+        },
+        backgroundOptions: {
+          color: '#ffffff'
+        }
+      }
+    },
+    {
+      id: 'elegant',
+      name: 'Zarif',
+      config: {
+        width: 400,
+        height: 400,
+        margin: 10,
+        dotsOptions: {
+          type: 'classy-rounded' as const,
+          color: '#059669'
+        },
+        cornersSquareOptions: {
+          type: 'extra-rounded' as const,
+          color: '#047857'
+        },
+        cornersDotOptions: {
+          type: 'dot' as const,
+          color: '#059669'
+        },
+        backgroundOptions: {
+          color: '#ffffff'
+        }
+      }
+    },
+    {
+      id: 'professional',
+      name: 'Profesyonel',
+      config: {
+        width: 400,
+        height: 400,
+        margin: 10,
+        dotsOptions: {
+          type: 'extra-rounded' as const,
+          color: '#7c3aed'
+        },
+        cornersSquareOptions: {
+          type: 'extra-rounded' as const,
+          color: '#6d28d9'
+        },
+        cornersDotOptions: {
+          type: 'dot' as const,
+          color: '#7c3aed'
+        },
+        backgroundOptions: {
+          color: '#ffffff'
+        }
+      }
+    }
+  ];
 
   // Restore active tab from URL on mount
   useEffect(() => {
@@ -338,7 +464,9 @@ export function OwnerDashboard() {
                 await authService.updateUserProfile(user.uid, { salonId: newSalon.id });
               }
               
-              window.location.reload();
+              // Redirect to overview tab (genel) instead of settings
+              window.location.href = '/dashboard?tab=overview';
+              return;
             }
             setShowSalonSetup(false);
           }}
@@ -619,7 +747,9 @@ export function OwnerDashboard() {
                 await authService.updateUserProfile(user.uid, { salonId: newSalon.id });
               }
               
-              window.location.reload();
+              // Redirect to overview tab (genel) instead of settings
+              window.location.href = '/dashboard?tab=overview';
+              return;
             }
             setShowSalonSetup(false);
           }}
@@ -878,8 +1008,8 @@ export function OwnerDashboard() {
             <h1 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
               {sidebarItems.find((i) => i.key === activeTab)?.label}
             </h1>
-            {/* Floating Navigation Menu Button */}
-            <FloatingNavMenu activeTab={activeTab} onTabChange={setActiveTab} />
+            {/* Floating Navigation Menu Button - Hidden when BusinessSetupWizard is open */}
+            {!showSalonSetup && <FloatingNavMenu activeTab={activeTab} onTabChange={setActiveTab} />}
           </div>
           {salon && (
             <p className="font-body text-sm text-[var(--muted-lead)] truncate max-w-[200px]">
@@ -1143,6 +1273,61 @@ export function OwnerDashboard() {
                               Paylaş
                             </button>
                           </div>
+
+                          {/* QR Code Section - Collapsible */}
+                          <button
+                            onClick={() => setShowQRCodes(!showQRCodes)}
+                            className="w-full p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.03] transition-all text-left"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-white/[0.08] flex items-center justify-center">
+                                  <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <h4 className="font-heading font-semibold text-base text-[var(--chrome-white)] mb-0.5">
+                                    QR Kodlar
+                                  </h4>
+                                  <p className="text-xs text-[var(--muted-lead)]">
+                                    5 farklı stil • Yazdırılabilir
+                                  </p>
+                                </div>
+                              </div>
+                              <motion.div
+                                animate={{ rotate: showQRCodes ? 180 : 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                              </motion.div>
+                            </div>
+                          </button>
+
+                          <AnimatePresence>
+                            {showQRCodes && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-3 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                                    {qrStyles.map((style) => (
+                                      <QRCodeCard
+                                        key={style.id}
+                                        url={`https://app-ruby-ten-20.vercel.app/salon/${salon.slug}`}
+                                        businessName={salon.name}
+                                        style={style}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
 
                           {/* Info */}
                           <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20">
@@ -1900,7 +2085,9 @@ export function OwnerDashboard() {
                 await authService.updateUserProfile(user.uid, { salonId: newSalon.id });
               }
               
-              window.location.reload();
+              // Redirect to overview tab (genel) instead of settings
+              window.location.href = '/dashboard?tab=overview';
+              return;
             }
             setShowSalonSetup(false);
           }}

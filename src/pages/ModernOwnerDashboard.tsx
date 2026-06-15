@@ -29,6 +29,7 @@ import { ServiceForm } from '@/components/dashboard/ServiceForm';
 import { StaffForm } from '@/components/dashboard/StaffForm';
 import { SalonSetupForm } from '@/components/dashboard/SalonSetupForm';
 import { CancelAppointmentDialog } from '@/components/booking/CancelAppointmentDialog';
+import { AddToCalendarButton } from '@/components/calendar/AddToCalendarButton';
 import { salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { useUIStore } from '@/store/uiStore';
@@ -970,6 +971,9 @@ function ReservationDetailModal({
 
         {/* Footer */}
         <div className="p-6 border-t border-white/[0.08] space-y-3">
+          {/* Add to Calendar Button */}
+          <AddToCalendarButton reservation={reservation} variant="default" />
+          
           {(reservation.status === 'pending' || reservation.status === 'confirmed' || reservation.status === 'deposit_paid' || reservation.status === 'fully_paid') && (
             <button
               onClick={handleCancel}

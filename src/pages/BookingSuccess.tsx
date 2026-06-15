@@ -4,6 +4,7 @@ import { CheckCircle2, Calendar, Clock, MapPin, Phone, Mail, ArrowRight, Sparkle
 import { reservationService } from '@/services/reservationService';
 import { salonsService } from '@/services/firebaseService';
 import { PaymentInformation } from '@/components/booking/PaymentInformation';
+import { AddToCalendarButton } from '@/components/calendar/AddToCalendarButton';
 import type { Reservation, Salon } from '@/types';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -230,7 +231,7 @@ export function BookingSuccess() {
 
           {/* Status Badge */}
           <div className={cn(
-            "relative z-10 rounded-3xl p-4 mb-6 border",
+            "relative z-10 rounded-3xl p-4 mb-4 border",
             reservation.status === 'confirmed' 
               ? "bg-emerald-500/10 border-emerald-500/30"
               : "bg-blue-500/10 border-blue-500/30"
@@ -241,6 +242,14 @@ export function BookingSuccess() {
             )}>
               {reservation.status === 'pending' && 'Rezervasyonunuz işletme tarafından onaylanacaktır'}
               {reservation.status === 'confirmed' && 'Rezervasyonunuz onaylandı'}
+            </p>
+          </div>
+
+          {/* Add to Calendar Button */}
+          <div className="relative z-10 mb-6">
+            <AddToCalendarButton reservation={reservation} />
+            <p className="text-xs text-center text-[var(--muted-lead)] mt-2">
+              Takvim ve telefon alarmınıza otomatik eklenecek
             </p>
           </div>
 
