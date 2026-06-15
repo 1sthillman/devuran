@@ -29,11 +29,10 @@ import { ServiceForm } from '@/components/dashboard/ServiceForm';
 import { StaffForm } from '@/components/dashboard/StaffForm';
 import { SalonSetupForm } from '@/components/dashboard/SalonSetupForm';
 import { CancelAppointmentDialog } from '@/components/booking/CancelAppointmentDialog';
-import { AddToCalendarButton } from '@/components/calendar/AddToCalendarButton';
 import { salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { useUIStore } from '@/store/uiStore';
-import { reservationToCalendarEvent, generateICSFile } from '@/utils/calendarUtils';
+import { reservationToCalendarEvent, getDefaultCalendarAction } from '@/utils/calendarUtils';
 import type { Salon, Service, Staff } from '@/types';
 
 // 8 ana sekme - tüm özellikler dahil
@@ -887,20 +886,30 @@ function ReservationsList({
               </div>
             </div>
 
-            {/* Calendar Button - Full Width */}
-            <div className="mb-3">
-              <AddToCalendarButton 
-                reservation={reservation} 
-                variant="compact"
-              />
-            </div>
-
             {/* Price and Actions */}
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/[0.08]">
               <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 {reservation.pricing?.totalAmount || reservation.totalPrice}₺
               </span>
               <div className="flex items-center gap-2">
+                {/* Takvime Ekle Butonu */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    try {
+                      const event = reservationToCalendarEvent(reservation);
+                      const calendarAction = getDefaultCalendarAction(event);
+                      calendarAction();
+                    } catch (error) {
+                      console.error('Takvime ekleme hatası:', error);
+                    }
+                  }}
+                  className="p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-400 transition-all duration-200"
+                  title="Takvime Ekle"
+                >
+                  <Calendar size={16} />
+                </button>
+                
                 {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
                   <button
                     onClick={(e) => {
@@ -1098,7 +1107,21 @@ function ReservationDetailModal({
         {/* Footer */}
         <div className="p-6 border-t border-white/[0.08] space-y-3">
           {/* Add to Calendar Button */}
-          <AddToCalendarButton reservation={reservation} variant="default" />
+          <button
+            onClick={() => {
+              try {
+                const event = reservationToCalendarEvent(reservation);
+                const calendarAction = getDefaultCalendarAction(event);
+                calendarAction();
+              } catch (error) {
+                console.error('Takvime ekleme hatası:', error);
+              }
+            }}
+            className="w-full h-12 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 font-heading font-bold transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-cyan-500/10"
+          >
+            <Calendar size={18} strokeWidth={2.5} />
+            <span>Takvime Ekle</span>
+          </button>
           
           {(reservation.status === 'pending' || reservation.status === 'confirmed' || reservation.status === 'deposit_paid' || reservation.status === 'fully_paid') && (
             <button
