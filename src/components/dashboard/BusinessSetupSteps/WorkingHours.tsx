@@ -74,7 +74,7 @@ export function WorkingHours({ data, onChange }: WorkingHoursProps) {
       {/* Info Badge */}
       <div className="p-4 rounded-3xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
         <p className="text-sm text-[var(--silver-frost)] text-center">
-          İşletmenizin haftalık çalışma saatlerini belirleyin
+          <span className="text-yellow-400 font-bold">*</span> İşletmenizin haftalık çalışma saatlerini belirleyin (En az 1 gün açık olmalı)
         </p>
       </div>
 

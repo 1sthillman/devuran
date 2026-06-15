@@ -85,7 +85,7 @@ export function CategorySelection({ value, onChange }: CategorySelectionProps) {
       {/* Info Badge - Minimal */}
       <div className="flex-shrink-0 px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3 mx-auto">
         <p className="text-sm text-[var(--silver-frost)] text-center font-medium">
-          İşletmenizin kategorisini seçin
+          <span className="text-yellow-400 font-bold">*</span> İşletmenizin kategorisini seçin
         </p>
       </div>
 

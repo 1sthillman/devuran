@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, Check, Sparkles } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Check, Sparkles, AlertCircle, Info } from 'lucide-react';
 import { CategorySelection } from './BusinessSetupSteps/CategorySelection';
 import { BasicInfo } from './BusinessSetupSteps/BasicInfo';
 import { AddressInfo } from './BusinessSetupSteps/AddressInfo';
@@ -95,6 +95,8 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [missingFields, setMissingFields] = useState<Array<{ step: number; title: string; fields: string[] }>>([]);
 
   const [formData, setFormData] = useState<BusinessFormData>({
     category: (salon?.category || 'kuafor') as CategoryId,
@@ -172,14 +174,74 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
     }
   };
 
+  // Detaylı validasyon kontrolü - hangi alanlar eksik?
+  const getDetailedValidation = () => {
+    const missing: Array<{ step: number; title: string; fields: string[] }> = [];
+
+    // Step 1: Kategori
+    if (!formData.category) {
+      missing.push({
+        step: 1,
+        title: 'Kategori',
+        fields: ['İşletme kategorisi seçilmeli']
+      });
+    }
+
+    // Step 2: Temel Bilgiler
+    const step2Missing: string[] = [];
+    if (!formData.name) step2Missing.push('İşletme adı');
+    if (formData.phone.length !== 10) step2Missing.push('Geçerli telefon numarası');
+    if (step2Missing.length > 0) {
+      missing.push({
+        step: 2,
+        title: 'Temel Bilgiler',
+        fields: step2Missing
+      });
+    }
+
+    // Step 3: Adres
+    const step3Missing: string[] = [];
+    if (!formData.address.full) step3Missing.push('Tam adres');
+    if (!formData.address.district) step3Missing.push('İlçe');
+    if (!formData.address.city) step3Missing.push('Şehir');
+    if (step3Missing.length > 0) {
+      missing.push({
+        step: 3,
+        title: 'Adres',
+        fields: step3Missing
+      });
+    }
+
+    // Step 4: Görseller
+    if (!formData.coverImage) {
+      missing.push({
+        step: 4,
+        title: 'Görseller',
+        fields: ['Kapak fotoğrafı']
+      });
+    }
+
+    // Step 5: Çalışma Saatleri
+    const hasOpenDay = Object.values(formData.workingHours).some(day => day.isOpen);
+    if (!hasOpenDay) {
+      missing.push({
+        step: 5,
+        title: 'Çalışma Saatleri',
+        fields: ['En az bir gün açık olmalı']
+      });
+    }
+
+    return missing;
+  };
+
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      if (!completedSteps.includes(currentStep)) {
-        setCompletedSteps([...completedSteps, currentStep]);
-      }
-      if (currentStep < 6) {
-        setCurrentStep(currentStep + 1);
-      }
+    // Adım validasyonu geçerse completed olarak işaretle
+    if (validateStep(currentStep) && !completedSteps.includes(currentStep)) {
+      setCompletedSteps([...completedSteps, currentStep]);
+    }
+    // Her durumda ileri git (validation olmadan)
+    if (currentStep < 6) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
@@ -190,6 +252,15 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
   };
 
   const handleSubmit = async () => {
+    // Önce detaylı validasyon yap
+    const validation = getDetailedValidation();
+    
+    if (validation.length > 0) {
+      setMissingFields(validation);
+      setShowValidationModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
       await onSave({
@@ -204,18 +275,18 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
     setLoading(false);
   };
 
-  const canProceed = validateStep(currentStep);
   const isLastStep = currentStep === 6;
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-[var(--void)]">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="relative w-full h-screen flex flex-col max-w-7xl mx-auto"
-      >
+    <>
+      <div className="fixed inset-0 z-[99999] bg-[var(--void)]">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative w-full h-screen flex flex-col max-w-7xl mx-auto"
+        >
         {/* Header - Clean & Minimal */}
         <div className="px-4 sm:px-8 py-2.5 sm:py-3 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -287,8 +358,8 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
           </div>
         </div>
 
-        {/* Content - Proper Bottom Padding */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 pb-28 sm:pb-24">
+        {/* Content - No Bottom Padding (Nav is Sticky) */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -296,7 +367,7 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="w-full"
+              className="w-full pb-4"
             >
               {currentStep === 1 && (
                 <CategorySelection
@@ -353,10 +424,10 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
           </AnimatePresence>
         </div>
 
-        {/* Floating Navigation Bar - Bottom Fixed */}
-        <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 pointer-events-none">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-black/70 backdrop-blur-xl border border-white/10 shadow-2xl pointer-events-auto">
+        {/* Floating Navigation Bar - Sticky Bottom with Safe Area */}
+        <div className="sticky bottom-0 left-0 right-0 z-[100] mt-auto" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <div className="flex items-center justify-center px-4 py-3 bg-gradient-to-t from-[var(--void)] via-[var(--void)] to-transparent">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-black/80 backdrop-blur-xl border border-white/10 shadow-2xl">
               {/* Back Button */}
               <motion.button
                 onClick={handleBack}
@@ -364,7 +435,7 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
                 whileHover={{ scale: currentStep === 1 ? 1 : 1.05 }}
                 whileTap={{ scale: currentStep === 1 ? 1 : 0.95 }}
                 className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center transition-all border backdrop-blur-sm",
+                  "w-10 h-10 rounded-full flex items-center justify-center transition-all border backdrop-blur-sm shrink-0",
                   currentStep === 1
                     ? "bg-white/[0.05] border-white/[0.08] opacity-30 cursor-not-allowed"
                     : "bg-white/10 border-white/20 hover:bg-white/20 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20"
@@ -374,45 +445,37 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
               </motion.button>
 
               {/* Step Indicator */}
-              <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+              <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shrink-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-white">
+                  <span className="text-xs font-semibold text-white whitespace-nowrap">
                     {currentStep}/{steps.length}
                   </span>
                   <div className="w-px h-3 bg-white/30" />
-                  <span className="text-xs font-bold text-purple-300">
+                  <span className="text-xs font-bold text-purple-300 whitespace-nowrap">
                     {Math.round((completedSteps.length / steps.length) * 100)}%
                   </span>
                 </div>
               </div>
 
-              {/* Next/Submit Button */}
+              {/* Next Button - Her zaman aktif */}
               {!isLastStep ? (
                 <motion.button
                   onClick={handleNext}
-                  disabled={!canProceed}
-                  whileHover={{ scale: canProceed ? 1.05 : 1 }}
-                  whileTap={{ scale: canProceed ? 0.95 : 1 }}
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center transition-all border backdrop-blur-sm relative overflow-hidden",
-                    !canProceed
-                      ? "bg-white/[0.05] border-white/[0.08] opacity-30 cursor-not-allowed"
-                      : "border-purple-500/50 shadow-lg shadow-purple-500/30"
-                  )}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all border backdrop-blur-sm relative overflow-hidden shrink-0 border-purple-500/50 shadow-lg shadow-purple-500/30"
                 >
-                  {canProceed && (
-                    <motion.div
-                      animate={{ 
-                        backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
-                      }}
-                      transition={{ 
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: "linear"
-                      }}
-                      className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 via-purple-500 to-pink-500 bg-[length:200%_100%]"
-                    />
-                  )}
+                  <motion.div
+                    animate={{ 
+                      backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                    }}
+                    transition={{ 
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "linear"
+                    }}
+                    className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 via-purple-500 to-pink-500 bg-[length:200%_100%]"
+                  />
                   <ChevronRight size={18} className="text-white relative z-10" strokeWidth={2.5} />
                 </motion.button>
               ) : (
@@ -421,7 +484,7 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
                   disabled={loading}
                   whileHover={{ scale: loading ? 1 : 1.05 }}
                   whileTap={{ scale: loading ? 1 : 0.95 }}
-                  className="relative px-5 h-10 rounded-full flex items-center justify-center gap-1.5 overflow-hidden border border-emerald-500/50 shadow-lg shadow-emerald-500/30"
+                  className="relative px-5 h-10 rounded-full flex items-center justify-center gap-1.5 overflow-hidden border border-emerald-500/50 shadow-lg shadow-emerald-500/30 shrink-0"
                 >
                   <motion.div
                     animate={!loading ? { 
@@ -434,7 +497,7 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
                     }}
                     className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-500 via-emerald-500 to-teal-500 bg-[length:200%_100%]"
                   />
-                  <span className="relative z-10 flex items-center gap-1.5 text-white font-heading font-bold text-xs">
+                  <span className="relative z-10 flex items-center gap-1.5 text-white font-heading font-bold text-xs whitespace-nowrap">
                     {loading ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -454,5 +517,141 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
         </div>
       </motion.div>
     </div>
+
+      {/* Validation Modal - Modern & Oval */}
+      <AnimatePresence>
+        {showValidationModal && (
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowValidationModal(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md bg-[var(--void)] rounded-3xl border border-yellow-500/30 shadow-2xl shadow-yellow-500/20 overflow-hidden"
+            >
+              {/* Gradient Header */}
+              <div className="relative px-6 py-5 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-red-500/10 border-b border-white/[0.08]">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-400 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle size={20} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-heading font-bold text-lg text-white">
+                      Eksik Bilgiler Var
+                    </h3>
+                    <p className="text-sm text-[var(--muted-lead)] mt-0.5">
+                      İşletmenizi oluşturmak için bazı önemli bilgiler eksik
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowValidationModal(false)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
+                  >
+                    <X size={16} className="text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Missing Fields List */}
+              <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-3">
+                  {missingFields.map((item, index) => (
+                    <motion.div
+                      key={item.step}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      onClick={() => {
+                        setCurrentStep(item.step);
+                        setShowValidationModal(false);
+                      }}
+                      className="group p-4 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.08] hover:border-yellow-500/30 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Step Number Badge */}
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                          <span className="text-sm font-bold text-yellow-400">
+                            {item.step}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-white text-sm mb-1.5">
+                            {item.title}
+                          </h4>
+                          <ul className="space-y-1">
+                            {item.fields.map((field, idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-start gap-2 text-xs text-[var(--muted-lead)]"
+                              >
+                                <span className="text-yellow-400 flex-shrink-0 mt-0.5">*</span>
+                                <span>{field} tamamlanmalı</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Arrow */}
+                        <ChevronRight
+                          size={16}
+                          className="text-yellow-400/60 group-hover:text-yellow-400 group-hover:translate-x-1 transition-all flex-shrink-0"
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Info Note */}
+                <div className="mt-4 p-3 rounded-2xl bg-blue-500/5 border border-blue-500/20">
+                  <div className="flex items-start gap-2">
+                    <Info size={14} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-blue-300/80">
+                      <span className="text-yellow-400 font-bold">*</span> ile işaretli alanlar zorunludur. 
+                      Yukarıdaki adımlara tıklayarak eksikleri tamamlayabilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="px-6 py-4 border-t border-white/[0.08] bg-white/[0.02]">
+                <div className="flex items-center gap-2">
+                  <motion.button
+                    onClick={() => setShowValidationModal(false)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 h-11 rounded-full bg-white/[0.05] hover:bg-white/[0.08] text-white font-semibold text-sm transition-colors"
+                  >
+                    Kapat
+                  </motion.button>
+                  <motion.button
+                    onClick={() => {
+                      setCurrentStep(missingFields[0].step);
+                      setShowValidationModal(false);
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 h-11 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white font-bold text-sm shadow-lg shadow-yellow-500/30 transition-all"
+                  >
+                    İlk Eksik Alana Git
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
