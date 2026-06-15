@@ -671,80 +671,6 @@ function ReservationsList({
     return res.status === filter;
   });
 
-  // Tarihe göre gruplama
-  const groupedByDate = filteredReservations.reduce((acc, res) => {
-    const date = res.date || res.checkIn || res.eventDate || res.deliveryDate;
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(res);
-    return acc;
-  }, {} as Record<string, any[]>);
-
-  // Toplu takvime ekleme
-  const handleBulkAddToCalendar = (date: string) => {
-    const dateReservations = groupedByDate[date];
-    if (!dateReservations || dateReservations.length === 0) return;
-
-    // Tüm randevuları CalendarEvent'e çevir
-    const events = dateReservations.map(res => reservationToCalendarEvent(res));
-    
-    // Çoklu event ICS dosyası oluştur
-    const icsContent = events.map(event => {
-      // Her event için ayrı ICS bloğu
-      const lines = [
-        'BEGIN:VEVENT',
-        `DTSTART:${event.startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-        `DTEND:${event.endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-        `SUMMARY:${event.title}`,
-        `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
-        event.location ? `LOCATION:${event.location}` : '',
-        `UID:${Date.now()}-${Math.random().toString(36).substring(2)}@randevu-sistemi.com`,
-        `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-        'STATUS:CONFIRMED',
-        // Alarmlar
-        'BEGIN:VALARM',
-        'TRIGGER:-PT1H',
-        'ACTION:DISPLAY',
-        'DESCRIPTION:1 Saat Sonra Randevunuz',
-        'END:VALARM',
-        'BEGIN:VALARM',
-        'TRIGGER:-PT15M',
-        'ACTION:DISPLAY',
-        'DESCRIPTION:15 Dakika Sonra Randevunuz',
-        'END:VALARM',
-        'END:VEVENT'
-      ].filter(Boolean);
-      return lines.join('\r\n');
-    }).join('\r\n');
-
-    // ICS dosyası oluştur
-    const fullICS = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Randevu Sistemi//TR',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      icsContent,
-      'END:VCALENDAR'
-    ].join('\r\n');
-
-    // Dosyayı indir
-    const blob = new Blob([fullICS], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `randevular-${date}.ics`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
-
-    addToast(`${dateReservations.length} randevu takvime eklendi`, 'success');
-  };
-
   if (reservations.length === 0) {
     return (
       <div className="text-center py-16">
@@ -763,6 +689,56 @@ function ReservationsList({
 
   return (
     <div className="space-y-4">
+      {/* Toplu Takvime Ekleme - Ana Buton */}
+      {filteredReservations.length > 0 && (
+        <button
+          onClick={() => {
+            // Tüm filtrelenmiş randevuları takvime ekle
+            const events = filteredReservations.map(res => reservationToCalendarEvent(res));
+            const icsContent = events.map(event => {
+              const lines = [
+                'BEGIN:VEVENT',
+                `DTSTART:${event.startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                `DTEND:${event.endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                `SUMMARY:${event.title}`,
+                `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
+                event.location ? `LOCATION:${event.location}` : '',
+                `UID:${Date.now()}-${Math.random().toString(36).substring(2)}@randevu-sistemi.com`,
+                'END:VEVENT'
+              ].filter(Boolean);
+              return lines.join('\r\n');
+            }).join('\r\n');
+
+            const fullICS = [
+              'BEGIN:VCALENDAR',
+              'VERSION:2.0',
+              'PRODID:-//Randevu Sistemi//TR',
+              icsContent,
+              'END:VCALENDAR'
+            ].join('\r\n');
+
+            const blob = new Blob([fullICS], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tum-randevular-${new Date().toISOString().split('T')[0]}.ics`;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }, 100);
+
+            addToast(`${filteredReservations.length} randevu takvime eklendi`, 'success');
+          }}
+          className="w-full h-14 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-white font-heading font-bold text-base transition-all duration-200 flex items-center justify-center gap-3 active:scale-98"
+        >
+          <Calendar size={20} strokeWidth={2.5} />
+          <span>Tüm Randevuları Takvime Ekle ({filteredReservations.length})</span>
+        </button>
+      )}
+      
       {/* Filter Tabs */}
       <div className="flex gap-2 flex-wrap">
         <button
@@ -800,47 +776,9 @@ function ReservationsList({
         </button>
       </div>
 
-      {/* Tarihe Göre Gruplu Gösterim */}
-      <div className="space-y-6">
-        {Object.entries(groupedByDate).map(([date, dateReservations]) => {
-          const reservationsArray = dateReservations as any[];
-          
-          return (
-            <div key={date} className="space-y-3">
-              {/* Tarih Başlığı ve Toplu Takvim Butonu */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                    <Calendar size={20} className="text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-base text-[var(--chrome-white)]">
-                      {new Date(date).toLocaleDateString('tr-TR', { 
-                        day: 'numeric', 
-                        month: 'long', 
-                        year: 'numeric',
-                        weekday: 'long'
-                      })}
-                    </h3>
-                    <p className="text-xs text-[var(--muted-lead)]">
-                      {reservationsArray.length} randevu
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Toplu Takvime Ekle Butonu */}
-                <button
-                  onClick={() => handleBulkAddToCalendar(date)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 font-heading font-semibold text-sm transition-all duration-200"
-                >
-                  <Calendar size={16} />
-                  Tümünü Takvime Ekle
-                </button>
-              </div>
-
-              {/* Reservations Grid for this date */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {reservationsArray.map((reservation, index) => (
+      {/* Reservations Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {filteredReservations.map((reservation, index) => (
           <motion.div
             key={reservation.id}
             initial={{ opacity: 0, y: 20 }}
@@ -848,8 +786,26 @@ function ReservationsList({
             transition={{ delay: index * 0.05 }}
             className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl p-4 hover:border-purple-500/30 transition-all duration-200"
           >
-            {/* Status Badge */}
-            <div className="absolute top-3 right-3">
+            {/* Status Badge and Calendar Button */}
+            <div className="absolute top-3 right-3 flex items-center gap-2">
+              {/* Takvime Ekle - Büyük İkon */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try {
+                    const event = reservationToCalendarEvent(reservation);
+                    const calendarAction = getDefaultCalendarAction(event);
+                    calendarAction();
+                  } catch (error) {
+                    console.error('Takvime ekleme hatası:', error);
+                  }
+                }}
+                className="p-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 hover:text-cyan-200 transition-all duration-200 hover:scale-110"
+                title="Takvime Ekle"
+              >
+                <Calendar size={18} strokeWidth={2.5} />
+              </button>
+              
               {reservation.status === 'confirmed' ? (
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                   <CheckCircle2 size={12} className="text-emerald-400" />
@@ -892,24 +848,6 @@ function ReservationsList({
                 {reservation.pricing?.totalAmount || reservation.totalPrice}₺
               </span>
               <div className="flex items-center gap-2">
-                {/* Takvime Ekle Butonu */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    try {
-                      const event = reservationToCalendarEvent(reservation);
-                      const calendarAction = getDefaultCalendarAction(event);
-                      calendarAction();
-                    } catch (error) {
-                      console.error('Takvime ekleme hatası:', error);
-                    }
-                  }}
-                  className="p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-400 transition-all duration-200"
-                  title="Takvime Ekle"
-                >
-                  <Calendar size={16} />
-                </button>
-                
                 {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
                   <button
                     onClick={(e) => {
@@ -932,11 +870,7 @@ function ReservationsList({
               </div>
             </div>
           </motion.div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+        ))}
       </div>
 
       {/* Cancel Dialog */}
