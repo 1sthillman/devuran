@@ -25,6 +25,7 @@ import { reservationService } from '@/services/reservationService';
 import { soundService } from '@/services/soundService';
 import { useUIStore } from '@/store/uiStore';
 import { CancelAppointmentDialog } from '@/components/booking/CancelAppointmentDialog';
+import { reservationToCalendarEvent, getDefaultCalendarAction } from '@/utils/calendarUtils';
 import type { Reservation, SlotReservation } from '@/types';
 
 interface ReservationManagerProps {
@@ -404,18 +405,70 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
 
       {/* Confirmed Reservations */}
       <div>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-            <Check size={20} className="text-white" strokeWidth={2.5} />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+              <Check size={20} className="text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                Onaylanmış Rezervasyonlar
+              </h3>
+              <p className="text-xs text-[var(--muted-lead)]">
+                {confirmedReservations.length} aktif rezervasyon
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
-              Onaylanmış Rezervasyonlar
-            </h3>
-            <p className="text-xs text-[var(--muted-lead)]">
-              {confirmedReservations.length} aktif rezervasyon
-            </p>
-          </div>
+          
+          {/* Tümünü Takvime Ekle Butonu */}
+          {confirmedReservations.length > 0 && (
+            <button
+              onClick={() => {
+                // Tüm onaylı randevuları takvime ekle
+                const events = confirmedReservations.map(res => reservationToCalendarEvent(res));
+                const icsContent = events.map(event => {
+                  const lines = [
+                    'BEGIN:VEVENT',
+                    `DTSTART:${event.startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                    `DTEND:${event.endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                    `SUMMARY:${event.title}`,
+                    `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
+                    event.location ? `LOCATION:${event.location}` : '',
+                    `UID:${Date.now()}-${Math.random().toString(36).substring(2)}@randevu-sistemi.com`,
+                    'END:VEVENT'
+                  ].filter(Boolean);
+                  return lines.join('\r\n');
+                }).join('\r\n');
+
+                const fullICS = [
+                  'BEGIN:VCALENDAR',
+                  'VERSION:2.0',
+                  'PRODID:-//Randevu Sistemi//TR',
+                  icsContent,
+                  'END:VCALENDAR'
+                ].join('\r\n');
+
+                const blob = new Blob([fullICS], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `onaylanmis-randevular-${new Date().toISOString().split('T')[0]}.ics`;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => {
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }, 100);
+
+                addToast(`${confirmedReservations.length} randevu takvime eklendi`, 'success');
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 font-heading font-semibold text-sm transition-all duration-200"
+            >
+              <Calendar size={16} strokeWidth={2.5} />
+              Tümünü Takvime Ekle
+            </button>
+          )}
         </div>
 
         {confirmedReservations.length === 0 ? (
@@ -459,6 +512,23 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                       </div>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
+                      {/* Takvime Ekle Butonu */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            const event = reservationToCalendarEvent(reservation);
+                            const calendarAction = getDefaultCalendarAction(event);
+                            calendarAction();
+                          } catch (error) {
+                            console.error('Takvime ekleme hatası:', error);
+                          }
+                        }}
+                        className="w-10 h-10 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 flex items-center justify-center transition-all duration-200"
+                        title="Takvime Ekle"
+                      >
+                        <Calendar size={18} className="text-cyan-400" strokeWidth={2.5} />
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
