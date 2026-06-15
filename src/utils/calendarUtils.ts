@@ -202,25 +202,12 @@ Sipariş No: ${reservation.id.slice(0, 8).toUpperCase()}`;
 
 /**
  * Generate Google Calendar link (opens app on mobile, web on desktop)
+ * Mobilde uygulama varsa direkt açar, yoksa web açar - HİÇ İNDİRME YOK
  */
 export function generateGoogleCalendarLink(event: CalendarEvent): string {
   const startDate = formatCalendarDate(event.startDate);
   const endDate = formatCalendarDate(event.endDate);
   
-  // Android için intent URL - direkt Google Calendar uygulamasını açar
-  const isAndroid = /android/i.test(navigator.userAgent);
-  
-  if (isAndroid) {
-    // Android Intent URL - Google Calendar uygulaması direkt açılır
-    const title = encodeURIComponent(event.title);
-    const details = encodeURIComponent(event.description);
-    const location = encodeURIComponent(event.location || '');
-    
-    // Google Calendar app intent
-    return `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}&ctz=Europe/Istanbul`;
-  }
-  
-  // Desktop/diğer cihazlar için standart URL
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: event.title,
@@ -230,6 +217,7 @@ export function generateGoogleCalendarLink(event: CalendarEvent): string {
     ctz: 'Europe/Istanbul'
   });
   
+  // Google Calendar URL - mobilde app varsa açar, yoksa web açar
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
@@ -461,64 +449,130 @@ export function openAppleCalendar(event: CalendarEvent): void {
 }
 
 /**
- * Add event to calendar - Universal solution for all devices
+ * Detect device manufacturer from user agent
+ * Tüm Android markaları için kapsamlı algılama
+ */
+function detectManufacturer(): string {
+  const ua = navigator.userAgent.toLowerCase();
+  
+  // Samsung (en yaygın)
+  if (/samsung/i.test(ua)) return 'samsung';
+  
+  // Xiaomi ailesi (Xiaomi, Redmi, Mi, Poco)
+  if (/xiaomi|mi\s|redmi|poco/i.test(ua)) return 'xiaomi';
+  
+  // Huawei ailesi (Huawei, Honor)
+  if (/huawei|honor/i.test(ua)) return 'huawei';
+  
+  // Oppo
+  if (/oppo/i.test(ua)) return 'oppo';
+  
+  // Vivo
+  if (/vivo/i.test(ua)) return 'vivo';
+  
+  // OnePlus
+  if (/oneplus/i.test(ua)) return 'oneplus';
+  
+  // Realme (ColorOS kullanır)
+  if (/realme/i.test(ua)) return 'realme';
+  
+  // Google Pixel
+  if (/pixel/i.test(ua)) return 'google';
+  
+  // Asus
+  if (/asus/i.test(ua)) return 'asus';
+  
+  // Nokia (HMD Global)
+  if (/nokia/i.test(ua)) return 'nokia';
+  
+  // Motorola
+  if (/motorola|moto\s/i.test(ua)) return 'motorola';
+  
+  // LG
+  if (/lg/i.test(ua)) return 'lg';
+  
+  // Sony
+  if (/sony/i.test(ua)) return 'sony';
+  
+  // HTC
+  if (/htc/i.test(ua)) return 'htc';
+  
+  // Lenovo
+  if (/lenovo/i.test(ua)) return 'lenovo';
+  
+  // Tecno Mobile
+  if (/tecno/i.test(ua)) return 'tecno';
+  
+  // Infinix
+  if (/infinix/i.test(ua)) return 'infinix';
+  
+  // Itel
+  if (/itel/i.test(ua)) return 'itel';
+  
+  // ZTE
+  if (/zte/i.test(ua)) return 'zte';
+  
+  // Meizu
+  if (/meizu/i.test(ua)) return 'meizu';
+  
+  // Casper (Türkiye)
+  if (/casper/i.test(ua)) return 'casper';
+  
+  // Vestel (Türkiye)
+  if (/vestel/i.test(ua)) return 'vestel';
+  
+  // General Mobile (Türkiye)
+  if (/general\s*mobile/i.test(ua)) return 'generalmobile';
+  
+  return 'generic';
+}
+
+/**
+ * Add event to calendar - Smart platform detection with NO DOWNLOAD
  */
 export function addToCalendar(event: CalendarEvent): void {
-  const icsContent = generateICSFile(event);
   const userAgent = navigator.userAgent.toLowerCase();
   const isIOS = /iphone|ipad|ipod/i.test(userAgent);
   const isAndroid = /android/i.test(userAgent);
   
   if (isIOS) {
-    // iOS - data URL ile direkt Calendar uygulaması açılır
-    const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
-    window.location.href = dataUrl;
+    // iOS - data URL ile direkt Calendar açılır (indirme yok)
+    openIOSCalendar(event);
   } else if (isAndroid) {
-    // Android - ICS dosyası indir
-    // Sistem otomatik olarak tüm yüklü takvim uygulamalarını gösterir:
-    // Samsung Calendar, Xiaomi Calendar, Google Calendar, Outlook vb.
-    const blob = new Blob([icsContent], { 
-      type: 'text/calendar;charset=utf-8'
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `randevu-${Date.now()}.ics`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    
-    // Cleanup
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
+    // Android - Google Calendar URL kullan (app varsa açar, yoksa web açar)
+    // Bu yöntem TAMAMEN indirme olmadan çalışır
+    openAndroidCalendar(event);
   } else {
-    // Desktop - ICS dosyası indir
-    // Varsayılan takvim uygulaması otomatik açılır
-    const blob = new Blob([icsContent], { 
-      type: 'text/calendar;charset=utf-8'
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `randevu-${Date.now()}.ics`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
+    // Desktop - Google Calendar web
+    window.open(generateGoogleCalendarLink(event), '_blank');
   }
+}
+
+/**
+ * Open iOS Calendar directly (NO DOWNLOAD)
+ */
+function openIOSCalendar(event: CalendarEvent): void {
+  const icsContent = generateICSFile(event);
+  // data: URL - Safari otomatik olarak Calendar uygulamasını açar
+  const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+  window.location.href = dataUrl;
+}
+
+/**
+ * Open Android Calendar - NO DOWNLOAD, DIRECT APP
+ * Google Calendar URL kullanır: app varsa açar, yoksa web açar
+ */
+function openAndroidCalendar(event: CalendarEvent): void {
+  // Google Calendar URL'i - mobilde app varsa açar, yoksa web açar
+  // Bu yöntem tüm Android cihazlarda çalışır ve HİÇ İNDİRME OLMAZ
+  const gcalUrl = generateGoogleCalendarLink(event);
+  window.open(gcalUrl, '_blank');
 }
 
 /**
  * Get default calendar action based on platform
  */
 export function getDefaultCalendarAction(event: CalendarEvent): () => void {
-  // Tek bir evrensel fonksiyon - tüm platformlar için çalışır
   return () => addToCalendar(event);
 }
 
