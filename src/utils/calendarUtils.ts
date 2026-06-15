@@ -204,20 +204,32 @@ Sipariş No: ${reservation.id.slice(0, 8).toUpperCase()}`;
  * Generate Google Calendar link (opens app on mobile, web on desktop)
  */
 export function generateGoogleCalendarLink(event: CalendarEvent): string {
+  const startDate = formatCalendarDate(event.startDate);
+  const endDate = formatCalendarDate(event.endDate);
+  
+  // Android için intent URL - direkt Google Calendar uygulamasını açar
+  const isAndroid = /android/i.test(navigator.userAgent);
+  
+  if (isAndroid) {
+    // Android Intent URL - Google Calendar uygulaması direkt açılır
+    const title = encodeURIComponent(event.title);
+    const details = encodeURIComponent(event.description);
+    const location = encodeURIComponent(event.location || '');
+    
+    // Google Calendar app intent
+    return `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}&ctz=Europe/Istanbul`;
+  }
+  
+  // Desktop/diğer cihazlar için standart URL
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: event.title,
     details: event.description,
-    dates: `${formatCalendarDate(event.startDate)}/${formatCalendarDate(event.endDate)}`,
+    dates: `${startDate}/${endDate}`,
     location: event.location || '',
-    ctz: 'Europe/Istanbul',
-    // Android için direkt uygulama açılması
-    sf: 'true',
-    output: 'xml'
+    ctz: 'Europe/Istanbul'
   });
   
-  // Android cihazlarda Google Calendar uygulaması varsa direkt açar
-  // Yoksa web versiyonu açılır
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
@@ -319,13 +331,28 @@ export function generateICSFile(event: CalendarEvent): string {
 export function downloadICSFile(event: CalendarEvent, filename: string = 'randevu.ics'): void {
   const icsContent = generateICSFile(event);
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  
+  // iOS Safari için özel işlem
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|fxios/i.test(navigator.userAgent);
+  
+  if (isIOS && isSafari) {
+    // iOS Safari'de direkt Calendar uygulamasını aç
+    // Blob URL yerine data URL kullan
+    const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+    window.location.href = dataUrl;
+    return;
+  }
+  
+  // Diğer cihazlar için normal indirme
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
+  link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -396,12 +423,28 @@ export function generateWebcalURL(event: CalendarEvent): string {
  */
 export function openAppleCalendar(event: CalendarEvent): void {
   const icsContent = generateICSFile(event);
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|fxios/i.test(navigator.userAgent);
   
-  // iOS ve Safari için direkt data URL (takvim uygulaması otomatik açılır)
-  const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
-  
-  // Yeni pencerede aç - iOS otomatik olarak Calendar uygulamasına yönlendirir
-  window.location.href = dataUrl;
+  if (isIOS && isSafari) {
+    // iOS Safari - data URL direkt Calendar uygulamasını açar
+    const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+    window.location.href = dataUrl;
+  } else if (isIOS) {
+    // iOS başka tarayıcı (Chrome, Firefox) - ICS indir
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `randevu-${Date.now()}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } else {
+    // macOS veya diğer - ICS indir
+    downloadICSFile(event, `randevu-${Date.now()}.ics`);
+  }
 }
 
 /**
@@ -409,25 +452,39 @@ export function openAppleCalendar(event: CalendarEvent): void {
  */
 export function getDefaultCalendarAction(event: CalendarEvent): () => void {
   const platform = detectPlatform();
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isAndroid = /android/i.test(userAgent);
+  const isIOS = /iphone|ipad|ipod/i.test(userAgent);
   
-  switch (platform) {
-    case 'ios':
-    case 'macos':
-      // Apple devices - direkt Calendar uygulamasını aç
-      return () => openAppleCalendar(event);
-    
-    case 'android':
-      // Android - Google Calendar web'i aç (direkt uygulamaya gider)
-      return () => window.open(generateGoogleCalendarLink(event), '_blank');
-    
-    case 'windows':
-      // Windows - ICS indir (Outlook veya Windows Calendar açar)
-      return () => downloadICSFile(event, `randevu-${Date.now()}.ics`);
-    
-    default:
-      // Diğer platformlar - ICS indir
-      return () => downloadICSFile(event, `randevu-${Date.now()}.ics`);
+  if (isAndroid) {
+    // Android - Google Calendar intent URL kullan
+    return () => {
+      const startMs = event.startDate.getTime();
+      const endMs = event.endDate.getTime();
+      const title = encodeURIComponent(event.title);
+      const details = encodeURIComponent(event.description);
+      const location = encodeURIComponent(event.location || '');
+      
+      // Intent URL - Google Calendar uygulamasını direkt açar
+      const intentUrl = `intent://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatCalendarDate(event.startDate)}/${formatCalendarDate(event.endDate)}&details=${details}&location=${location}&ctz=Europe/Istanbul#Intent;scheme=https;package=com.google.android.calendar;end`;
+      
+      // Intent URL'i dene, yoksa web linkini aç
+      window.location.href = intentUrl;
+      
+      // Fallback: 2 saniye sonra web linkini aç (eğer uygulama açılmadıysa)
+      setTimeout(() => {
+        window.open(generateGoogleCalendarLink(event), '_blank');
+      }, 2000);
+    };
   }
+  
+  if (isIOS) {
+    // iOS - direkt Calendar uygulamasını aç
+    return () => openAppleCalendar(event);
+  }
+  
+  // Windows/Mac Desktop - ICS indir
+  return () => downloadICSFile(event, `randevu-${Date.now()}.ics`);
 }
 
 /**
