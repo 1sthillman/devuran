@@ -461,112 +461,56 @@ export function openAppleCalendar(event: CalendarEvent): void {
 }
 
 /**
- * Detect device manufacturer
+ * Add event to calendar - Universal solution for all devices
  */
-function detectManufacturer(): string {
-  const ua = navigator.userAgent.toLowerCase();
+export function addToCalendar(event: CalendarEvent): void {
+  const icsContent = generateICSFile(event);
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isIOS = /iphone|ipad|ipod/i.test(userAgent);
+  const isAndroid = /android/i.test(userAgent);
   
-  if (/samsung/i.test(ua)) return 'samsung';
-  if (/xiaomi|mi |redmi/i.test(ua)) return 'xiaomi';
-  if (/huawei|honor/i.test(ua)) return 'huawei';
-  if (/oppo/i.test(ua)) return 'oppo';
-  if (/vivo/i.test(ua)) return 'vivo';
-  if (/oneplus/i.test(ua)) return 'oneplus';
-  if (/pixel/i.test(ua)) return 'google';
-  if (/nokia/i.test(ua)) return 'nokia';
-  if (/motorola|moto/i.test(ua)) return 'motorola';
-  if (/lg/i.test(ua)) return 'lg';
-  if (/sony/i.test(ua)) return 'sony';
-  
-  return 'generic';
-}
-
-/**
- * Open native calendar app on Android devices
- */
-export function openAndroidCalendar(event: CalendarEvent): void {
-  const manufacturer = detectManufacturer();
-  const startMs = event.startDate.getTime();
-  const endMs = event.endDate.getTime();
-  const title = encodeURIComponent(event.title);
-  const description = encodeURIComponent(event.description);
-  const location = encodeURIComponent(event.location || '');
-  
-  // Intent paketleri - her marka için native takvim uygulaması
-  const calendarPackages = {
-    samsung: 'com.samsung.android.calendar',
-    xiaomi: 'com.android.calendar',
-    huawei: 'com.huawei.calendar',
-    oppo: 'com.coloros.calendar',
-    vivo: 'com.vivo.calendar',
-    oneplus: 'com.oneplus.calendar',
-    google: 'com.google.android.calendar',
-    nokia: 'com.hmdglobal.calendar',
-    motorola: 'com.motorola.calendar',
-    lg: 'com.lge.calendar',
-    sony: 'com.sonymobile.calendar',
-    generic: 'com.android.calendar' // Generic Android Calendar
-  };
-  
-  const packageName = calendarPackages[manufacturer as keyof typeof calendarPackages] || calendarPackages.generic;
-  
-  // Android Calendar Intent URL
-  // Bu URL native takvim uygulamasını direkt açar (indirme yok!)
-  const intentUrl = `intent://www.google.com/calendar/event?action=TEMPLATE&text=${title}&dates=${formatCalendarDate(event.startDate)}/${formatCalendarDate(event.endDate)}&details=${description}&location=${location}#Intent;scheme=https;package=${packageName};S.title=${title};S.description=${description};l.beginTime=${startMs};l.endTime=${endMs};end`;
-  
-  try {
-    // Native takvim uygulamasını aç
-    window.location.href = intentUrl;
-    
-    // Fallback: Eğer native uygulama yoksa Google Calendar'ı dene
-    setTimeout(() => {
-      const googleIntent = `intent://www.google.com/calendar/event?action=TEMPLATE&text=${title}&dates=${formatCalendarDate(event.startDate)}/${formatCalendarDate(event.endDate)}&details=${description}&location=${location}#Intent;scheme=https;package=com.google.android.calendar;end`;
-      window.location.href = googleIntent;
-    }, 1500);
-    
-    // Son fallback: Web takvimi
-    setTimeout(() => {
-      window.open(generateGoogleCalendarLink(event), '_blank');
-    }, 3000);
-  } catch (error) {
-    // Hata durumunda web takvimi aç
-    window.open(generateGoogleCalendarLink(event), '_blank');
-  }
-}
-
-/**
- * Open native calendar app on iOS devices
- */
-export function openIOSCalendar(event: CalendarEvent): void {
-  const startDate = event.startDate;
-  const endDate = event.endDate;
-  
-  // iOS Calendar URL Scheme
-  // calshow: protokolü iOS Calendar uygulamasını direkt açar
-  const year = startDate.getFullYear();
-  const month = String(startDate.getMonth() + 1).padStart(2, '0');
-  const day = String(startDate.getDate()).padStart(2, '0');
-  const hour = String(startDate.getHours()).padStart(2, '0');
-  const minute = String(startDate.getMinutes()).padStart(2, '0');
-  
-  // calshow: URL scheme - native Calendar uygulaması açılır
-  const calendarScheme = `calshow:${year}${month}${day}T${hour}${minute}00`;
-  
-  try {
-    // İlk deneme: Native Calendar URL scheme
-    window.location.href = calendarScheme;
-    
-    // Fallback: ICS data URL (eğer scheme çalışmazsa)
-    setTimeout(() => {
-      const icsContent = generateICSFile(event);
-      const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
-      window.location.href = dataUrl;
-    }, 1000);
-  } catch (error) {
-    // Hata durumunda ICS kullan
-    const icsContent = generateICSFile(event);
+  if (isIOS) {
+    // iOS - data URL ile direkt Calendar uygulaması açılır
     const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
     window.location.href = dataUrl;
+  } else if (isAndroid) {
+    // Android - ICS dosyası indir
+    // Sistem otomatik olarak tüm yüklü takvim uygulamalarını gösterir:
+    // Samsung Calendar, Xiaomi Calendar, Google Calendar, Outlook vb.
+    const blob = new Blob([icsContent], { 
+      type: 'text/calendar;charset=utf-8'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `randevu-${Date.now()}.ics`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  } else {
+    // Desktop - ICS dosyası indir
+    // Varsayılan takvim uygulaması otomatik açılır
+    const blob = new Blob([icsContent], { 
+      type: 'text/calendar;charset=utf-8'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `randevu-${Date.now()}.ics`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
   }
 }
 
@@ -574,23 +518,8 @@ export function openIOSCalendar(event: CalendarEvent): void {
  * Get default calendar action based on platform
  */
 export function getDefaultCalendarAction(event: CalendarEvent): () => void {
-  const userAgent = navigator.userAgent.toLowerCase();
-  const isIOS = /iphone|ipad|ipod/i.test(userAgent);
-  const isAndroid = /android/i.test(userAgent);
-  
-  if (isAndroid) {
-    // Android - Marka bazlı native takvim uygulaması
-    // Samsung, Xiaomi, Huawei, Oppo, Vivo vb. tüm markalar
-    return () => openAndroidCalendar(event);
-  }
-  
-  if (isIOS) {
-    // iOS - Native Apple Calendar
-    return () => openIOSCalendar(event);
-  }
-  
-  // PC/Desktop - Google Calendar web
-  return () => window.open(generateGoogleCalendarLink(event), '_blank');
+  // Tek bir evrensel fonksiyon - tüm platformlar için çalışır
+  return () => addToCalendar(event);
 }
 
 /**
