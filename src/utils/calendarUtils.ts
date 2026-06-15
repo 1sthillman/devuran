@@ -528,7 +528,7 @@ function detectManufacturer(): string {
 }
 
 /**
- * Add event to calendar - Smart platform detection with NO DOWNLOAD
+ * Add event to calendar - Smart platform detection
  */
 export function addToCalendar(event: CalendarEvent): void {
   const userAgent = navigator.userAgent.toLowerCase();
@@ -536,12 +536,11 @@ export function addToCalendar(event: CalendarEvent): void {
   const isAndroid = /android/i.test(userAgent);
   
   if (isIOS) {
-    // iOS - data URL ile direkt Calendar açılır (indirme yok)
+    // iOS - data URL ile direkt Calendar açılır
     openIOSCalendar(event);
   } else if (isAndroid) {
-    // Android - Google Calendar URL kullan (app varsa açar, yoksa web açar)
-    // Bu yöntem TAMAMEN indirme olmadan çalışır
-    openAndroidCalendar(event);
+    // Android - Marka native takvimi → Google Calendar → Google Play
+    openAndroidCalendarWithFallback(event);
   } else {
     // Desktop - Google Calendar web
     window.open(generateGoogleCalendarLink(event), '_blank');
@@ -549,7 +548,7 @@ export function addToCalendar(event: CalendarEvent): void {
 }
 
 /**
- * Open iOS Calendar directly (NO DOWNLOAD)
+ * Open iOS Calendar directly
  */
 function openIOSCalendar(event: CalendarEvent): void {
   const icsContent = generateICSFile(event);
@@ -559,14 +558,93 @@ function openIOSCalendar(event: CalendarEvent): void {
 }
 
 /**
- * Open Android Calendar - NO DOWNLOAD, DIRECT APP
- * Google Calendar URL kullanır: app varsa açar, yoksa web açar
+ * Open Android Calendar with Smart Fallback
+ * 1. Marka native takvimi varsa aç
+ * 2. Yoksa Google Calendar uygulamasını aç
+ * 3. O da yoksa Google Play'e yönlendir (Google Calendar indirilsin)
  */
-function openAndroidCalendar(event: CalendarEvent): void {
-  // Google Calendar URL'i - mobilde app varsa açar, yoksa web açar
-  // Bu yöntem tüm Android cihazlarda çalışır ve HİÇ İNDİRME OLMAZ
-  const gcalUrl = generateGoogleCalendarLink(event);
-  window.open(gcalUrl, '_blank');
+function openAndroidCalendarWithFallback(event: CalendarEvent): void {
+  const manufacturer = detectManufacturer();
+  const startMs = event.startDate.getTime();
+  const endMs = event.endDate.getTime();
+  
+  // Marka bazlı Calendar package isimleri
+  const calendarPackages: Record<string, string> = {
+    'samsung': 'com.samsung.android.calendar',
+    'xiaomi': 'com.android.calendar', // MIUI Calendar
+    'huawei': 'com.huawei.calendar',
+    'oppo': 'com.coloros.calendar',
+    'vivo': 'com.bbk.calendar',
+    'oneplus': 'com.oneplus.calendar',
+    'realme': 'com.coloros.calendar',
+    'google': 'com.google.android.calendar',
+    'nokia': 'com.hmdglobal.calendar',
+    'motorola': 'com.motorola.calendar',
+    'asus': 'com.asus.calendar',
+    'lg': 'com.lge.calendar',
+    'sony': 'com.sonymobile.calendar',
+    'htc': 'com.htc.calendar',
+    'lenovo': 'com.lenovo.calendar',
+    'infinix': 'com.transsion.calendar',
+    'tecno': 'com.transsion.calendar',
+    'itel': 'com.transsion.calendar',
+    'zte': 'com.zte.calendar',
+    'meizu': 'com.meizu.calendar',
+    'casper': 'com.android.calendar',
+    'vestel': 'com.android.calendar',
+    'generalmobile': 'com.android.calendar',
+    'generic': 'com.android.calendar'
+  };
+  
+  const brandPackage = calendarPackages[manufacturer] || calendarPackages['generic'];
+  
+  // Intent URL parametreleri
+  const intentParams = {
+    action: 'android.intent.action.INSERT',
+    type: 'vnd.android.cursor.item/event',
+    title: encodeURIComponent(event.title),
+    description: encodeURIComponent(event.description),
+    location: encodeURIComponent(event.location || ''),
+    beginTime: startMs,
+    endTime: endMs
+  };
+  
+  // Google Play fallback URL (Google Calendar indirme)
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.google.android.calendar';
+  
+  // 1. Önce marka native takvimini dene
+  const brandIntent = 
+    `intent:#Intent;` +
+    `action=${intentParams.action};` +
+    `type=${intentParams.type};` +
+    `S.title=${intentParams.title};` +
+    `S.description=${intentParams.description};` +
+    `S.eventLocation=${intentParams.location};` +
+    `l.beginTime=${intentParams.beginTime};` +
+    `l.endTime=${intentParams.endTime};` +
+    `package=${brandPackage};` +
+    `S.browser_fallback_url=${encodeURIComponent(createGoogleCalendarIntent(intentParams, playStoreUrl))};` +
+    `end`;
+  
+  // Intent URL'i aç
+  window.location.href = brandIntent;
+}
+
+/**
+ * Create Google Calendar Intent with Play Store fallback
+ */
+function createGoogleCalendarIntent(params: any, playStoreUrl: string): string {
+  return `intent:#Intent;` +
+    `action=${params.action};` +
+    `type=${params.type};` +
+    `S.title=${params.title};` +
+    `S.description=${params.description};` +
+    `S.eventLocation=${params.location};` +
+    `l.beginTime=${params.beginTime};` +
+    `l.endTime=${params.endTime};` +
+    `package=com.google.android.calendar;` +
+    `S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};` +
+    `end`;
 }
 
 /**
