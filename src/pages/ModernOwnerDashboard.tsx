@@ -776,101 +776,165 @@ function ReservationsList({
         </button>
       </div>
 
-      {/* Reservations Grid */}
+      {/* Reservations Grid - Modern Design */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredReservations.map((reservation, index) => (
-          <motion.div
-            key={reservation.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl p-4 hover:border-purple-500/30 transition-all duration-200"
-          >
-            {/* Status Badge and Calendar Button */}
-            <div className="absolute top-3 right-3 flex items-center gap-2">
-              {/* Takvime Ekle - Büyük İkon */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  try {
-                    const event = reservationToCalendarEvent(reservation);
-                    const calendarAction = getDefaultCalendarAction(event);
-                    calendarAction();
-                  } catch (error) {
-                    console.error('Takvime ekleme hatası:', error);
-                  }
-                }}
-                className="p-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 hover:text-cyan-200 transition-all duration-200 hover:scale-110"
-                title="Takvime Ekle"
-              >
-                <Calendar size={18} strokeWidth={2.5} />
-              </button>
+        {filteredReservations.map((reservation, index) => {
+          const isPending = reservation.status === 'pending';
+          const isConfirmed = reservation.status === 'confirmed' || reservation.status === 'deposit_paid' || reservation.status === 'fully_paid';
+          
+          return (
+            <motion.div
+              key={reservation.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className={cn(
+                "relative overflow-hidden rounded-3xl p-5 hover:border-opacity-50 transition-all duration-300 group cursor-pointer",
+                isPending 
+                  ? "border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-white/[0.02] to-orange-500/5"
+                  : "border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-white/[0.02] to-teal-500/5"
+              )}
+              onClick={() => onViewDetails(reservation)}
+            >
+              {/* Glow effect */}
+              <div className={cn(
+                "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                isPending
+                  ? "bg-gradient-to-br from-amber-500/5 to-orange-500/5"
+                  : "bg-gradient-to-br from-emerald-500/5 to-teal-500/5"
+              )} />
               
-              {reservation.status === 'confirmed' ? (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <CheckCircle2 size={12} className="text-emerald-400" />
-                  <span className="text-xs font-semibold text-emerald-400">Onaylandı</span>
+              <div className="relative space-y-3.5">
+                {/* Header - Müşteri ve Status */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg",
+                      isPending
+                        ? "bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/30"
+                        : "bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/30"
+                    )}>
+                      {isPending ? (
+                        <Clock size={20} className="text-white" strokeWidth={2.5} />
+                      ) : (
+                        <CheckCircle2 size={20} className="text-white" strokeWidth={2.5} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] truncate">
+                        {reservation.userName || reservation.customerName}
+                      </h4>
+                      <p className="font-mono text-xs text-[var(--muted-lead)]">
+                        {reservation.userPhone || reservation.customerPhone}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Status Badge - Kompakt */}
+                  <span className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border flex-shrink-0",
+                    isPending
+                      ? "bg-amber-500/20 border-amber-500/30 text-amber-300"
+                      : "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
+                  )}>
+                    {isPending ? 'Bekliyor' : 'Onaylı'}
+                  </span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <Clock size={12} className="text-amber-400" />
-                  <span className="text-xs font-semibold text-amber-400">Bekliyor</span>
+
+                {/* Info Cards */}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {/* Date & Time Card */}
+                  <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                        <Calendar size={16} className="text-cyan-400" strokeWidth={2.5} />
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-mono text-[var(--chrome-white)] font-semibold">
+                          {reservation.date || reservation.checkIn}
+                        </span>
+                        {reservation.startTime && (
+                          <span className="text-[var(--muted-lead)] ml-1.5">
+                            • {reservation.startTime}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price Card */}
+                  <div className={cn(
+                    "p-3.5 rounded-2xl border",
+                    isPending
+                      ? "bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/20"
+                      : "bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/20"
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center",
+                          isPending ? "bg-amber-500/20" : "bg-emerald-500/20"
+                        )}>
+                          <span className={cn(
+                            "text-lg font-bold",
+                            isPending ? "text-amber-400" : "text-emerald-400"
+                          )}>₺</span>
+                        </div>
+                        <span className={cn(
+                          "font-mono font-bold text-xl",
+                          isPending ? "text-amber-400" : "text-emerald-400"
+                        )}>
+                          {reservation.pricing?.totalAmount || reservation.totalPrice}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Customer Name */}
-            <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-3 pr-24">
-              {reservation.userName || reservation.customerName}
-            </h4>
-
-            {/* Info Grid */}
-            <div className="space-y-2 mb-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar size={14} className="text-purple-400" />
-                <span className="text-[var(--chrome-white)]">{reservation.date || reservation.checkIn}</span>
-              </div>
-              {reservation.startTime && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock size={14} className="text-cyan-400" />
-                  <span className="text-[var(--chrome-white)]">{reservation.startTime} - {reservation.endTime}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-sm">
-                <Phone size={14} className="text-pink-400" />
-                <span className="text-[var(--chrome-white)]">{reservation.userPhone || reservation.customerPhone}</span>
-              </div>
-            </div>
-
-            {/* Price and Actions */}
-            <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/[0.08]">
-              <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                {reservation.pricing?.totalAmount || reservation.totalPrice}₺
-              </span>
-              <div className="flex items-center gap-2">
-                {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+                {/* Action Buttons - Modern Oval */}
+                <div className="flex gap-2 pt-1">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCancelDialogReservation(reservation);
+                      try {
+                        const event = reservationToCalendarEvent(reservation);
+                        const calendarAction = getDefaultCalendarAction(event);
+                        calendarAction();
+                      } catch (error) {
+                        console.error('Takvime ekleme hatası:', error);
+                      }
                     }}
-                    className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-all duration-200"
-                    title="İptal Et"
+                    className="flex-1 h-11 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 font-heading font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
                   >
-                    <X size={16} />
+                    <Calendar size={16} strokeWidth={2.5} />
+                    Takvim
                   </button>
-                )}
-                <button
-                  onClick={() => onViewDetails(reservation)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-300 font-semibold text-sm transition-all duration-200"
-                >
-                  <Eye size={14} />
-                  Detay
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewDetails(reservation);
+                    }}
+                    className="flex-1 h-11 rounded-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 font-heading font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
+                  >
+                    <Eye size={16} strokeWidth={2.5} />
+                    Detay
+                  </button>
+                  {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCancelDialogReservation(reservation);
+                      }}
+                      className="w-11 h-11 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-heading font-semibold text-sm transition-all duration-200 flex items-center justify-center active:scale-[0.98]"
+                    >
+                      <X size={16} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Cancel Dialog */}

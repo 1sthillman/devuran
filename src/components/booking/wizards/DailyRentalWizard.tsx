@@ -4,9 +4,10 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Users, Package, CheckCircle2, ChevronDown, Sparkles, Clock } from 'lucide-react';
+import { Calendar, Users, Package, CheckCircle2, ChevronDown, Sparkles, MapPin, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
+import { ModernTimePicker } from '../ModernTimePicker';
 import { servicesService } from '@/services/firebaseService';
 import type { Service } from '@/types';
 import { cn, formatDateToString } from '@/lib/utils';
@@ -34,9 +35,30 @@ export function DailyRentalWizard() {
   const [selectedPkg, setSelectedPkg] = useState<Service | null>(null);
   const [packages, setPackages] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [localName, setLocalName] = useState(customerName || '');
+  const [localPhone, setLocalPhone] = useState(customerPhone || '');
+  const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [eventNotes, setEventNotes] = useState('');
+  const [localAddress, setLocalAddress] = useState('');
+  const [gettingLocation, setGettingLocation] = useState(false);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
+
+  // Kullanıcı bilgilerini otomatik doldur
+  useEffect(() => {
+    if (user && activeStep === 3) {
+      if (!localName && user.displayName) {
+        setLocalName(user.displayName);
+      }
+      if (!localPhone && user.phone) {
+        const cleanPhone = user.phone.replace(/^\+90/, '').replace(/^0/, '');
+        setLocalPhone(cleanPhone);
+      }
+      if (!localEmail && user.email) {
+        setLocalEmail(user.email);
+      }
+    }
+  }, [user, activeStep]);
 
   useEffect(() => {
     if (salon?.id) {
@@ -69,9 +91,9 @@ export function DailyRentalWizard() {
   };
 
   const handleSubmit = async () => {
-    const nameValid = validateName('name', customerName);
-    const phoneValid = validatePhone('phone', customerPhone);
-    const emailValid = customerEmail ? validateEmail('email', customerEmail) : true;
+    const nameValid = validateName('name', localName);
+    const phoneValid = validatePhone('phone', localPhone);
+    const emailValid = localEmail ? validateEmail('email', localEmail) : true;
 
     if (!nameValid || !phoneValid || !emailValid) {
       addToast('Lütfen tüm bilgileri doğru girin', 'error');
@@ -83,9 +105,17 @@ export function DailyRentalWizard() {
       return;
     }
 
+    setCustomerInfo({
+      name: localName,
+      phone: localPhone,
+      email: localEmail,
+      notes: eventNotes,
+      address: localAddress
+    });
+
     setEventDetails({
       eventDate: selectedDate ? formatDateToString(selectedDate) : undefined,
-      eventStartTime, // 🆕 Etkinlik başlangıç saati
+      eventStartTime,
       eventType: selectedEventType || 'other',
       capacity: guestCount,
       selectedPackage: selectedPkg,
@@ -100,6 +130,55 @@ export function DailyRentalWizard() {
     } catch (error: any) {
       addToast(error.message || 'Rezervasyon oluşturulamadı', 'error');
     }
+  };
+
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) {
+      addToast('Tarayıcınız konum özelliğini desteklemiyor', 'error');
+      return;
+    }
+
+    setGettingLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const address = data.display_name || `${latitude}, ${longitude}`;
+            setLocalAddress(address);
+            addToast('Konum alındı!', 'success');
+          } else {
+            setLocalAddress(`Konum: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+            addToast('Konum koordinatları alındı', 'success');
+          }
+        } catch (error) {
+          const { latitude, longitude } = position.coords;
+          setLocalAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          addToast('Konum koordinatları alındı', 'success');
+        }
+        setGettingLocation(false);
+      },
+      (error) => {
+        setGettingLocation(false);
+        let message = 'Konum alınamadı';
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Konum izni reddedildi';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Konum bilgisi kullanılamıyor';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'Konum alma zaman aşımına uğradı';
+        }
+        addToast(message, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   if (!salon || loading) return (
@@ -222,7 +301,7 @@ export function DailyRentalWizard() {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                         className="overflow-hidden relative z-20"
                       >
-                        <div className="px-4 pb-4 space-y-4">
+                        <div className="px-4 pb-4 space-y-3">
                           {step.id === 1 && (
                             <>
                               <div>
@@ -284,15 +363,18 @@ export function DailyRentalWizard() {
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Başlangıç Saati</h4>
-                                <div className="relative">
-                                  <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--silver-frost)]" />
-                                  <input
-                                    type="time"
-                                    value={eventStartTime}
-                                    onChange={(e) => setEventStartTime(e.target.value)}
-                                    className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
-                                  />
-                                </div>
+                                <ModernTimePicker
+                                  value={eventStartTime}
+                                  onChange={setEventStartTime}
+                                  workingHours={
+                                    salon?.workingHours?.start ? {
+                                      start: salon.workingHours.start.open,
+                                      end: salon.workingHours.end.close
+                                    } : undefined
+                                  }
+                                  intervalMinutes={30}
+                                  label="Etkinlik başlangıç saati seçin"
+                                />
                               </div>
                               {selectedDate && selectedEventType && (
                                 <button
@@ -358,17 +440,17 @@ export function DailyRentalWizard() {
                               <input
                                 type="text"
                                 placeholder="Ad Soyad"
-                                value={customerName}
-                                onChange={(e) => setCustomerInfo({ name: e.target.value, phone: customerPhone, email: customerEmail, notes: eventNotes })}
+                                value={localName}
+                                onChange={(e) => setLocalName(e.target.value)}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
                               <input
                                 type="tel"
-                                placeholder="Telefon"
-                                value={customerPhone}
+                                placeholder="5XX XXX XX XX"
+                                value={localPhone}
                                 onChange={(e) => {
                                   const cleaned = e.target.value.replace(/\D/g, '');
-                                  setCustomerInfo({ name: customerName, phone: cleaned.slice(0, 10), email: customerEmail, notes: eventNotes });
+                                  setLocalPhone(cleaned.slice(0, 10));
                                 }}
                                 maxLength={10}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
@@ -376,17 +458,44 @@ export function DailyRentalWizard() {
                               <input
                                 type="email"
                                 placeholder="E-posta (opsiyonel)"
-                                value={customerEmail}
-                                onChange={(e) => setCustomerInfo({ name: customerName, phone: customerPhone, email: e.target.value, notes: eventNotes })}
+                                value={localEmail}
+                                onChange={(e) => setLocalEmail(e.target.value)}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Etkinlik Adresi (Opsiyonel)</h4>
+                                <div className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleGetLocation}
+                                    disabled={gettingLocation}
+                                    className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 text-blue-300 font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                  >
+                                    {gettingLocation ? (
+                                      <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span>Konum alınıyor...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <MapPin size={18} />
+                                        <span>Konumumu Al</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <textarea
+                                    value={localAddress}
+                                    onChange={(e) => setLocalAddress(e.target.value)}
+                                    placeholder="Etkinlik yeri adresi..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                                  />
+                                </div>
+                              </div>
                               <textarea
                                 placeholder="Etkinlik notları (opsiyonel)"
                                 value={eventNotes}
-                                onChange={(e) => {
-                                  setEventNotes(e.target.value);
-                                  setCustomerInfo({ name: customerName, phone: customerPhone, email: customerEmail, notes: e.target.value });
-                                }}
+                                onChange={(e) => setEventNotes(e.target.value)}
                                 rows={2}
                                 className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />

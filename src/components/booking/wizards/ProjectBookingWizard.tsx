@@ -5,7 +5,8 @@ import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { ModernCalendar } from '../ModernCalendar';
-import { Calendar, Users, DollarSign, Package, CheckCircle2, ChevronDown, Sparkles, Clock } from 'lucide-react';
+import { ModernTimePicker } from '../ModernTimePicker';
+import { Calendar, Users, DollarSign, Package, CheckCircle2, ChevronDown, Sparkles, MapPin, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { servicesService } from '@/services/firebaseService';
 import type { Service } from '@/types';
@@ -44,6 +45,8 @@ export function ProjectBookingWizard() {
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
+  const [localAddress, setLocalAddress] = useState('');
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [packages, setPackages] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
@@ -107,20 +110,21 @@ export function ProjectBookingWizard() {
       return;
     }
     
-    setEventDetails({
-      eventDate: localEventDate,
-      eventStartTime: localEventStartTime, // 🆕 Etkinlik başlangıç saati
-      eventType: localEventType,
-      guestCount: localGuestCount,
-      budget: localBudget,
-      selectedPackage: localPackage
-    });
-
     setCustomerInfo({
       name: localName,
       phone: localPhone,
       email: localEmail,
-      notes: localNotes
+      notes: localNotes,
+      address: localAddress
+    });
+
+    setEventDetails({
+      eventDate: localEventDate,
+      eventStartTime: localEventStartTime,
+      eventType: localEventType,
+      guestCount: localGuestCount,
+      budget: localBudget,
+      selectedPackage: localPackage
     });
 
     try {
@@ -131,6 +135,55 @@ export function ProjectBookingWizard() {
     } catch (error: any) {
       addToast(error.message || 'Rezervasyon oluşturulamadı', 'error');
     }
+  };
+
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) {
+      addToast('Tarayıcınız konum özelliğini desteklemiyor', 'error');
+      return;
+    }
+
+    setGettingLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const address = data.display_name || `${latitude}, ${longitude}`;
+            setLocalAddress(address);
+            addToast('Konum alındı!', 'success');
+          } else {
+            setLocalAddress(`Konum: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+            addToast('Konum koordinatları alındı', 'success');
+          }
+        } catch (error) {
+          const { latitude, longitude } = position.coords;
+          setLocalAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          addToast('Konum koordinatları alındı', 'success');
+        }
+        setGettingLocation(false);
+      },
+      (error) => {
+        setGettingLocation(false);
+        let message = 'Konum alınamadı';
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Konum izni reddedildi';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Konum bilgisi kullanılamıyor';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'Konum alma zaman aşımına uğradı';
+        }
+        addToast(message, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   const minDate = new Date();
@@ -251,9 +304,9 @@ export function ProjectBookingWizard() {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                         className="overflow-hidden relative z-20"
                       >
-                        <div className="px-4 pb-4 space-y-4">
+                        <div className="px-4 pb-4 space-y-3">
                           {step.id === 1 && (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Tipi</h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -290,15 +343,18 @@ export function ProjectBookingWizard() {
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Etkinlik Başlangıç Saati</h4>
-                                <div className="relative">
-                                  <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--silver-frost)]" />
-                                  <input
-                                    type="time"
-                                    value={localEventStartTime}
-                                    onChange={(e) => setLocalEventStartTime(e.target.value)}
-                                    className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
-                                  />
-                                </div>
+                                <ModernTimePicker
+                                  value={localEventStartTime}
+                                  onChange={setLocalEventStartTime}
+                                  workingHours={
+                                    salon?.workingHours?.start ? {
+                                      start: salon.workingHours.start.open,
+                                      end: salon.workingHours.end.close
+                                    } : undefined
+                                  }
+                                  intervalMinutes={30}
+                                  label="Etkinlik başlangıç saati seçin"
+                                />
                               </div>
                               {localEventType && localEventDate && (
                                 <button
@@ -315,7 +371,7 @@ export function ProjectBookingWizard() {
                           )}
 
                           {step.id === 2 && (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                               <div>
                                 <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">Misafir Sayısı</h4>
                                 <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03]">
@@ -450,6 +506,36 @@ export function ProjectBookingWizard() {
                                 placeholder="E-posta (opsiyonel)"
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Etkinlik Adresi (Opsiyonel)</h4>
+                                <div className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleGetLocation}
+                                    disabled={gettingLocation}
+                                    className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 text-blue-300 font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                  >
+                                    {gettingLocation ? (
+                                      <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span>Konum alınıyor...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <MapPin size={18} />
+                                        <span>Konumumu Al</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <textarea
+                                    value={localAddress}
+                                    onChange={(e) => setLocalAddress(e.target.value)}
+                                    placeholder="Etkinlik yeri adresi..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                                  />
+                                </div>
+                              </div>
                               <textarea
                                 value={localNotes}
                                 onChange={(e) => setLocalNotes(e.target.value)}

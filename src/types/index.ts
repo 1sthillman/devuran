@@ -144,6 +144,7 @@ export interface Salon {
     cancellationHours: number;
     allowQueue: boolean; // Sıra sistemi aktif mi?
     autoConfirmQueue: boolean; // Sıradan randevuya otomatik geçiş
+    mobileService?: boolean; // 🆕 Konuma hizmet / Mobil hizmet (evde kuaför, evde masaj vb.)
   };
   paymentSettings?: {
     bankTransferEnabled: boolean;

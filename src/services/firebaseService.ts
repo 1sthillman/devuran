@@ -1088,35 +1088,75 @@ export const reviewsService = {
     serviceNames: string[],
     staffName: string
   ) {
+    console.log('🔵 submitAppointmentReview called with:', {
+      appointmentId,
+      userId,
+      salonId,
+      staffId,
+      salonRating,
+      staffRating,
+      hasComment: !!comment,
+      customerName,
+      serviceNames
+    });
+    
     try {
+      // Boş string ve null/undefined kontrolü
+      const hasValidStaff = staffId && staffId.trim() !== '' && staffName && staffName.trim() !== '';
+      
+      console.log('🔵 Staff validation:', {
+        staffId,
+        staffIdTrimmed: staffId?.trim(),
+        staffName,
+        staffNameTrimmed: staffName?.trim(),
+        hasValidStaff
+      });
+      
       const batch = writeBatch(db);
 
       // 1. Create review document
       const reviewRef = doc(collection(db, COLLECTIONS.REVIEWS));
-      batch.set(reviewRef, {
+      const reviewData: any = {
         salonId,
-        staffId,
         userId,
         customerName,
         customerAvatar,
         rating: salonRating, // Salon rating for display
-        staffRating, // Staff rating
         comment,
         serviceNames,
-        staffName,
         date: new Date().toISOString().split('T')[0],
         createdAt: Timestamp.now(),
-      });
+      };
+      
+      // Sadece geçerli staff varsa staff bilgilerini ekle
+      if (hasValidStaff) {
+        reviewData.staffId = staffId;
+        reviewData.staffRating = staffRating;
+        reviewData.staffName = staffName;
+        console.log('🔵 Adding staff data to review');
+      } else {
+        console.log('🔵 Skipping staff data (no valid staff)');
+      }
+      
+      console.log('🔵 Review data to save:', reviewData);
+      batch.set(reviewRef, reviewData);
 
       // 2. Update appointment with review flag
+      console.log('🔵 Preparing appointment update:', appointmentId);
       const appointmentRef = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId);
+      
+      // ⚠️ NOT: Batch işleminde getDoc yapamayız, çünkü permission denied verebilir
+      // Batch işlemi firestore rules'a güvenecek
+      // Eğer userId eşleşmezse, firestore rules zaten engelleyecek
+      
       batch.update(appointmentRef, {
         hasReview: true,
         reviewId: reviewRef.id,
         updatedAt: Timestamp.now(),
       });
 
-      // 3. Update salon rating
+      // 3. Update salon rating      // 3. Update salon rating
+      console.log('🔵 Updating salon rating:', salonId);
       const salonRef = doc(db, COLLECTIONS.SALONS, salonId);
       const salonDoc = await getDoc(salonRef);
       if (salonDoc.exists()) {
@@ -1126,33 +1166,89 @@ export const reviewsService = {
         const newCount = currentCount + 1;
         const newAvg = ((currentAvg * currentCount) + salonRating) / newCount;
         
+        console.log('🔵 Salon rating update:', {
+          currentAvg,
+          currentCount,
+          newAvg: Math.round(newAvg * 10) / 10,
+          newCount
+        });
+        
         batch.update(salonRef, {
           'stats.averageRating': Math.round(newAvg * 10) / 10,
           'stats.reviewCount': newCount,
           updatedAt: Timestamp.now(),
         });
+      } else {
+        console.warn('⚠️ Salon document not found:', salonId);
       }
 
-      // 4. Update staff rating
-      const staffRef = doc(db, COLLECTIONS.STAFF, staffId);
-      const staffDoc = await getDoc(staffRef);
-      if (staffDoc.exists()) {
-        const staffData = staffDoc.data() as Staff;
-        const currentAvg = staffData.rating || 0;
-        const currentCount = staffData.reviewCount || 0;
-        const newCount = currentCount + 1;
-        const newAvg = ((currentAvg * currentCount) + staffRating) / newCount;
-        
-        batch.update(staffRef, {
-          rating: Math.round(newAvg * 10) / 10,
-          reviewCount: newCount,
-        });
+      // 4. Update staff rating - Sadece geçerli staff varsa
+      if (hasValidStaff && staffRating > 0) {
+        console.log('🔵 Updating staff rating:', staffId);
+        try {
+          const staffRef = doc(db, COLLECTIONS.STAFF, staffId);
+          const staffDoc = await getDoc(staffRef);
+          if (staffDoc.exists()) {
+            const staffData = staffDoc.data() as Staff;
+            const currentAvg = staffData.rating || 0;
+            const currentCount = staffData.reviewCount || 0;
+            const newCount = currentCount + 1;
+            const newAvg = ((currentAvg * currentCount) + staffRating) / newCount;
+            
+            console.log('🔵 Staff rating update:', {
+              currentAvg,
+              currentCount,
+              newAvg: Math.round(newAvg * 10) / 10,
+              newCount
+            });
+            
+            batch.update(staffRef, {
+              rating: Math.round(newAvg * 10) / 10,
+              reviewCount: newCount,
+            });
+          } else {
+            console.warn('⚠️ Staff document not found:', staffId);
+          }
+        } catch (staffError) {
+          console.warn('⚠️ Staff rating update failed (non-critical):', staffError);
+          // Staff update başarısız olsa bile review'u kaydet
+        }
+      } else {
+        console.log('🔵 Skipping staff rating update');
       }
 
+      console.log('🔵 Committing batch (review + appointment + salon + staff updates)...');
       await batch.commit();
+      console.log('✅ Batch committed successfully!');
+      console.log('✅ Review submitted successfully! ID:', reviewRef.id);
       return reviewRef.id;
-    } catch (error) {
-      console.error('Error submitting review:', error);
+    } catch (error: any) {
+      console.error('❌ Error in submitAppointmentReview:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        code: error?.code,
+        name: error?.name,
+        stack: error?.stack
+      });
+      
+      // Hangi adımda hata olduğunu tespit et
+      if (error?.code === 'permission-denied') {
+        console.error('🔴 FIRESTORE PERMISSION DENIED');
+        console.error('🔴 Possible reasons:');
+        console.error('  1. User not authenticated');
+        console.error('  2. Firestore rules blocking write');
+        console.error('  3. Token expired');
+      } else if (error?.code === 'not-found') {
+        console.error('🔴 DOCUMENT NOT FOUND');
+        console.error('🔴 Check if salon/appointment/staff documents exist');
+      } else if (error?.code === 'failed-precondition') {
+        console.error('🔴 FIRESTORE INDEX MISSING');
+        console.error('🔴 Check Firestore console for index creation link');
+      } else if (error?.code === 'unavailable') {
+        console.error('🔴 FIRESTORE UNAVAILABLE');
+        console.error('🔴 Network error or Firestore is down');
+      }
+      
       throw error;
     }
   },

@@ -184,86 +184,98 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="relative overflow-hidden rounded-3xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent backdrop-blur-xl"
+                className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-white/[0.02] to-orange-500/5 p-5 hover:border-amber-500/30 transition-all duration-300 group"
               >
                 {/* Glow Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 opacity-50" />
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
-                <div className="relative p-5">
-                  <div className="flex items-start gap-4">
-                    {/* User Avatar */}
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/30">
-                      <User size={24} className="text-white" strokeWidth={2.5} />
+                <div className="relative space-y-3.5">
+                  {/* Header - Müşteri Bilgisi */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
+                      <User size={20} className="text-white" strokeWidth={2.5} />
                     </div>
-
                     <div className="flex-1 min-w-0">
-                      {/* Name */}
-                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-2">
+                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] truncate">
                         {appointment.customerName}
                       </h4>
-                      
-                      {/* Phone */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <Phone size={14} className="text-orange-400" />
-                        <span className="font-mono text-xs text-[var(--silver-frost)]">
-                          {appointment.customerPhone}
+                      <p className="font-mono text-xs text-[var(--muted-lead)]">
+                        {appointment.customerPhone}
+                      </p>
+                    </div>
+                    <span className="px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wide">
+                      Randevu
+                    </span>
+                  </div>
+
+                  {/* Date & Time - Kompakt */}
+                  <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                        <Clock size={16} className="text-cyan-400" strokeWidth={2.5} />
+                      </div>
+                      <span className="font-mono text-[var(--chrome-white)] font-semibold">
+                        {appointment.date} • {appointment.time}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Services - Eğer varsa */}
+                  {appointment.services && appointment.services.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {appointment.services.slice(0, 3).map((service) => (
+                        <span
+                          key={service.id}
+                          className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 font-heading font-semibold text-xs text-purple-300">
+                          {service.name}
                         </span>
-                      </div>
-
-                      {/* Date & Time */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <Clock size={14} className="text-orange-400" />
-                        <span className="font-mono text-xs text-[var(--silver-frost)]">
-                          {appointment.date} • {appointment.time}
+                      ))}
+                      {appointment.services.length > 3 && (
+                        <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 font-heading font-semibold text-xs text-[var(--muted-lead)]">
+                          +{appointment.services.length - 3}
                         </span>
-                      </div>
-
-                      {/* Services */}
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {appointment.services.map((service) => (
-                          <span
-                            key={service.id}
-                            className="px-2.5 py-1 rounded-xl bg-white/[0.08] border border-white/10 font-body text-[10px] text-[var(--chrome-white)]"
-                          >
-                            {service.name} • {service.duration}dk
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Price */}
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30">
-                        <span className="font-mono font-bold text-sm text-orange-300">
-                          {appointment.totalPrice}₺
-                        </span>
-                      </div>
-
-                      {/* Notes */}
-                      {appointment.notes && (
-                        <p className="mt-3 font-body text-xs text-[var(--muted-lead)] italic px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
-                          "{appointment.notes}"
-                        </p>
                       )}
                     </div>
+                  )}
 
-                    {/* Action Buttons */}
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => handleApprove(appointment.id)}
-                        disabled={loading}
-                        className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40"
-                        title="Onayla"
-                      >
-                        <Check size={20} strokeWidth={2.5} />
-                      </button>
-                      <button
-                        onClick={() => setCancelDialogAppointment(appointment)}
-                        disabled={loading}
-                        className="p-3 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
-                        title="Reddet"
-                      >
-                        <X size={20} strokeWidth={2.5} />
-                      </button>
+                  {/* Notes - Eğer varsa */}
+                  {appointment.notes && (
+                    <div className="p-3 rounded-2xl bg-blue-500/5 border border-blue-500/20">
+                      <p className="font-body text-xs text-blue-300 italic line-clamp-2">
+                        💬 {appointment.notes}
+                      </p>
                     </div>
+                  )}
+
+                  {/* Price + Actions Row */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 p-3 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <span className="text-base font-bold text-emerald-400">₺</span>
+                        </div>
+                        <span className="font-mono font-bold text-lg text-emerald-400">
+                          {appointment.totalPrice}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Action Buttons - Modern Inline */}
+                    <button
+                      onClick={() => handleApprove(appointment.id)}
+                      disabled={loading}
+                      className="h-12 px-4 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30 text-white font-heading font-semibold text-sm transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
+                    >
+                      <Check size={16} strokeWidth={2.5} />
+                      Onayla
+                    </button>
+                    <button
+                      onClick={() => setCancelDialogAppointment(appointment)}
+                      disabled={loading}
+                      className="w-12 h-12 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-heading font-semibold text-sm transition-all duration-200 disabled:opacity-50 flex items-center justify-center active:scale-[0.98]"
+                    >
+                      <X size={16} strokeWidth={2.5} />
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -287,8 +299,16 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
         </div>
 
         {confirmedAppointments.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="font-body text-xs text-[var(--muted-lead)]">Onaylanmış randevu yok</p>
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 size={32} className="text-emerald-400" />
+            </div>
+            <p className="font-heading font-semibold text-[var(--chrome-white)] mb-1">
+              Onaylanmış randevu yok
+            </p>
+            <p className="font-body text-sm text-[var(--muted-lead)]">
+              Bekleyen randevuları onaylayın
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -298,82 +318,98 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent backdrop-blur-xl hover:border-emerald-500/50 transition-all"
+                className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-white/[0.02] to-teal-500/5 p-5 hover:border-emerald-500/30 transition-all duration-300 group cursor-pointer"
               >
                 {/* Glow Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-50" />
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
-                <div className="relative p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                      {/* User Avatar */}
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
-                        <User size={24} className="text-white" strokeWidth={2.5} />
+                <div className="relative space-y-3.5">
+                  {/* Header - Müşteri ve Status */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
+                        <CheckCircle2 size={20} className="text-white" strokeWidth={2.5} />
                       </div>
-
                       <div className="flex-1 min-w-0">
-                        {/* Name & Status */}
-                        <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <h4 className="font-heading font-bold text-base text-[var(--chrome-white)]">
-                            {appointment.customerName}
-                          </h4>
+                        <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] truncate">
+                          {appointment.customerName}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5">
                           <StatusBadge status={appointment.status} />
-                        </div>
-                        
-                        {/* Date & Time & Staff */}
-                        <div className="flex items-center gap-3 mb-3 flex-wrap text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <Clock size={14} className="text-emerald-400" />
-                            <span className="font-mono text-[var(--silver-frost)]">
-                              {appointment.date} • {appointment.time}
-                            </span>
-                          </div>
-                          {appointment.staffName && (
-                            <span className="font-body text-[var(--muted-lead)]">
-                              • {appointment.staffName}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Services */}
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {appointment.services.map((service) => (
-                            <span
-                              key={service.id}
-                              className="px-2.5 py-1 rounded-xl bg-white/[0.08] border border-white/10 font-body text-[10px] text-[var(--chrome-white)]"
-                            >
-                              {service.name}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Price */}
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30">
-                          <span className="font-mono font-bold text-sm text-emerald-300">
-                            {appointment.totalPrice}₺
-                          </span>
                         </div>
                       </div>
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
+                    
+                    {/* Action Buttons - Kompakt */}
+                    <div className="flex gap-1.5 flex-shrink-0">
                       <button
                         onClick={() => setCompleteEarlyAppointment(appointment)}
                         disabled={loading}
-                        className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40"
+                        className="w-9 h-9 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 flex items-center justify-center transition-all duration-200"
                         title="Erken Tamamla"
                       >
-                        <CheckCircle2 size={20} strokeWidth={2.5} />
+                        <CheckCircle2 size={16} className="text-emerald-400" strokeWidth={2.5} />
                       </button>
                       <button
                         onClick={() => setCancelDialogAppointment(appointment)}
                         disabled={loading}
-                        className="p-3 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
+                        className="w-9 h-9 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center transition-all duration-200"
                         title="İptal Et"
                       >
-                        <X size={20} strokeWidth={2.5} />
+                        <X size={16} className="text-red-400" strokeWidth={2.5} />
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Info Grid - Kompakt */}
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {/* Date & Time */}
+                    <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                      <div className="flex items-center gap-2.5 text-sm">
+                        <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                          <Clock size={16} className="text-cyan-400" strokeWidth={2.5} />
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-mono text-[var(--chrome-white)] font-semibold">
+                            {appointment.date} • {appointment.time}
+                          </span>
+                          {appointment.staffName && (
+                            <span className="text-[var(--muted-lead)] ml-1.5">
+                              • {appointment.staffName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Services */}
+                    {appointment.services && appointment.services.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {appointment.services.slice(0, 3).map((service) => (
+                          <span
+                            key={service.id}
+                            className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 font-heading font-semibold text-xs text-purple-300">
+                            {service.name}
+                          </span>
+                        ))}
+                        {appointment.services.length > 3 && (
+                          <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 font-heading font-semibold text-xs text-[var(--muted-lead)]">
+                            +{appointment.services.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Price */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <span className="text-base font-bold text-emerald-400">₺</span>
+                        </div>
+                        <span className="font-mono font-bold text-lg text-emerald-400">
+                          {appointment.totalPrice}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

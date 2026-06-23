@@ -5,8 +5,8 @@ import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { ModernCalendar } from '../ModernCalendar';
-import { AppleTimePicker } from '../AppleTimePicker';
-import { Calendar, MapPin, ShoppingCart, Plus, Minus, CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
+import { ModernTimePicker } from '../ModernTimePicker';
+import { Calendar, MapPin, ShoppingCart, Plus, Minus, CheckCircle2, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { servicesService } from '@/services/firebaseService';
 import type { Service } from '@/types';
@@ -36,6 +36,7 @@ export function OrderBookingWizard() {
   const [localDeliveryDate, setLocalDeliveryDate] = useState(deliveryDate || '');
   const [localDeliveryTime, setLocalDeliveryTime] = useState(deliveryTime || '');
   const [localDeliveryAddress, setLocalDeliveryAddress] = useState(deliveryAddress || '');
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [localName, setLocalName] = useState(customerName || '');
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
@@ -144,6 +145,56 @@ export function OrderBookingWizard() {
     } catch (error: any) {
       addToast(error.message || 'Sipariş oluşturulamadı', 'error');
     }
+  };
+
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) {
+      addToast('Tarayıcınız konum özelliğini desteklemiyor', 'error');
+      return;
+    }
+
+    setGettingLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          // Google Geocoding API ile adresi al
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const address = data.display_name || `${latitude}, ${longitude}`;
+            setLocalDeliveryAddress(address);
+            addToast('Konum alındı!', 'success');
+          } else {
+            setLocalDeliveryAddress(`Konum: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+            addToast('Konum koordinatları alındı', 'success');
+          }
+        } catch (error) {
+          const { latitude, longitude } = position.coords;
+          setLocalDeliveryAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          addToast('Konum koordinatları alındı', 'success');
+        }
+        setGettingLocation(false);
+      },
+      (error) => {
+        setGettingLocation(false);
+        let message = 'Konum alınamadı';
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Konum izni reddedildi';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Konum bilgisi kullanılamıyor';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'Konum alma zaman aşımına uğradı';
+        }
+        addToast(message, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   // Minimum date is based on salon's minOrderDays setting
@@ -359,7 +410,7 @@ export function OrderBookingWizard() {
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Saati</h4>
-                                <AppleTimePicker
+                                <ModernTimePicker
                                   value={localDeliveryTime}
                                   onChange={(time) => setLocalDeliveryTime(time)}
                                   workingHours={
@@ -368,18 +419,39 @@ export function OrderBookingWizard() {
                                       end: salon.workingHours.end.close
                                     } : undefined
                                   }
-                                  intervalMinutes={30} // 30 dakika aralıklarla teslimat
+                                  intervalMinutes={30}
+                                  label="Teslimat saati seçin"
                                 />
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Adresi</h4>
-                                <textarea
-                                  value={localDeliveryAddress}
-                                  onChange={(e) => setLocalDeliveryAddress(e.target.value)}
-                                  placeholder="Tam adres (en az 10 karakter)..."
-                                  rows={3}
-                                  className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
-                                />
+                                <div className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleGetLocation}
+                                    disabled={gettingLocation}
+                                    className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 text-blue-300 font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                  >
+                                    {gettingLocation ? (
+                                      <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span>Konum alınıyor...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <MapPin size={18} />
+                                        <span>Konumumu Al</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <textarea
+                                    value={localDeliveryAddress}
+                                    onChange={(e) => setLocalDeliveryAddress(e.target.value)}
+                                    placeholder="Tam adres (en az 10 karakter)..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                                  />
+                                </div>
                               </div>
                               {localDeliveryDate && localDeliveryTime && localDeliveryAddress.length >= 10 && (
                                 <button

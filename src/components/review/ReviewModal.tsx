@@ -23,7 +23,32 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
   const modalContentRef = useRef<HTMLDivElement>(null);
 
   // Check if appointment can be reviewed
-  const canReview = appointment.status === 'completed' && !appointment.hasReview;
+  // Geçmiş randevular (tarih+saat geçmiş) ve onaylanmış/tamamlanmış olanlar değerlendirilebilir
+  const aptDateTime = new Date(`${appointment.date}T${appointment.time || '00:00'}`);
+  const nowTime = new Date();
+  const isPastAppointment = aptDateTime < nowTime;
+  const isValidStatus = appointment.status === 'confirmed' || appointment.status === 'completed';
+  const canReview = isPastAppointment && isValidStatus && !appointment.hasReview;
+  
+  // 🔥 DEBUG: Modal açıldığında kontrol et
+  console.log('🔥 ReviewModal Opened:', {
+    salonName: appointment.salonName,
+    date: appointment.date,
+    time: appointment.time,
+    aptDateTime: aptDateTime.toISOString(),
+    now: nowTime.toISOString(),
+    isPastAppointment,
+    status: appointment.status,
+    isValidStatus,
+    hasReview: appointment.hasReview,
+    canReview,
+  });
+  
+  // Always allow star interaction for UI feedback, just prevent submission
+  const allowStarInteraction = true;
+  
+  // Check if appointment has staff (some businesses don't have staff)
+  const hasStaff = appointment.staffId && appointment.staffName;
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -44,8 +69,20 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
   }, []);
 
   const handleSubmit = async () => {
+    console.log('🔵 ReviewModal - handleSubmit called');
+    console.log('🔵 canReview:', canReview);
+    console.log('🔵 salonRating:', salonRating);
+    console.log('🔵 staffRating:', staffRating);
+    console.log('🔵 hasStaff:', hasStaff);
+    
     // Validate appointment can be reviewed
     if (!canReview) {
+      console.warn('⚠️ Cannot review:', {
+        hasReview: appointment.hasReview,
+        status: appointment.status,
+        isPast: isPastAppointment
+      });
+      
       if (appointment.hasReview) {
         addToast('Bu randevuyu zaten değerlendirdiniz', 'error');
       } else if (appointment.status !== 'completed') {
@@ -54,17 +91,28 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
       return;
     }
 
-    if (salonRating === 0 || staffRating === 0) {
-      addToast('Lütfen hem işletmeyi hem de personeli değerlendirin', 'warning');
+    // İşletme değerlendirmesi zorunlu
+    if (salonRating === 0) {
+      console.warn('⚠️ Salon rating is 0');
+      addToast('Lütfen işletmeyi değerlendirin', 'warning');
       return;
     }
 
+    // Personel varsa personel değerlendirmesi de zorunlu
+    if (hasStaff && staffRating === 0) {
+      console.warn('⚠️ Staff rating is 0 but staff exists');
+      addToast('Lütfen personeli değerlendirin', 'warning');
+      return;
+    }
+
+    console.log('✅ All validations passed, submitting review...');
     setLoading(true);
     try {
-      await onSubmit(salonRating, staffRating, comment);
+      await onSubmit(salonRating, hasStaff ? staffRating : 0, comment);
+      console.log('✅ Review submitted, closing modal');
       onClose();
     } catch (error) {
-      console.error('Error submitting review:', error);
+      console.error('❌ Error in handleSubmit:', error);
     } finally {
       setLoading(false);
     }
@@ -108,27 +156,33 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
     <div className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-sm" onClick={onClose}>
       <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md sm:my-auto h-[85vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
         <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
+          initial={{ y: '100%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          className="w-full bg-[var(--slate-surface)] border border-[var(--obsidian-rim)] rounded-t-3xl sm:rounded-3xl p-4 sm:p-6"
+          className="w-full bg-[var(--slate-surface)] border-2 border-purple-500/30 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl shadow-purple-500/20"
           onClick={(e) => e.stopPropagation()}
         >
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h3 className="font-display font-bold text-lg sm:text-xl text-[var(--chrome-white)]">
-            Deneyiminizi Değerlendirin
-          </h3>
+        <div className="flex items-center justify-between mb-5 sm:mb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 mb-2">
+              <Star size={14} className="text-yellow-400" />
+              <span className="text-xs font-semibold text-yellow-300">Değerlendirme</span>
+            </div>
+            <h3 className="font-display font-bold text-xl sm:text-2xl text-[var(--chrome-white)]">
+              Deneyiminizi Paylaşın
+            </h3>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-white/5 rounded-full transition-colors flex-shrink-0"
           >
-            <X size={18} className="text-[var(--muted-lead)]" />
+            <X size={20} className="text-[var(--muted-lead)]" />
           </button>
         </div>
 
         {/* Appointment Info */}
-        <div className="obsidian-card p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent border border-purple-500/20 mb-5 sm:mb-6">
           <h4 className="font-heading font-semibold text-sm sm:text-base text-[var(--chrome-white)] mb-1">
             {appointment.salonName}
           </h4>
@@ -139,76 +193,88 @@ export function ReviewModal({ appointment, onSubmit, onClose }: ReviewModalProps
 
         {/* Cannot Review Warning */}
         {!canReview && (
-          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 mb-4 sm:mb-6">
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 mb-4 sm:mb-6">
             <p className="font-body text-sm text-red-400 text-center">
               {appointment.hasReview 
                 ? 'Bu randevuyu zaten değerlendirdiniz' 
-                : 'Sadece tamamlanmış randevuları değerlendirebilirsiniz'}
+                : !isPastAppointment
+                ? `Randevu henüz gerçekleşmedi (${appointment.date} ${appointment.time})`
+                : !isValidStatus
+                ? `Geçersiz durum: ${appointment.status}`
+                : 'Bilinmeyen hata'}
+            </p>
+            <p className="font-body text-xs text-red-300 text-center mt-2">
+              DEBUG: isPast={isPastAppointment ? 'YES' : 'NO'}, 
+              status={appointment.status}, 
+              hasReview={appointment.hasReview ? 'YES' : 'NO'},
+              canReview={canReview ? 'YES' : 'NO'}
             </p>
           </div>
         )}
 
         {/* Salon Rating */}
-        <div className="mb-4 sm:mb-6">
-          <label className="block font-heading font-semibold text-sm sm:text-base text-[var(--chrome-white)] mb-2 sm:mb-3">
+        <div className="mb-5 sm:mb-6">
+          <label className="block font-heading font-semibold text-sm sm:text-base text-[var(--chrome-white)] mb-3">
             İşletmeyi Değerlendirin
           </label>
           <StarRating 
             rating={salonRating}
-            setRating={canReview ? setSalonRating : () => {}}
+            setRating={setSalonRating}
             hovered={hoveredSalonStar}
-            setHovered={canReview ? setHoveredSalonStar : () => {}}
+            setHovered={setHoveredSalonStar}
           />
           <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
             Genel deneyiminizi değerlendirin
           </p>
         </div>
 
-        {/* Staff Rating */}
-        <div className="mb-4 sm:mb-6">
-          <label className="block font-heading font-semibold text-sm sm:text-base text-[var(--chrome-white)] mb-2 sm:mb-3">
-            Personeli Değerlendirin ({appointment.staffName})
-          </label>
-          <StarRating 
-            rating={staffRating}
-            setRating={canReview ? setStaffRating : () => {}}
-            hovered={hoveredStaffStar}
-            setHovered={canReview ? setHoveredStaffStar : () => {}}
-          />
-          <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
-            Personelin hizmet kalitesini değerlendirin
-          </p>
-        </div>
+        {/* Staff Rating - Sadece personel varsa göster */}
+        {hasStaff && (
+          <div className="mb-5 sm:mb-6">
+            <label className="block font-heading font-semibold text-sm sm:text-base text-[var(--chrome-white)] mb-3">
+              Personeli Değerlendirin
+            </label>
+            <div className="text-xs text-purple-400 mb-2">{appointment.staffName}</div>
+            <StarRating 
+              rating={staffRating}
+              setRating={setStaffRating}
+              hovered={hoveredStaffStar}
+              setHovered={setHoveredStaffStar}
+            />
+            <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
+              Personelin hizmet kalitesini değerlendirin
+            </p>
+          </div>
+        )}
 
         {/* Comment */}
-        <div className="mb-4 sm:mb-6">
-          <label className="block font-heading font-medium text-xs sm:text-sm text-[var(--silver-frost)] mb-2">
-            Yorumunuz (İsteğe Bağlı)
+        <div className="mb-5 sm:mb-6">
+          <label className="block font-heading font-semibold text-sm text-[var(--chrome-white)] mb-2">
+            Yorumunuz <span className="text-[var(--muted-lead)] font-normal">(İsteğe Bağlı)</span>
           </label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             disabled={!canReview}
             placeholder="Deneyiminizi paylaşın..."
-            rows={3}
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-3xl bg-[var(--void)] border border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-sm outline-none focus:border-[var(--liquid-chrome)] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+            rows={4}
+            className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border-2 border-white/[0.08] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 sm:gap-3">
-          <ChromaticButton
-            variant="ghost"
+        <div className="flex gap-3">
+          <button
             onClick={onClose}
-            className="flex-shrink-0 px-4 sm:px-6"
+            className="flex-shrink-0 px-6 h-12 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all active:scale-95"
           >
             {canReview ? 'Daha Sonra' : 'Kapat'}
-          </ChromaticButton>
+          </button>
           {canReview && (
             <ChromaticButton
               onClick={handleSubmit}
               loading={loading}
-              className="flex-1"
+              className="flex-1 h-12 text-base font-semibold"
             >
               Gönder
             </ChromaticButton>

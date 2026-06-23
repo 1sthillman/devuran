@@ -4,9 +4,10 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Users, Bed, CheckCircle2, ChevronDown, Sparkles, AlertCircle, Clock } from 'lucide-react';
+import { Calendar, Users, Bed, CheckCircle2, ChevronDown, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
+import { ModernTimePicker } from '../ModernTimePicker';
 import { QueueJoinButton } from '../QueueJoinButton';
 import { differenceInDays } from 'date-fns';
 import { servicesService } from '@/services/firebaseService';
@@ -33,6 +34,8 @@ export function NightlyBookingWizard() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
+  const [checkInTime, setCheckInTime] = useState('14:00'); // 🆕 Varsayılan check-in saati
+  const [checkOutTime, setCheckOutTime] = useState('11:00'); // 🆕 Varsayılan check-out saati
   const [selectedRoom, setSelectedRoom] = useState<Service | null>(null);
   const [guests, setGuests] = useState({ adults: 2, children: 0 });
   const [roomTypes, setRoomTypes] = useState<Service[]>([]);
@@ -123,12 +126,19 @@ export function NightlyBookingWizard() {
   const handleCheckInSelect = (date: Date) => {
     setCheckInDate(date);
     if (checkOutDate && date >= checkOutDate) setCheckOutDate(null);
-    setTimeout(() => setActiveSubStep('checkOut'), 100);
+    // Tarih seçildiğinde otomatik collapse yap ve check-out aç
+    setTimeout(() => setActiveSubStep('checkOut'), 200);
   };
 
   const handleCheckOutSelect = (date: Date) => {
     setCheckOutDate(date);
-    setTimeout(() => setActiveSubStep('guests'), 100);
+    // Check-out seçildiğinde otomatik collapse yap ve misafir aç
+    setTimeout(() => setActiveSubStep('guests'), 200);
+  };
+
+  const handleGuestsConfirm = () => {
+    // Misafir seçimi tamamlandığında otomatik collapse yap
+    setTimeout(() => setActiveSubStep(null), 200);
   };
 
   const handleStepComplete = (step: number) => {
@@ -167,9 +177,9 @@ export function NightlyBookingWizard() {
 
     setAccommodationDetails({
       checkIn: checkInDate ? formatDateToString(checkInDate) : undefined,
-      checkInTime: '14:00', // 🆕 Sabit check-in saati
+      checkInTime, // 🆕 Kullanıcı tarafından seçilen check-in saati
       checkOut: checkOutDate ? formatDateToString(checkOutDate) : undefined,
-      checkOutTime: '11:00', // 🆕 Sabit check-out saati
+      checkOutTime, // 🆕 Kullanıcı tarafından seçilen check-out saati
       guests,
       roomType: selectedRoom?.id,
       selectedPackage: selectedRoom,
@@ -298,10 +308,10 @@ export function NightlyBookingWizard() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                         className="overflow-hidden relative z-20"
                       >
-                        <div className="px-4 pb-4 space-y-4">
+                        <div className="px-4 pb-4 space-y-3">
                           {step.id === 1 && (
                             <>
                               {/* Giriş Tarihi */}
@@ -415,31 +425,42 @@ export function NightlyBookingWizard() {
                                 </motion.div>
                               )}
 
-                              {/* Check-in/out Saat Bilgisi */}
+                              {/* Check-in/out Saat Seçimi */}
                               {nights > 0 && (
                                 <motion.div
                                   initial={{ scale: 0.95, opacity: 0 }}
                                   animate={{ scale: 1, opacity: 1 }}
                                   transition={{ duration: 0.2, delay: 0.1 }}
-                                  className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20"
+                                  className="space-y-3"
                                 >
-                                  <div className="flex items-center justify-center gap-4 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Clock size={16} className="text-blue-400" />
-                                      <span className="text-blue-300">
-                                        <strong>Check-in:</strong> 14:00
-                                      </span>
-                                    </div>
-                                    <div className="w-px h-4 bg-white/20" />
-                                    <div className="flex items-center gap-2">
-                                      <Clock size={16} className="text-cyan-400" />
-                                      <span className="text-cyan-300">
-                                        <strong>Check-out:</strong> 11:00
-                                      </span>
-                                    </div>
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">
+                                      Check-in Saati
+                                    </h4>
+                                    <ModernTimePicker
+                                      value={checkInTime}
+                                      onChange={setCheckInTime}
+                                      minTime="06:00"
+                                      maxTime="23:00"
+                                      intervalMinutes={30}
+                                      label="Check-in saati seçin"
+                                    />
                                   </div>
-                                  <p className="text-xs text-center text-[var(--muted-lead)] mt-2">
-                                    Özel saat talebi için lütfen notlar bölümünü kullanın
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-[var(--chrome-white)] mb-2">
+                                      Check-out Saati
+                                    </h4>
+                                    <ModernTimePicker
+                                      value={checkOutTime}
+                                      onChange={setCheckOutTime}
+                                      minTime="06:00"
+                                      maxTime="23:00"
+                                      intervalMinutes={30}
+                                      label="Check-out saati seçin"
+                                    />
+                                  </div>
+                                  <p className="text-xs text-center text-[var(--muted-lead)] mt-2 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                                    💡 Standart check-in: 14:00 / check-out: 11:00
                                   </p>
                                 </motion.div>
                               )}
@@ -527,6 +548,16 @@ export function NightlyBookingWizard() {
                                               </button>
                                             </div>
                                           </div>
+                                          {/* Misafir Onay Butonu */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleGuestsConfirm();
+                                            }}
+                                            className="w-full h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold text-sm hover:shadow-lg hover:shadow-emerald-500/30 transition-all active:scale-[0.98]"
+                                          >
+                                            Tamam
+                                          </button>
                                         </div>
                                       </motion.div>
                                     )}

@@ -96,9 +96,9 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     >
                       <h2 
                         id="onboarding-title"
-                        className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-[var(--chrome-white)] mb-3"
+                        className="font-display font-bold text-3xl sm:text-4xl md:text-5xl bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-3"
                       >
-                        Hoşgeldin, {userName}! 👋
+                        Hoşgeldin, {userName}
                       </h2>
                       <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
                         Hesabını tamamlamak için birkaç bilgiye ihtiyacımız var
@@ -153,23 +153,26 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     <button
                       ref={firstFocusableRef}
                       onClick={() => setRole('customer')}
-                      className={`w-full p-6 sm:p-8 rounded-3xl border-2 transition-all text-left group hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-purple-500/50 ${
+                      className={`relative w-full p-6 sm:p-8 rounded-3xl border-2 transition-all text-left group hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-purple-500/50 overflow-hidden ${
                         role === 'customer'
-                          ? 'border-purple-500 bg-purple-500/10 shadow-2xl shadow-purple-500/30'
-                          : 'border-[var(--obsidian-rim)] hover:border-purple-500/50 hover:bg-white/5'
+                          ? 'border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20'
+                          : 'border-white/[0.08] bg-white/[0.02] hover:border-purple-500/30'
                       }`}
                       aria-pressed={role === 'customer'}
                     >
-                      <div className="flex items-start gap-5">
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${
+                      {role === 'customer' && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                      )}
+                      <div className="relative flex items-start gap-5">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                           role === 'customer' 
-                            ? 'border-purple-500 bg-purple-500 scale-110' 
-                            : 'border-[var(--obsidian-rim)] group-hover:border-purple-500/50'
+                            ? 'bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30 scale-110' 
+                            : 'bg-white/5 group-hover:bg-white/10'
                         }`}>
-                          {role === 'customer' && <Check size={20} className="text-white" />}
+                          <Check size={24} className={role === 'customer' ? "text-white" : "text-[var(--muted-lead)]"} />
                         </div>
                         <div className="flex-1">
-                          <p className="font-heading font-bold text-xl sm:text-2xl text-[var(--chrome-white)] mb-2">👤 Müşteri</p>
+                          <p className="font-heading font-bold text-xl sm:text-2xl text-[var(--chrome-white)] mb-2">Müşteri</p>
                           <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
                             Randevu almak ve işletmeleri keşfetmek istiyorum
                           </p>
@@ -179,23 +182,26 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
 
                     <button
                       onClick={() => setRole('owner')}
-                      className={`w-full p-6 sm:p-8 rounded-3xl border-2 transition-all text-left group hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-pink-500/50 ${
+                      className={`relative w-full p-6 sm:p-8 rounded-3xl border-2 transition-all text-left group hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-pink-500/50 overflow-hidden ${
                         role === 'owner'
-                          ? 'border-pink-500 bg-pink-500/10 shadow-2xl shadow-pink-500/30'
-                          : 'border-[var(--obsidian-rim)] hover:border-pink-500/50 hover:bg-white/5'
+                          ? 'border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent shadow-2xl shadow-amber-500/20'
+                          : 'border-white/[0.08] bg-white/[0.02] hover:border-amber-500/30'
                       }`}
                       aria-pressed={role === 'owner'}
                     >
-                      <div className="flex items-start gap-5">
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center mt-1 transition-all ${
+                      {role === 'owner' && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                      )}
+                      <div className="relative flex items-start gap-5">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                           role === 'owner' 
-                            ? 'border-pink-500 bg-pink-500 scale-110' 
-                            : 'border-[var(--obsidian-rim)] group-hover:border-pink-500/50'
+                            ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30 scale-110' 
+                            : 'bg-white/5 group-hover:bg-white/10'
                         }`}>
-                          {role === 'owner' && <Check size={20} className="text-white" />}
+                          <Check size={24} className={role === 'owner' ? "text-white" : "text-[var(--muted-lead)]"} />
                         </div>
                         <div className="flex-1">
-                          <p className="font-heading font-bold text-xl sm:text-2xl text-[var(--chrome-white)] mb-2">🏢 İşletme Sahibi</p>
+                          <p className="font-heading font-bold text-xl sm:text-2xl text-[var(--chrome-white)] mb-2">İşletme Sahibi</p>
                           <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
                             İşletmem var ve rezervasyonları yönetmek istiyorum
                           </p>
@@ -223,19 +229,17 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     className="space-y-6 max-w-4xl mx-auto"
                   >
                     <div className="text-center mb-8">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 mb-4">
+                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-sm font-semibold text-amber-300">İşletme Bilgileri</span>
+                      </div>
                       <h3 className="font-heading font-bold text-2xl sm:text-3xl text-[var(--chrome-white)] mb-3">
-                        İşletme Kategorin Nedir?
+                        İşletme Kategorin
                       </h3>
                       <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
                         Kategorine göre özel yönetim paneli ve rezervasyon sistemi hazırlayacağız
                       </p>
                     </div>
-                    
-                    <input
-                      type="text"
-                      placeholder="Kategori ara..."
-                      className="w-full h-14 px-5 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-base outline-none transition-all focus:border-purple-500 focus:shadow-[0_0_0_3px_rgba(168,85,247,0.1)] mb-6"
-                    />
                     
                     <div 
                       className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
@@ -254,18 +258,21 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: index * 0.05 }}
                             onClick={() => setBusinessCategory(group.categories[0])}
-                            className={`p-5 sm:p-6 rounded-2xl border-2 transition-all text-center group hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-purple-500/50 ${
+                            className={`relative p-5 sm:p-6 rounded-2xl border-2 transition-all text-center group hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-purple-500/50 overflow-hidden ${
                               isSelected
-                                ? 'border-purple-500 bg-purple-500/10 shadow-2xl shadow-purple-500/30'
-                                : 'border-[var(--obsidian-rim)] hover:border-purple-500/50 hover:bg-white/5'
+                                ? 'border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-xl shadow-purple-500/20'
+                                : 'border-white/[0.08] bg-white/[0.02] hover:border-purple-500/30'
                             }`}
                             role="radio"
                             aria-checked={isSelected}
                           >
-                            <div className="flex flex-col items-center gap-3">
-                              <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${
+                            {isSelected && (
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+                            )}
+                            <div className="relative flex flex-col items-center gap-3">
+                              <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                                 isSelected 
-                                  ? `bg-gradient-to-br ${group.color} scale-110` 
+                                  ? `bg-gradient-to-br ${group.color} shadow-lg scale-110` 
                                   : 'bg-white/5 group-hover:bg-white/10'
                               }`}>
                                 <Icon size={28} className={isSelected ? "text-white" : "text-[var(--muted-lead)]"} />
@@ -287,14 +294,14 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     <div className="flex flex-col sm:flex-row gap-4 mt-12 max-w-2xl mx-auto">
                       <button
                         onClick={() => setStep(1)}
-                        className="flex-1 h-14 rounded-2xl border-2 border-[var(--obsidian-rim)] font-heading font-medium text-lg text-[var(--silver-frost)] hover:border-[var(--liquid-chrome)] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50"
+                        className="flex-1 h-14 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50 active:scale-[0.98]"
                       >
                         ← Geri
                       </button>
                       <ChromaticButton
                         onClick={() => setStep(3)}
                         disabled={!businessCategory}
-                        className="flex-1 h-14 text-lg"
+                        className="flex-1 h-14 text-base font-semibold"
                       >
                         Devam Et →
                       </ChromaticButton>
@@ -311,8 +318,12 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     className="space-y-6 max-w-xl mx-auto"
                   >
                     <div className="text-center mb-8">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-4">
+                        <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                        <span className="text-sm font-semibold text-purple-300">İletişim Bilgileri</span>
+                      </div>
                       <h3 className="font-heading font-bold text-2xl sm:text-3xl text-[var(--chrome-white)] mb-3">
-                        📱 İletişim Bilgilerin
+                        Telefon Numarası
                       </h3>
                       <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
                         Randevu hatırlatmaları ve bildirimler için telefon numarana ihtiyacımız var
@@ -322,9 +333,9 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     <div>
                       <label 
                         htmlFor="phone-input"
-                        className="block font-heading font-semibold text-lg text-[var(--silver-frost)] mb-3"
+                        className="block font-heading font-semibold text-base text-[var(--silver-frost)] mb-3"
                       >
-                        Telefon Numarası *
+                        Telefon Numarası <span className="text-purple-400">*</span>
                       </label>
                       <input
                         id="phone-input"
@@ -334,13 +345,13 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                         onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                         placeholder="5XX XXX XX XX"
                         maxLength={10}
-                        className="w-full h-16 px-6 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-lg outline-none transition-all focus:border-purple-500 focus:shadow-[0_0_20px_rgba(168,85,247,0.3)]"
+                        className="w-full h-16 px-6 rounded-2xl bg-white/[0.05] border-2 border-white/[0.08] text-[var(--chrome-white)] placeholder:text-[var(--ash)] font-body text-lg outline-none transition-all focus:border-purple-500/50 focus:bg-white/[0.08] focus:shadow-[0_0_20px_rgba(168,85,247,0.2)]"
                         aria-required="true"
                         aria-invalid={phone.length > 0 && phone.length < 10}
                       />
-                      <div className="mt-4 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
-                        <p className="font-body text-sm text-[var(--silver-frost)]">
-                          💡 <strong>Neden telefon numarası?</strong><br/>
+                      <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                        <p className="font-body text-sm text-[var(--silver-frost)] leading-relaxed">
+                          <strong className="text-blue-300">Neden telefon numarası?</strong><br/>
                           Randevu hatırlatmaları ve önemli bildirimler için kullanılacak
                         </p>
                       </div>
@@ -349,14 +360,14 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     <div className="flex flex-col sm:flex-row gap-4 mt-12">
                       <button
                         onClick={() => setStep(role === 'owner' ? 2 : 1)}
-                        className="flex-1 h-14 rounded-2xl border-2 border-[var(--obsidian-rim)] font-heading font-medium text-lg text-[var(--silver-frost)] hover:border-[var(--liquid-chrome)] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50"
+                        className="flex-1 h-14 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50 active:scale-[0.98]"
                       >
                         ← Geri
                       </button>
                       <ChromaticButton
                         onClick={() => setStep(role === 'owner' ? 4 : 3)}
                         disabled={!phone || phone.length < 10}
-                        className="flex-1 h-14 text-lg"
+                        className="flex-1 h-14 text-base font-semibold"
                       >
                         Devam Et →
                       </ChromaticButton>
@@ -373,22 +384,26 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                     className="space-y-6 max-w-xl mx-auto"
                   >
                     <div className="text-center mb-8">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 mb-4">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-sm font-semibold text-emerald-300">Son Adım</span>
+                      </div>
                       <h3 className="font-heading font-bold text-2xl sm:text-3xl text-[var(--chrome-white)] mb-3">
-                        Son Adım! 🎉
+                        Kullanım Koşulları
                       </h3>
                       <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
                         Kullanım koşullarını kabul et ve hesabını oluştur
                       </p>
                     </div>
                     
-                    <div className="p-6 rounded-2xl bg-[var(--slate-surface)] border-2 border-[var(--obsidian-rim)]">
+                    <div className="p-6 rounded-2xl bg-white/[0.03] border-2 border-white/[0.08]">
                       <label className="flex items-start gap-4 cursor-pointer group">
                         <input
                           ref={inputRef}
                           type="checkbox"
                           checked={acceptedTerms}
                           onChange={(e) => setAcceptedTerms(e.target.checked)}
-                          className="mt-1.5 w-6 h-6 rounded-lg border-2 border-[var(--obsidian-rim)] bg-transparent checked:bg-purple-500 checked:border-purple-500 cursor-pointer transition-all focus:ring-4 focus:ring-purple-500/50"
+                          className="mt-1.5 w-6 h-6 rounded-lg border-2 border-white/[0.08] bg-transparent checked:bg-purple-500 checked:border-purple-500 cursor-pointer transition-all focus:ring-4 focus:ring-purple-500/50"
                           aria-required="true"
                         />
                         <div className="flex-1">
@@ -418,29 +433,34 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-2 border-purple-500/30"
+                        className="p-6 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20"
                       >
-                        <p className="font-body text-base sm:text-lg text-[var(--chrome-white)] text-center">
-                          ✨ <span className="font-bold">
-                            {categoryGroups.find(g => g.categories.includes(businessCategory))?.name}
-                          </span> kategorisi için özel yönetim paneli hazırlanacak
-                        </p>
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                            <Check size={20} className="text-white" />
+                          </div>
+                          <p className="font-body text-base text-[var(--chrome-white)]">
+                            <span className="font-bold">
+                              {categoryGroups.find(g => g.categories.includes(businessCategory))?.name}
+                            </span> kategorisi için özel panel hazırlanacak
+                          </p>
+                        </div>
                       </motion.div>
                     )}
 
                     <div className="flex flex-col sm:flex-row gap-4 mt-12">
                       <button
                         onClick={() => setStep(role === 'owner' ? 3 : 2)}
-                        className="flex-1 h-14 rounded-2xl border-2 border-[var(--obsidian-rim)] font-heading font-medium text-lg text-[var(--silver-frost)] hover:border-[var(--liquid-chrome)] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50"
+                        className="flex-1 h-14 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50 active:scale-[0.98]"
                       >
                         ← Geri
                       </button>
                       <ChromaticButton
                         onClick={handleComplete}
                         disabled={!acceptedTerms}
-                        className="flex-1 h-14 text-lg"
+                        className="flex-1 h-14 text-base font-semibold"
                       >
-                        🎊 Hesabı Tamamla
+                        Hesabı Tamamla
                       </ChromaticButton>
                     </div>
                   </motion.div>

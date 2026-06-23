@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, X, CreditCard, Percent, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, X, CreditCard, Percent, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 

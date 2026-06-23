@@ -64,6 +64,7 @@ export interface BusinessFormData {
     cancellationHours: number;
     allowQueue: boolean;
     autoConfirmQueue: boolean;
+    mobileService?: boolean; // 🆕 Konuma Hizmet
   };
   
   // Required for Salon type
@@ -136,7 +137,8 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
       allowCancellation: salon?.settings?.allowCancellation ?? true,
       cancellationHours: salon?.settings?.cancellationHours || 24,
       allowQueue: salon?.settings?.allowQueue ?? true,
-      autoConfirmQueue: salon?.settings?.autoConfirmQueue ?? true
+      autoConfirmQueue: salon?.settings?.autoConfirmQueue ?? true,
+      mobileService: salon?.settings?.mobileService ?? false // 🆕 Varsayılan kapalı
     },
     staff: salon?.staff || [],
     services: salon?.services || []

@@ -22,9 +22,13 @@ export function Appointments() {
   const [loading, setLoading] = useState(true);
   const [reviewModalAppointment, setReviewModalAppointment] = useState<Appointment | null>(null);
   const [cancelDialogAppointment, setCancelDialogAppointment] = useState<Appointment | null>(null);
+  
+  // 🔧 DEBUG: Hata bilgilerini sakla
+  const [debugError, setDebugError] = useState<any>(null);
 
   useEffect(() => {
     if (user?.uid) {
+      console.log('🔵 Loading appointments for user:', user.uid);
       loadAppointments();
     }
   }, [user?.uid]);
@@ -32,15 +36,18 @@ export function Appointments() {
   const loadAppointments = async () => {
     if (!user?.uid) return;
     
+    console.log('🔵 loadAppointments started');
     setLoading(true);
     try {
       // Önce appointments'ı yükle
       const appointmentsData = await appointmentsService.getUserAppointments(user.uid);
+      console.log('🔵 Loaded appointments:', appointmentsData.length);
       
       // Sonra reservations'ı yükle
       let reservationsData: any[] = [];
       try {
         reservationsData = await reservationService.getUserReservations(user.uid);
+        console.log('🔵 Loaded reservations:', reservationsData.length);
       } catch (resError) {
         console.error('Error loading reservations:', resError);
         // Reservations yüklenemezse sadece appointments'ı göster
@@ -144,29 +151,102 @@ export function Appointments() {
   };
 
   const handleReviewSubmit = async (salonRating: number, staffRating: number, comment: string) => {
-    if (!reviewModalAppointment || !user) return;
+    if (!reviewModalAppointment || !user) {
+      console.error('❌ Review submit blocked - missing data:', { 
+        hasAppointment: !!reviewModalAppointment, 
+        hasUser: !!user 
+      });
+      return;
+    }
+
+    console.log('🔍 Starting review submission:', {
+      appointmentId: reviewModalAppointment.id,
+      salonId: reviewModalAppointment.salonId,
+      staffId: reviewModalAppointment.staffId,
+      staffName: reviewModalAppointment.staffName,
+      salonRating,
+      staffRating,
+      hasComment: !!comment
+    });
 
     try {
+      // Boş string kontrolü - sadece gerçekten değer varsa gönder
+      const hasStaff = reviewModalAppointment.staffId && reviewModalAppointment.staffId.trim() !== '';
+      
+      console.log('🔍 Staff check:', {
+        hasStaff,
+        staffId: reviewModalAppointment.staffId,
+        staffIdTrimmed: reviewModalAppointment.staffId?.trim(),
+        staffName: reviewModalAppointment.staffName
+      });
+      
+      console.log('📤 Calling reviewsService.submitAppointmentReview...');
+      
       await reviewsService.submitAppointmentReview(
         reviewModalAppointment.id,
         user.uid,
         reviewModalAppointment.salonId,
-        reviewModalAppointment.staffId,
+        hasStaff ? reviewModalAppointment.staffId : '',
         salonRating,
-        staffRating,
+        hasStaff ? staffRating : 0,
         comment,
         user.displayName || 'Anonim',
         user.photoURL || '',
         reviewModalAppointment.services.map(s => s.name),
-        reviewModalAppointment.staffName
+        hasStaff ? reviewModalAppointment.staffName : ''
       );
 
+      console.log('✅ Review submitted successfully!');
       addToast('Değerlendirmeniz kaydedildi', 'success');
       setReviewModalAppointment(null);
       loadAppointments(); // Reload to update hasReview flag
-    } catch (error) {
-      console.error('Error submitting review:', error);
-      addToast('Değerlendirme gönderilemedi', 'error');
+    } catch (error: any) {
+      console.error('❌ Error submitting review:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        code: error?.code,
+        name: error?.name,
+        stack: error?.stack
+      });
+      
+      // Kullanıcıya daha spesifik hata mesajı göster
+      let errorMessage = 'Değerlendirme gönderilemedi';
+      
+      if (error?.code === 'permission-denied') {
+        errorMessage = 'Yetki hatası: Bu işlemi yapmaya yetkiniz yok. Lütfen tekrar giriş yapın.';
+        console.error('🔴 PERMISSION DENIED - User may need to re-login');
+      } else if (error?.code === 'not-found') {
+        errorMessage = 'Randevu veya işletme bulunamadı';
+        console.error('🔴 NOT FOUND - Appointment or salon missing');
+      } else if (error?.code === 'unauthenticated') {
+        errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
+        console.error('🔴 UNAUTHENTICATED - User needs to login again');
+      } else if (error?.message) {
+        errorMessage = `Hata: ${error.message}`;
+        console.error('🔴 CUSTOM ERROR:', error.message);
+      }
+      
+      // Debug için ekranda da göster (geliştirme ortamında)
+      if (import.meta.env.DEV) {
+        console.error('🔴 DEV MODE - Showing error details in console');
+        console.error('🔴 Appointment ID:', reviewModalAppointment?.id);
+        console.error('🔴 User ID:', user?.uid);
+        console.error('🔴 Salon ID:', reviewModalAppointment?.salonId);
+        console.error('🔴 Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        
+        // Debug state'e kaydet
+        setDebugError({
+          message: error?.message,
+          code: error?.code,
+          name: error?.name,
+          appointmentId: reviewModalAppointment?.id,
+          userId: user?.uid,
+          salonId: reviewModalAppointment?.salonId,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      addToast(errorMessage, 'error');
     }
   };
 
@@ -177,9 +257,18 @@ export function Appointments() {
       return;
     }
     
-    // Sadece tamamlanmış randevular için değerlendirme yapılabilir
-    if (appointment.status !== 'completed') {
-      addToast('Sadece tamamlanmış randevular için değerlendirme yapılabilir', 'warning');
+    // Onaylanmamış randevular için değerlendirme yapılamaz
+    if (appointment.status !== 'confirmed' && appointment.status !== 'completed') {
+      addToast('Sadece onaylanmış randevular için değerlendirme yapılabilir', 'warning');
+      return;
+    }
+    
+    // Randevu tarih + saatini kontrol et
+    const aptDateTime = new Date(`${appointment.date}T${appointment.time || '00:00'}`);
+    const now = new Date();
+    
+    if (aptDateTime >= now) {
+      addToast('Randevu gerçekleştikten sonra değerlendirme yapılabilir', 'warning');
       return;
     }
     
@@ -187,19 +276,56 @@ export function Appointments() {
   };
 
   // Filter appointments
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
   
   const filteredAppointments = appointments.filter((apt) => {
-    const aptDate = new Date(apt.date);
-    aptDate.setHours(0, 0, 0, 0);
+    // Randevu tarih + saatini hesapla
+    const aptDateTime = new Date(`${apt.date}T${apt.time || '00:00'}`);
     
     if (filter === 'upcoming') {
-      return aptDate >= today && apt.status !== 'cancelled' && apt.status !== 'completed';
+      // Yaklaşan: Gelecekteki randevular + iptal/tamamlanmamış
+      return aptDateTime >= now && apt.status !== 'cancelled' && apt.status !== 'completed';
     } else {
-      return aptDate < today || apt.status === 'cancelled' || apt.status === 'completed';
+      // Geçmiş: Geçmişte kalan randevular VEYA iptal/tamamlanmış olanlar
+      return aptDateTime < now || apt.status === 'cancelled' || apt.status === 'completed';
     }
   });
+
+  // Helper function to check if appointment can be reviewed
+  const canBeReviewed = (appointment: Appointment) => {
+    console.log('🟢 canBeReviewed called for:', appointment.salonName, appointment.date, appointment.time);
+    
+    // İptal edilen randevular değerlendirilemez
+    if (appointment.status === 'cancelled') {
+      console.log('❌ Cancelled');
+      return false;
+    }
+    
+    // Zaten değerlendirilmiş olanlar tekrar değerlendirilemez
+    if (appointment.hasReview) {
+      console.log('❌ Already reviewed');
+      return false;
+    }
+    
+    // Sadece onaylanmış veya tamamlanmış randevular değerlendirilebilir
+    if (appointment.status !== 'confirmed' && appointment.status !== 'completed') {
+      console.log('❌ Invalid status:', appointment.status);
+      return false;
+    }
+    
+    // Randevu tarih + saatini kontrol et
+    const aptDateTime = new Date(`${appointment.date}T${appointment.time || '00:00'}`);
+    const nowDebug = new Date();
+    
+    console.log('📅 Appointment:', aptDateTime.toISOString());
+    console.log('📅 Now:', nowDebug.toISOString());
+    console.log('📅 Is Past:', aptDateTime < nowDebug);
+    
+    // Randevu henüz gerçekleşmediyse değerlendirilemez
+    const result = aptDateTime < nowDebug;
+    console.log(result ? '✅ CAN REVIEW' : '❌ CANNOT REVIEW (future date)');
+    return result;
+  };
 
   return (
     <div className="max-w-2xl mx-auto pb-24 px-4">
@@ -365,53 +491,60 @@ export function Appointments() {
 
             {/* Actions */}
             {appointment.status === 'pending' || appointment.status === 'confirmed' ? (
-              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--obsidian-rim)]">
+              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-white/[0.08]">
                 <button
                   onClick={() => setCancelDialogAppointment(appointment)}
-                  className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-[var(--error)] hover:underline"
+                  className="flex items-center gap-2 px-4 h-9 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-heading font-semibold text-sm transition-all active:scale-95"
                 >
                   <X size={14} />
                   İptal Et
                 </button>
                 <button
                   onClick={() => handleWhatsApp(appointment.whatsappNumber)}
-                  className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-[var(--silver-frost)] hover:text-[var(--chrome-white)]"
+                  className="flex items-center gap-2 px-4 h-9 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 font-heading font-semibold text-sm transition-all active:scale-95"
                 >
                   <Phone size={14} />
                   WhatsApp
                 </button>
+                {/* DEBUG: Geçmiş randevular için değerlendir butonu göster */}
+                {canBeReviewed(appointment) && (
+                  <button
+                    onClick={() => handleOpenReviewModal(appointment)}
+                    className="flex items-center gap-2 px-4 h-9 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 text-white hover:from-yellow-400 hover:to-amber-400 font-heading font-bold text-sm transition-all active:scale-95 shadow-lg shadow-yellow-500/30"
+                  >
+                    <Star size={14} />
+                    Değerlendir
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--obsidian-rim)]">
+              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-white/[0.08]">
                 <Link
                   to={`/salon/${appointment.salonId}`}
-                  className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-[var(--silver-frost)] hover:text-[var(--chrome-white)]"
+                  className="flex items-center gap-2 px-4 h-9 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 font-heading font-semibold text-sm transition-all active:scale-95"
                 >
                   <RotateCcw size={14} />
                   Yeniden Planla
                 </Link>
                 {/* Show review button for past appointments without review */}
-                {!appointment.hasReview && appointment.status === 'completed' && (
+                {canBeReviewed(appointment) && (
                   <button
                     onClick={() => handleOpenReviewModal(appointment)}
-                    className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-yellow-500 hover:text-yellow-400"
+                    className="flex items-center gap-2 px-4 h-9 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 text-white hover:from-yellow-400 hover:to-amber-400 font-heading font-bold text-sm transition-all active:scale-95 shadow-lg shadow-yellow-500/30"
                   >
                     <Star size={14} />
                     Değerlendir
                   </button>
                 )}
                 {appointment.hasReview && (
-                  <span className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-[var(--muted-lead)]">
-                    <Star size={14} className="fill-yellow-400 text-yellow-400" />
+                  <span className="flex items-center gap-2 px-4 h-9 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-heading font-semibold text-sm">
+                    <Star size={14} className="fill-emerald-400 text-emerald-400" />
                     Değerlendirildi
                   </span>
                 )}
                 {appointment.status === 'cancelled' && (
-                  <span className="flex items-center gap-1.5 font-heading font-medium text-[13px] text-[var(--error)]">
+                  <span className="flex items-center gap-2 px-4 h-9 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 font-heading font-semibold text-sm">
                     İptal Edildi
-                    {appointment.cancellationReason && (
-                      <span className="text-[var(--muted-lead)]">- {appointment.cancellationReason}</span>
-                    )}
                   </span>
                 )}
               </div>
@@ -438,6 +571,67 @@ export function Appointments() {
           appointmentId={cancelDialogAppointment.id}
           cancelledBy="customer"
         />
+      )}
+
+      {/* 🔧 DEBUG PANEL (Development Only) */}
+      {import.meta.env.DEV && debugError && (
+        <div className="fixed bottom-4 right-4 z-[9999] max-w-md w-full bg-red-950/95 border border-red-500/50 rounded-lg shadow-2xl shadow-red-500/20 overflow-hidden">
+          <div className="bg-red-900/50 px-4 py-2 border-b border-red-500/30 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-red-100">🔴 Debug Error Details</h3>
+            <button
+              onClick={() => setDebugError(null)}
+              className="text-red-300 hover:text-red-100 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="p-4 space-y-2 text-xs font-mono max-h-96 overflow-y-auto">
+            <div>
+              <span className="text-red-300 font-semibold">Error Code:</span>
+              <span className="text-red-100 ml-2">{debugError.code || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-red-300 font-semibold">Error Name:</span>
+              <span className="text-red-100 ml-2">{debugError.name || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-red-300 font-semibold">Message:</span>
+              <div className="text-red-100 mt-1 p-2 bg-black/30 rounded">
+                {debugError.message || 'No message'}
+              </div>
+            </div>
+            <div>
+              <span className="text-red-300 font-semibold">Appointment ID:</span>
+              <span className="text-red-100 ml-2 break-all">{debugError.appointmentId || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-red-300 font-semibold">User ID:</span>
+              <span className="text-red-100 ml-2 break-all">{debugError.userId || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-red-300 font-semibold">Salon ID:</span>
+              <span className="text-red-100 ml-2 break-all">{debugError.salonId || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-red-300 font-semibold">Timestamp:</span>
+              <span className="text-red-100 ml-2">{debugError.timestamp || 'N/A'}</span>
+            </div>
+            <div className="pt-2 border-t border-red-500/30">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(debugError, null, 2));
+                  addToast('Hata detayları panoya kopyalandı', 'success');
+                }}
+                className="w-full px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-100 rounded text-xs font-semibold transition-colors"
+              >
+                📋 Kopyala
+              </button>
+            </div>
+            <div className="text-red-300 text-[10px] mt-2 pt-2 border-t border-red-500/20">
+              💡 Console'u açmak için F12 tuşuna basın
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

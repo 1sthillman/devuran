@@ -85,21 +85,28 @@ service cloud.firestore {
       allow read: if true;
       
       // ✅ GÜVENLİK: Create sadece authenticated user
+      // ✅ OPERASYON: İşletme sahibi "system-block" olarak blok rezervasyon oluşturabilir
       allow create: if request.auth != null &&
-                       request.resource.data.userId == request.auth.uid;
+                       (request.resource.data.userId == request.auth.uid ||
+                        (request.resource.data.userId == 'system-block' && 
+                         isSalonOwner(request.resource.data.businessId)));
       
       // Customers can update their own reservations (status, cancellation)
       allow update: if request.auth != null && 
                        (resource.data.userId == request.auth.uid || 
                         isSalonOwner(resource.data.businessId));
       
-      // Salon owners can update reservations for their business (deposit confirmation, status)
+      // Salon owners can update reservations for their business (deposit confirmation, status, date/time changes)
       allow update: if request.auth != null && isSalonOwner(resource.data.businessId);
       
-      // Allow status and payment updates
+      // Allow status, payment updates, and date/time changes
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason', 
-                                'pricing', 'updatedAt']);
+                                'pricing', 'updatedAt', 'date', 'startTime', 'endTime', 
+                                'eventDate', 'checkIn', 'deliveryDate', 'deliveryTime']);
+      
+      // ✅ OPERASYON: İşletme sahibi kendi işletmesinin rezervasyonlarını silebilir (iptal edebilir)
+      allow delete: if request.auth != null && isSalonOwner(resource.data.businessId);
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();
@@ -116,14 +123,16 @@ service cloud.firestore {
       // Customers can update their own appointments
       allow update: if request.auth != null && 
                        (resource.data.userId == request.auth.uid || 
-                        isSalonOwner(resource.data.businessId));
+                        isSalonOwner(resource.data.salonId));
       
       // Salon owners can update appointments for their business
-      allow update: if request.auth != null && isSalonOwner(resource.data.businessId);
+      allow update: if request.auth != null && isSalonOwner(resource.data.salonId);
       
-      // Allow status updates and cancellations
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason']);
+      // Allow status updates, cancellations, and review flags
+      allow update: if request.auth != null &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason', 
+                                'hasReview', 'reviewId', 'updatedAt']);
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();

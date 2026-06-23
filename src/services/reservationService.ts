@@ -229,6 +229,52 @@ class ReservationService {
     }
   }
 
+  async updateReservation(reservationId: string, updates: Partial<Reservation>): Promise<void> {
+    const reservation = await this.getReservation(reservationId);
+    if (!reservation) {
+      throw new Error('Rezervasyon bulunamadı');
+    }
+
+    // Güvenlik: Sadece belirli alanların güncellenmesine izin ver
+    const allowedUpdates: Partial<Reservation> = {};
+    
+    // ✅ Tarih güncellemesi - TÜM TİPLER
+    if ('date' in updates && updates.date) {
+      (allowedUpdates as any).date = updates.date;
+    }
+    if ('eventDate' in updates && updates.eventDate) {
+      (allowedUpdates as any).eventDate = updates.eventDate;
+    }
+    if ('checkIn' in updates && updates.checkIn) {
+      (allowedUpdates as any).checkIn = updates.checkIn;
+    }
+    if ('deliveryDate' in updates && updates.deliveryDate) {
+      (allowedUpdates as any).deliveryDate = updates.deliveryDate;
+    }
+    
+    // ✅ Saat güncellemesi - TÜM TİPLER
+    if ('startTime' in updates && updates.startTime) {
+      (allowedUpdates as any).startTime = updates.startTime;
+    }
+    if ('endTime' in updates && updates.endTime) {
+      (allowedUpdates as any).endTime = updates.endTime;
+    }
+    if ('deliveryTime' in updates && updates.deliveryTime) {
+      (allowedUpdates as any).deliveryTime = updates.deliveryTime;
+    }
+    
+    // Internal notes güncellemesi
+    if ('internalNotes' in updates) {
+      allowedUpdates.internalNotes = updates.internalNotes;
+    }
+
+    // Update timestamp
+    allowedUpdates.updatedAt = new Date().toISOString();
+
+    const ref = doc(db, this.collectionName, reservationId);
+    await setDoc(ref, allowedUpdates, { merge: true });
+  }
+
   async cancelReservation(
     reservationId: string,
     cancelledBy: 'user' | 'business',

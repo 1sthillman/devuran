@@ -3,17 +3,12 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors, ArrowLeft, Loader2, MapPin } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors, Loader2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModernCalendar } from '../ModernCalendar';
-import { TimeSlotGrid } from '../TimeSlotGrid';
-import { AlternativeSuggestions } from '../AlternativeSuggestions';
-import { WorkingHoursDisplay } from '../WorkingHoursDisplay';
-import { QueueJoinButton } from '../QueueJoinButton';
-import { availabilityService } from '@/services/availabilityService';
+import { ModernTimePicker } from '../ModernTimePicker';
 import { useAuthStore } from '@/store/authStore';
 import { getStaffAvatarUrl } from '@/utils/avatarHelpers';
-import type { TimeSlot } from '@/services/availabilityService';
 import { cn, formatDateToString } from '@/lib/utils';
 
 export function SlotBookingWizard() {
@@ -40,113 +35,23 @@ export function SlotBookingWizard() {
   } = useBookingStore();
 
   const [activeStep, setActiveStep] = useState(1);
-  const [activeSubStep, setActiveSubStep] = useState<'date' | 'time' | null>(null);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [localName, setLocalName] = useState(customerName || '');
   const [localPhone, setLocalPhone] = useState(customerPhone || '');
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
   const [localAddress, setLocalAddress] = useState('');
-  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
 
-  // 🆕 Kapora hesaplama
-  const [depositInfo, setDepositInfo] = useState<{
-    required: boolean;
-    amount: number;
-    remaining: number;
-  }>({ required: false, amount: 0, remaining: 0 });
-
-  // Kapora hesapla - hem işletme ayarları hem hizmet bazlı kontrol
-  useEffect(() => {
-    // ✅ IBAN kontrolü: Kapora için IBAN şart
-    const hasValidIBAN = salon?.paymentSettings?.bankTransferEnabled && 
-                         salon?.paymentSettings?.bankAccounts &&
-                         salon.paymentSettings.bankAccounts.length > 0 &&
-                         salon.paymentSettings.bankAccounts.some(acc => acc.iban && acc.iban.trim().length > 0);
-    
-    if (hasValidIBAN && salon?.paymentSettings?.depositSettings && totalPrice > 0) {
-      const settings = salon.paymentSettings.depositSettings;
-      
-      // ✅ YENİ: Hizmetlerin herhangi biri kapora gerektiriyor mu kontrol et
-      const anyServiceRequiresDeposit = selectedServices.some(service => service.requiresDeposit === true);
-      
-      // Kapora gerekli mi? 3 koşul:
-      // 1. Ayar aktif olmalı
-      // 2. Minimum tutar kontrolü
-      // 3. Seçili hizmetlerden en az biri kapora gerektirmeli
-      const depositEnabled = settings.enabled && 
-                            (!settings.minimumReservationAmount || totalPrice >= settings.minimumReservationAmount) &&
-                            anyServiceRequiresDeposit;
-      
-      if (!depositEnabled) {
-        console.log('💰 Kapora Devre Dışı:', {
-          settingsEnabled: settings.enabled,
-          minAmount: settings.minimumReservationAmount,
-          totalPrice,
-          anyServiceRequiresDeposit
-        });
-        setDepositInfo({ required: false, amount: 0, remaining: totalPrice });
-        return;
-      }
-
-      // Kapora miktarını hesapla
-      let depositAmount = 0;
-      if (settings.type === 'percentage') {
-        // Yüzde bazlı: Toplam tutarın %X'i
-        depositAmount = Math.round(totalPrice * (settings.amount / 100));
-      } else {
-        // Sabit tutar bazlı
-        depositAmount = settings.amount;
-      }
-
-      // ✅ KONTROL: Kapora toplam tutardan fazla olamaz
-      if (depositAmount > totalPrice) {
-        depositAmount = totalPrice;
-      }
-
-      const depositData = {
-        required: true,
-        amount: depositAmount,
-        remaining: totalPrice - depositAmount
-      };
-
-      console.log('💰 Kapora Hesaplandı:', {
-        type: settings.type,
-        percentage: settings.type === 'percentage' ? settings.amount : null,
-        fixedAmount: settings.type === 'fixed' ? settings.amount : null,
-        totalPrice,
-        depositAmount,
-        remaining: depositData.remaining,
-        servicesWithDeposit: selectedServices.filter(s => s.requiresDeposit).map(s => s.name)
-      });
-
-      setDepositInfo(depositData);
-    } else {
-      if (totalPrice > 0) {
-        console.log('💰 Kapora YOK - Koşullar Sağlanmadı:', {
-          hasValidIBAN,
-          hasDepositSettings: !!salon?.paymentSettings?.depositSettings,
-          totalPrice
-        });
-      }
-      setDepositInfo({ required: false, amount: 0, remaining: totalPrice });
-    }
-  }, [totalPrice, selectedServices, salon?.paymentSettings?.depositSettings, salon?.paymentSettings?.bankTransferEnabled, salon?.paymentSettings?.bankAccounts]);
-
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
-    if (user && activeStep === 4) {
-      // Sadece boşsa doldur, kullanıcı değiştirmişse üzerine yazma
+    if (user && activeStep === (salon?.staff && salon.staff.length > 0 ? 4 : 3)) {
       if (!localName && user.displayName) {
         setLocalName(user.displayName);
       }
       if (!localPhone && user.phone) {
-        // Telefon numarasını temizle (başındaki +90 veya 0'ı kaldır)
         const cleanPhone = user.phone.replace(/^\+90/, '').replace(/^0/, '');
         setLocalPhone(cleanPhone);
       }
@@ -154,99 +59,22 @@ export function SlotBookingWizard() {
         setLocalEmail(user.email);
       }
     }
-  }, [user, activeStep]);
-
-  useEffect(() => {
-    // Personel varsa ve seçilmişse slot yükle
-    // Personel yoksa doğrudan tarih seçimine göre slot yükle
-    const hasStaff = salon?.staff && salon.staff.length > 0;
-    
-    if (selectedDate && salon) {
-      if (hasStaff && selectedStaffId) {
-        // Personel varsa ve seçiliyse, personele özel slotları yükle
-        loadAvailableSlots();
-      } else if (!hasStaff) {
-        // Personel yoksa, genel slotları yükle
-        loadAvailableSlots();
-      } else if (hasStaff && !selectedStaffId) {
-        // Personel var ama seçilmemiş, slotları temizle
-        setAvailableSlots([]);
-      }
-    }
-  }, [selectedDate, selectedStaffId, salon, totalDuration]);
-
-  const loadAvailableSlots = async () => {
-    if (!selectedDate || !salon) {
-      return;
-    }
-    
-    const hasStaff = salon.staff && salon.staff.length > 0;
-    
-    // Personel varsa ama seçilmemişse çık
-    if (hasStaff && !selectedStaffId) {
-      return;
-    }
-    
-    setLoadingSlots(true);
-    try {
-      const date = new Date(selectedDate);
-      
-      console.log('Slot yükleniyor:', {
-        businessId: salon.id,
-        date: selectedDate,
-        staffId: selectedStaffId || 'Personel yok',
-        duration: totalDuration
-      });
-      
-      // Personel varsa personele özel, yoksa genel slotları al
-      const slots = await availabilityService.getAvailableSlots({
-        businessId: salon.id,
-        date,
-        duration: totalDuration || 30,
-        staffId: hasStaff ? selectedStaffId : undefined, // Personel yoksa undefined
-        workingHours: salon.workingHours,
-        staff: hasStaff ? salon.staff : undefined
-      });
-      
-      console.log(`${slots.length} müsait slot bulundu`);
-      setAvailableSlots(slots);
-    } catch (error) {
-      console.error('Slot yükleme hatası:', error);
-      setAvailableSlots([]);
-    }
-    setLoadingSlots(false);
-  };
+  }, [user, activeStep, salon?.staff]);
 
   const handleStepComplete = (step: number) => {
     if (!completedSteps.includes(step)) {
       setCompletedSteps([...completedSteps, step]);
     }
     setTimeout(() => {
-      if (step < 4) {
+      if (step < (salon?.staff && salon.staff.length > 0 ? 4 : 3)) {
         setActiveStep(step + 1);
-        if (step === 3) setActiveSubStep(null);
       }
     }, 100);
   };
 
-  const handleDateSelect = (date: Date) => {
+  const handleDateTimeSelect = (date: Date, time: string) => {
     const dateStr = formatDateToString(date);
-    selectDateTime(dateStr, selectedTime || '');
-    // Tarih seçildiğinde otomatik collapse yap ve saat seçim alanını aç
-    setTimeout(() => {
-      setActiveSubStep('time');
-    }, 300);
-  };
-
-  const handleTimeSelect = (time: string) => {
-    selectDateTime(selectedDate || '', time);
-    // Saat seçildiğinde otomatik collapse yap
-    setTimeout(() => {
-      setActiveSubStep(null);
-      // Step'i tamamla ve bir sonrakine geç
-      const currentStepId = salon?.staff && salon.staff.length > 0 ? 3 : 2;
-      handleStepComplete(currentStepId);
-    }, 300);
+    selectDateTime(dateStr, time);
   };
 
   const handleSubmit = async () => {
@@ -271,7 +99,6 @@ export function SlotBookingWizard() {
 
     const hasStaff = salon?.staff && salon.staff.length > 0;
     
-    // Personel varsa ve seçilmemişse uyar
     if (hasStaff && !selectedStaffId) {
       addToast('Lütfen personel seçin', 'error');
       return;
@@ -282,8 +109,7 @@ export function SlotBookingWizard() {
       phone: localPhone,
       email: localEmail,
       notes: localNotes,
-      address: localAddress,
-      location: gpsLocation || undefined
+      address: localAddress
     });
 
     try {
@@ -302,9 +128,57 @@ export function SlotBookingWizard() {
     }
   };
 
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) {
+      addToast('Tarayıcınız konum özelliğini desteklemiyor', 'error');
+      return;
+    }
+
+    setGettingLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const address = data.display_name || `${latitude}, ${longitude}`;
+            setLocalAddress(address);
+            addToast('Konum alındı!', 'success');
+          } else {
+            setLocalAddress(`Konum: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+            addToast('Konum koordinatları alındı', 'success');
+          }
+        } catch (error) {
+          const { latitude, longitude } = position.coords;
+          setLocalAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          addToast('Konum koordinatları alındı', 'success');
+        }
+        setGettingLocation(false);
+      },
+      (error) => {
+        setGettingLocation(false);
+        let message = 'Konum alınamadı';
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Konum izni reddedildi';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Konum bilgisi kullanılamıyor';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'Konum alma zaman aşımına uğradı';
+        }
+        addToast(message, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   if (!salon) return null;
 
-  // Hizmet kontrolü
   if (!salon.services || salon.services.length === 0) {
     return (
       <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
@@ -350,7 +224,6 @@ export function SlotBookingWizard() {
           {salon.name}
         </h1>
         <p className="text-sm text-[var(--muted-lead)]">Premium rezervasyon deneyimi</p>
-        <WorkingHoursDisplay workingHours={salon.workingHours} label="Bugün" colorClass="text-cyan-400" />
       </div>
 
       <div className="space-y-3">
@@ -430,7 +303,7 @@ export function SlotBookingWizard() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                         className="overflow-hidden relative z-20"
                       >
                         <div className="px-4 pb-4 space-y-3">
@@ -536,180 +409,32 @@ export function SlotBookingWizard() {
 
                           {step.id === (salon.staff && salon.staff.length > 0 ? 3 : 2) && (
                             <>
-                              {salon.staff && salon.staff.length > 0 && !selectedStaffId && (
-                                <div className="mb-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
-                                  <p className="text-sm text-amber-300 text-center">
-                                    ⚠️ Önce personel seçmeniz gerekiyor
-                                  </p>
-                                </div>
-                              )}
-                              <div className={cn(
-                                "rounded-2xl border transition-all duration-200",
-                                (salon.staff && salon.staff.length > 0 && !selectedStaffId) && "opacity-50 pointer-events-none",
-                                activeSubStep === 'date' 
-                                  ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" 
-                                  : selectedDate 
-                                  ? "border-emerald-500/30 bg-emerald-500/5"
-                                  : "border-white/[0.06] bg-white/[0.02]"
-                              )}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveSubStep(activeSubStep === 'date' ? null : 'date');
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Randevu Tarihi</h4>
+                                <ModernCalendar
+                                  selectedDate={selectedDate ? new Date(selectedDate) : null}
+                                  onSelect={(date) => {
+                                    const dateStr = formatDateToString(date);
+                                    selectDateTime(dateStr, selectedTime || '');
                                   }}
-                                  className="w-full p-3 flex items-center justify-between"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Calendar size={18} className={selectedDate ? "text-emerald-400" : "text-purple-400"} />
-                                    <span className="font-semibold text-sm text-[var(--chrome-white)]">
-                                      {selectedDate || 'Tarih Seçin'}
-                                    </span>
-                                  </div>
-                                  {selectedDate && <CheckCircle2 size={18} className="text-emerald-400" />}
-                                </button>
-                                <AnimatePresence>
-                                  {activeSubStep === 'date' && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2 }}
-                                    >
-                                      <div className="px-3 pb-3">
-                                        <ModernCalendar
-                                          selectedDate={selectedDate ? new Date(selectedDate) : null}
-                                          onSelect={handleDateSelect}
-                                          minDate={new Date()}
-                                          workingHours={salon.workingHours}
-                                          businessId={salon.id}
-                                          serviceDuration={totalDuration}
-                                          staffId={selectedStaffId || undefined}
-                                          staff={salon.staff}
-                                        />
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
+                                  minDate={new Date()}
+                                />
                               </div>
-
-                              {selectedDate && (
-                                <div className={cn(
-                                  "rounded-2xl border transition-all duration-200",
-                                  activeSubStep === 'time' 
-                                    ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 to-transparent" 
-                                    : selectedTime 
-                                    ? "border-emerald-500/30 bg-emerald-500/5"
-                                    : "border-white/[0.06] bg-white/[0.02]"
-                                )}>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveSubStep(activeSubStep === 'time' ? null : 'time');
-                                    }}
-                                    className="w-full p-3 flex items-center justify-between"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <Clock size={18} className={selectedTime ? "text-emerald-400" : "text-purple-400"} />
-                                      <span className="font-semibold text-sm text-[var(--chrome-white)]">
-                                        {selectedTime || 'Saat Seçin'}
-                                      </span>
-                                    </div>
-                                    {selectedTime && <CheckCircle2 size={18} className="text-emerald-400" />}
-                                  </button>
-                                  <AnimatePresence>
-                                    {activeSubStep === 'time' && (
-                                      <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: "auto", opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                      >
-                                        <div className="px-3 pb-3">
-                                          {loadingSlots ? (
-                                            <div className="text-center py-8">
-                                              <Loader2 className="w-8 h-8 text-purple-500 animate-spin mx-auto mb-3" />
-                                              <p className="text-sm font-semibold text-[var(--chrome-white)] mb-1">Müsait saatler yükleniyor...</p>
-                                              <p className="text-xs text-[var(--muted-lead)]">Lütfen bekleyin</p>
-                                            </div>
-                                          ) : (salon.staff && salon.staff.length > 0 && !selectedStaffId) ? (
-                                            <div className="text-center py-6 text-sm text-amber-400">
-                                              Önce personel seçmeniz gerekiyor
-                                            </div>
-                                          ) : availableSlots.length > 0 ? (
-                                            <>
-                                              <div className="mb-3 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                                <p className="text-xs text-emerald-300 text-center">
-                                                  ✓ {availableSlots.length} müsait saat bulundu
-                                                </p>
-                                              </div>
-                                              <TimeSlotGrid
-                                                slots={availableSlots.map(slot => ({
-                                                  time: slot.startTime,
-                                                  available: slot.available
-                                                }))}
-                                                selectedTime={selectedTime}
-                                                onSelect={handleTimeSelect}
-                                              />
-                                            </>
-                                          ) : (
-                                            <>
-                                              <div className="text-center py-6">
-                                                <Clock size={32} className="mx-auto text-[var(--muted-lead)] mb-3" />
-                                                <p className="text-sm text-[var(--muted-lead)] mb-1">
-                                                  Bu tarihte müsait saat yok
-                                                </p>
-                                                <p className="text-xs text-[var(--ash)]">
-                                                  Seçili personelin bu gündeki tüm saatleri dolu
-                                                </p>
-                                              </div>
-                                              
-                                              {/* Sıraya Ekle Butonu - Her zaman göster */}
-                                              {selectedServices.length > 0 && (
-                                                <div className="mb-4">
-                                                  <QueueJoinButton
-                                                    salon={salon}
-                                                    selectedServices={selectedServices}
-                                                    selectedStaffId={selectedStaffId}
-                                                    preferredDate={selectedDate}
-                                                    preferredTime={selectedTime}
-                                                    totalPrice={totalPrice}
-                                                    totalDuration={totalDuration}
-                                                    customerName={localName}
-                                                    customerPhone={localPhone}
-                                                    customerEmail={localEmail}
-                                                    customerNotes={localNotes}
-                                                    onSuccess={() => {
-                                                      addToast('Sıraya eklendiniz! İşletme sizi arayacaktır.', 'success');
-                                                      navigate('/appointments');
-                                                    }}
-                                                  />
-                                                </div>
-                                              )}
-                                              
-                                              {selectedStaffId && selectedDate && salon.staff && (
-                                                <AlternativeSuggestions
-                                                  type="staff"
-                                                  selectedId={selectedStaffId}
-                                                  selectedName={salon.staff.find(s => s.id === selectedStaffId)?.name || ''}
-                                                  date={new Date(selectedDate)}
-                                                  duration={totalDuration || 30}
-                                                  workingHours={salon.workingHours}
-                                                  allStaff={salon.staff}
-                                                  onSelect={(id, name) => {
-                                                    selectStaff(id);
-                                                    setActiveSubStep('time');
-                                                  }}
-                                                />
-                                              )}
-                                            </>
-                                          )}
-                                        </div>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
-                                </div>
-                              )}
-
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Randevu Saati</h4>
+                                <ModernTimePicker
+                                  value={selectedTime || ''}
+                                  onChange={(time) => selectDateTime(selectedDate || '', time)}
+                                  workingHours={
+                                    salon?.workingHours?.start ? {
+                                      start: salon.workingHours.start.open,
+                                      end: salon.workingHours.end.close
+                                    } : undefined
+                                  }
+                                  intervalMinutes={30}
+                                  label="Randevu saati seçin"
+                                />
+                              </div>
                               {selectedDate && selectedTime && (
                                 <button
                                   onClick={(e) => {
@@ -725,7 +450,7 @@ export function SlotBookingWizard() {
                           )}
 
                           {step.id === (salon.staff && salon.staff.length > 0 ? 4 : 3) && (
-                            <>
+                            <div className="space-y-3">
                               <input
                                 type="text"
                                 value={localName}
@@ -751,6 +476,44 @@ export function SlotBookingWizard() {
                                 placeholder="E-posta (opsiyonel)"
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
+                              
+                              {/* Adres Alanı - Sadece Mobil Hizmet Varsa */}
+                              {salon.settings?.mobileService && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">
+                                    Hizmet Adresi
+                                    <span className="text-xs text-[var(--muted-lead)] ml-2">(Konuma hizmet için)</span>
+                                  </h4>
+                                  <div className="space-y-2">
+                                    <button
+                                      type="button"
+                                      onClick={handleGetLocation}
+                                      disabled={gettingLocation}
+                                      className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 text-blue-300 font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                      {gettingLocation ? (
+                                        <>
+                                          <Loader2 size={18} className="animate-spin" />
+                                          <span>Konum alınıyor...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <MapPin size={18} />
+                                          <span>Konumumu Al</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <textarea
+                                      value={localAddress}
+                                      onChange={(e) => setLocalAddress(e.target.value)}
+                                      placeholder="Hizmet alınacak adres..."
+                                      rows={3}
+                                      className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              
                               <textarea
                                 value={localNotes}
                                 onChange={(e) => setLocalNotes(e.target.value)}
@@ -758,107 +521,14 @@ export function SlotBookingWizard() {
                                 rows={2}
                                 className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
-                              
-                              {/* 🆕 Adres Bilgisi */}
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={localAddress}
-                                    onChange={(e) => setLocalAddress(e.target.value)}
-                                    placeholder="Adres (opsiyonel)"
-                                    className="flex-1 h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      setGettingLocation(true);
-                                      try {
-                                        if (!navigator.geolocation) {
-                                          addToast('Tarayıcınız konum almayı desteklemiyor', 'error');
-                                          return;
-                                        }
-                                        
-                                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                                          navigator.geolocation.getCurrentPosition(resolve, reject);
-                                        });
-                                        
-                                        const { latitude, longitude } = position.coords;
-                                        setGpsLocation({ lat: latitude, lng: longitude });
-                                        
-                                        // Reverse geocoding ile adres al
-                                        const response = await fetch(
-                                          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-                                        );
-                                        const data = await response.json();
-                                        setLocalAddress(data.display_name || `${latitude}, ${longitude}`);
-                                        addToast('Konum alındı!', 'success');
-                                      } catch (error) {
-                                        addToast('Konum alınamadı. Lütfen izin verin.', 'error');
-                                      } finally {
-                                        setGettingLocation(false);
-                                      }
-                                    }}
-                                    disabled={gettingLocation}
-                                    className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-500/30 flex items-center justify-center transition-all active:scale-95 disabled:opacity-50"
-                                    title="Konumu Al"
-                                  >
-                                    {gettingLocation ? (
-                                      <Loader2 size={18} className="text-cyan-400 animate-spin" />
-                                    ) : (
-                                      <MapPin size={18} className="text-cyan-400" />
-                                    )}
-                                  </button>
+                              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
+                                  <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                    {totalPrice}₺
+                                  </span>
                                 </div>
-                                {gpsLocation && (
-                                  <p className="text-xs text-cyan-400 flex items-center gap-1">
-                                    <MapPin size={12} />
-                                    GPS koordinatları kaydedildi
-                                  </p>
-                                )}
                               </div>
-                              
-                              {/* 🆕 Kapora Bilgisi */}
-                              {depositInfo.required ? (
-                                <div className="space-y-2">
-                                  <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/[0.08]">
-                                    <div className="flex justify-between items-center text-sm mb-1">
-                                      <span className="text-[var(--muted-lead)]">Toplam Tutar</span>
-                                      <span className="font-mono text-[var(--silver-frost)]">{totalPrice}₺</span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-2 border-purple-500/40">
-                                    <div className="flex justify-between items-center mb-1">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-                                        <span className="text-sm font-semibold text-purple-300">Şimdi Ödenecek Kapora</span>
-                                      </div>
-                                      <span className="font-bold text-2xl text-purple-300">{depositInfo.amount}₺</span>
-                                    </div>
-                                    <p className="text-xs text-purple-300/70 mt-1">
-                                      Randevunuzu garantilemek için kapora ödemesi gereklidir
-                                    </p>
-                                  </div>
-                                  
-                                  <div className="p-4 rounded-2xl bg-white/[0.05] border border-white/[0.08]">
-                                    <div className="flex justify-between items-center text-sm">
-                                      <span className="text-[var(--muted-lead)]">Randevuda Ödenecek</span>
-                                      <span className="font-mono text-[var(--chrome-white)]">{depositInfo.remaining}₺</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
-                                    <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
-                                      {totalPrice}₺
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -876,7 +546,7 @@ export function SlotBookingWizard() {
                                   'Randevu Oluştur'
                                 )}
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
                       </motion.div>
