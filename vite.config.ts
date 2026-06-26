@@ -30,6 +30,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   esbuild: {
-    drop: ['console', 'debugger'], // ❌ Console ve debugger kaldır
+    // Console logları geçici olarak aktif - debug için
+    // drop: ['debugger'], 
   },
 });
