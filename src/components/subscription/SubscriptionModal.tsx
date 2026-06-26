@@ -116,35 +116,35 @@ export function SubscriptionModal({
             exit={{ y: 50, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-6xl sm:my-auto h-[85vh] sm:h-auto sm:max-h-[90vh] bg-[var(--slate-surface)] rounded-t-3xl sm:rounded-3xl border-t border-white/[0.08] sm:border shadow-2xl flex flex-col overflow-hidden will-change-transform"
+            className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-6xl sm:my-auto h-[85vh] sm:h-auto sm:max-h-[90vh] bg-white dark:bg-[var(--slate-surface)] rounded-t-3xl sm:rounded-3xl border-t border-gray-200 dark:border-white/[0.08] sm:border shadow-2xl flex flex-col overflow-hidden will-change-transform"
           >
           {/* Sticky Header */}
-          <div className="sticky top-0 bg-gradient-to-b from-[var(--slate-surface)] to-[var(--slate-surface)]/95 backdrop-blur-xl border-b border-white/[0.08] p-5 z-10 flex-shrink-0">
+          <div className="sticky top-0 bg-gradient-to-b from-white to-white/95 dark:from-[var(--slate-surface)] dark:to-[var(--slate-surface)]/95 backdrop-blur-xl border-b border-gray-200 dark:border-white/[0.08] p-5 z-10 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
                   <Sparkles size={24} className="text-white" strokeWidth={2.5} />
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)]">
+                  <h3 className="font-heading font-bold text-lg text-gray-900 dark:text-[var(--chrome-white)]">
                     Abonelik Planları
                   </h3>
-                  <p className="text-xs text-[var(--muted-lead)]">
+                  <p className="text-xs text-gray-600 dark:text-[var(--muted-lead)]">
                     İşletmeniz için en uygun planı seçin
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-10 h-10 rounded-full bg-white/[0.05] hover:bg-white/[0.08] flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/[0.05] hover:bg-gray-200 dark:hover:bg-white/[0.08] flex items-center justify-center transition-colors"
               >
-                <X size={20} className="text-[var(--muted-lead)]" />
+                <X size={20} className="text-gray-600 dark:text-[var(--muted-lead)]" />
               </button>
             </div>
 
             {/* Interval Selector */}
             <div className="flex justify-center mt-4">
-              <div className="inline-flex bg-white/[0.05] rounded-full p-1">
+              <div className="inline-flex bg-gray-100 dark:bg-white/[0.05] rounded-full p-1">
                 {intervals.map((interval) => {
                   const plan = SUBSCRIPTION_PLANS[1];
                   const discount = plan.discounts[interval.value];
@@ -156,8 +156,8 @@ export function SubscriptionModal({
                       className={cn(
                         'relative px-4 py-2 rounded-full text-sm font-heading font-semibold transition-all',
                         selectedInterval === interval.value
-                          ? 'bg-white/10 text-white shadow-lg'
-                          : 'text-gray-400 hover:text-white'
+                          ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-lg'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       )}
                     >
                       {interval.label}
@@ -193,12 +193,12 @@ export function SubscriptionModal({
                   <div
                     key={plan.id}
                     className={cn(
-                      'relative bg-white/[0.02] backdrop-blur-xl rounded-3xl border-2 transition-all overflow-hidden will-change-transform hover:-translate-y-1',
+                      'relative bg-gray-50 dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl border-2 transition-all overflow-hidden will-change-transform hover:-translate-y-1',
                       isCurrentPlan
                         ? 'border-emerald-500/50 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-500/10'
                         : isUpgrade
                         ? 'border-purple-500/30 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/20'
-                        : 'border-white/[0.08] hover:border-white/20 hover:shadow-xl hover:shadow-white/5',
+                        : 'border-gray-200 dark:border-white/[0.08] hover:border-gray-300 dark:hover:border-white/20 hover:shadow-xl hover:shadow-gray-200 dark:hover:shadow-white/5',
                       plan.popular && 'ring-2 ring-purple-500/30 shadow-lg shadow-purple-500/10'
                     )}
                   >
@@ -241,13 +241,13 @@ export function SubscriptionModal({
                             <Icon className="w-7 h-7 text-white" strokeWidth={2.5} />
                           </div>
                         </div>
-                        <h3 className="text-xl font-bold text-white font-heading">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white font-heading">
                           {plan.name}
                         </h3>
                       </div>
 
                       {/* Description */}
-                      <p className="text-sm text-gray-400 mb-5 text-center min-h-[40px]">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 text-center min-h-[40px]">
                         {plan.description}
                       </p>
 
@@ -255,25 +255,25 @@ export function SubscriptionModal({
                       <div className="mb-5 text-center">
                         {plan.customPricing ? (
                           <div className="py-3">
-                            <p className="text-3xl font-bold text-white">
+                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
                               Özel Fiyat
                             </p>
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                               İletişime geçin
                             </p>
                           </div>
                         ) : (
                           <>
                             <div className="flex items-baseline justify-center gap-1">
-                              <span className="text-3xl lg:text-4xl font-bold text-white font-mono">
+                              <span className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white font-mono">
                                 {planPrice.toLocaleString('tr-TR')}₺
                               </span>
                             </div>
-                            <span className="text-gray-400 text-sm block mt-1">
+                            <span className="text-gray-600 dark:text-gray-400 text-sm block mt-1">
                               / {selectedInterval === 'monthly' ? 'ay' : 'dönem'}
                             </span>
                             {discount > 0 && (
-                              <div className="mt-3 inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs font-bold px-3 py-1.5 rounded-full">
+                              <div className="mt-3 inline-flex items-center gap-1 bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold px-3 py-1.5 rounded-full">
                                 <TrendingUp className="w-3 h-3" />
                                 %{discount} tasarruf
                               </div>
@@ -286,34 +286,34 @@ export function SubscriptionModal({
                       <div className="space-y-3 mb-6">
                         <div className="flex items-start gap-3 text-sm">
                           <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                            <Check className="w-3 h-3 text-green-500 dark:text-green-400" strokeWidth={3} />
                           </div>
-                          <span className="text-gray-300 font-medium">
+                          <span className="text-gray-700 dark:text-gray-300 font-medium">
                             {plan.features.maxStaff === 'unlimited' ? 'Sınırsız' : plan.features.maxStaff} Personel
                           </span>
                         </div>
                         <div className="flex items-start gap-3 text-sm">
                           <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                            <Check className="w-3 h-3 text-green-500 dark:text-green-400" strokeWidth={3} />
                           </div>
-                          <span className="text-gray-300 font-medium">
+                          <span className="text-gray-700 dark:text-gray-300 font-medium">
                             {plan.features.maxServices === 'unlimited' ? 'Sınırsız' : plan.features.maxServices} Hizmet
                           </span>
                         </div>
                         <div className="flex items-start gap-3 text-sm">
                           <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                            <Check className="w-3 h-3 text-green-500 dark:text-green-400" strokeWidth={3} />
                           </div>
-                          <span className="text-gray-300 font-medium">
+                          <span className="text-gray-700 dark:text-gray-300 font-medium">
                             {plan.features.maxMonthlyBookings === 'unlimited' ? 'Sınırsız' : plan.features.maxMonthlyBookings} Randevu
                           </span>
                         </div>
                         {plan.features.advancedAnalytics && (
                           <div className="flex items-start gap-3 text-sm">
                             <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Check className="w-3 h-3 text-green-400" strokeWidth={3} />
+                              <Check className="w-3 h-3 text-green-500 dark:text-green-400" strokeWidth={3} />
                             </div>
-                            <span className="text-gray-300 font-medium">Gelişmiş Analitik</span>
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">Gelişmiş Analitik</span>
                           </div>
                         )}
                       </div>
@@ -352,7 +352,7 @@ export function SubscriptionModal({
           {/* Sticky Footer - Confirmation */}
           {selectedPlan && (
             <div
-              className="sticky bottom-0 bg-gradient-to-t from-[var(--slate-surface)] to-[var(--slate-surface)]/95 backdrop-blur-xl border-t border-white/[0.08] p-4 flex-shrink-0 animate-fadeIn"
+              className="sticky bottom-0 bg-gradient-to-t from-white to-white/95 dark:from-[var(--slate-surface)] dark:to-[var(--slate-surface)]/95 backdrop-blur-xl border-t border-gray-200 dark:border-white/[0.08] p-4 flex-shrink-0 animate-fadeIn"
             >
               <div className="flex items-center justify-between gap-3">
                 {/* Selected Plan Info - Compact */}
@@ -361,10 +361,10 @@ export function SubscriptionModal({
                     <Check className="w-4 h-4 text-white" strokeWidth={2.5} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-white truncate capitalize">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate capitalize">
                       {SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan)?.name}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
                       {currentPlan ? (
                         <>
                           {(() => {
@@ -390,10 +390,10 @@ export function SubscriptionModal({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => setSelectedPlan(null)}
-                    className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                    className="w-9 h-9 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
                     title="İptal"
                   >
-                    <X size={16} className="text-gray-400" />
+                    <X size={16} className="text-gray-600 dark:text-gray-400" />
                   </button>
                   <button
                     onClick={handleConfirmPurchase}

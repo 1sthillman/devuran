@@ -18,6 +18,7 @@ const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m
 const OwnerDashboard = lazy(() => import('@/pages/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
 const SuperAdminDashboard = lazy(() => import('@/pages/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
+const RestaurantMenu = lazy(() => import('@/pages/RestaurantMenu'));
 
 // Loading component
 function PageLoader() {
@@ -154,6 +155,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <SuperAdminDashboard />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/restaurant/:restaurantId/table/:tableQR"
+              element={
+                <AnimatedRoute>
+                  <RestaurantMenu />
                 </AnimatedRoute>
               }
             />

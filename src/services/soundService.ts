@@ -49,6 +49,11 @@ class SoundService {
     this.play('randevuIptal');
   }
 
+  // Play notification sound (for restaurant orders)
+  playNotification() {
+    this.play('randevuGeldi'); // Aynı ses dosyasını kullanıyoruz
+  }
+
   // Enable/disable sounds
   setEnabled(enabled: boolean) {
     this.enabled = enabled;

@@ -46,7 +46,10 @@ export type CategoryId =
   // Catering & Food
   | 'catering'
   | 'pasta-tatli'
-  | 'kahve-ikram';
+  | 'kahve-ikram'
+  // Restaurant & Food Service
+  | 'restoran'
+  | 'kafe';
 
 export interface Category {
   id: CategoryId;
@@ -129,6 +132,14 @@ export const categoryGroups: CategoryGroup[] = [
     icon: UtensilsCrossed,
     color: 'from-red-500 to-rose-500',
     categories: ['catering', 'pasta-tatli', 'kahve-ikram'],
+  },
+  {
+    id: 'restaurant',
+    name: 'Restoran & Kafe',
+    description: 'Yemek ve içecek işletmeleri',
+    icon: UtensilsCrossed,
+    color: 'from-orange-500 to-red-500',
+    categories: ['restoran', 'kafe'],
   },
 ];
 
@@ -499,6 +510,42 @@ export const categories: Record<CategoryId, Category> = {
       service: 'Paket',
       appointment: 'Rezervasyon',
       duration: 'saat',
+    },
+  },
+
+  // Restaurant & Food Service
+  restoran: {
+    id: 'restoran',
+    name: 'Restoran',
+    description: 'Yemek servisi ve masa rezervasyonu',
+    icon: UtensilsCrossed,
+    color: 'orange',
+    gradient: 'from-orange-500 to-red-500',
+    groupId: 'restaurant',
+    keywords: ['restoran', 'yemek', 'masa', 'sipariş', 'menü'],
+    labels: {
+      business: 'Restoran',
+      staff: 'Garson',
+      service: 'Menü',
+      appointment: 'Masa',
+      duration: 'kişi',
+    },
+  },
+  kafe: {
+    id: 'kafe',
+    name: 'Kafe',
+    description: 'Kafe ve kahvaltı mekanları',
+    icon: Coffee,
+    color: 'brown',
+    gradient: 'from-amber-600 to-orange-600',
+    groupId: 'restaurant',
+    keywords: ['kafe', 'kahve', 'kahvaltı', 'içecek'],
+    labels: {
+      business: 'Kafe',
+      staff: 'Barista',
+      service: 'Menü',
+      appointment: 'Masa',
+      duration: 'kişi',
     },
   },
 };

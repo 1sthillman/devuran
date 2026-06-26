@@ -1,0 +1,94 @@
+========================================
+BROWSER CONSOLE'DA GÖRMELİSİN
+========================================
+
+1. Sayfa yüklendiğinde:
+---
+🪑 TABLE YÜKLENDİ: {
+  tableId: "...",
+  tableNumber: "...",
+  tableRestaurantId: "nk5O1R45VhqxiB0FZTjr"
+}
+
+🔔 ========== NotificationButtons BAŞLATILDI ==========
+📊 Props: {
+  restaurantId: "nk5O1R45VhqxiB0FZTjr",
+  tableId: "...",
+  tableName: "..."
+}
+✅ Component mount edildi, butonlar görünmeli!
+---
+
+2. FAB butonuna (turuncu yuvarlak) tıkladığında:
+---
+🔵 FAB BUTON TIKLANDI! {
+  currentState: false,
+  willBecome: true
+}
+---
+
+3. "Köz" butonuna tıkladığında:
+---
+🖱️ BUTONA TIKLANDI! {
+  type: "coal_request",
+  label: "Köz",
+  tableId: "...",
+  isLoading: false
+}
+
+✅ sendNotification çağrılacak...
+
+🎯 sendNotification ÇAĞRILDI! {
+  type: "coal_request",
+  label: "Köz"
+}
+
+🔔 BİLDİRİM GÖNDERİLİYOR! {
+  restaurantId: "nk5O1R45VhqxiB0FZTjr",
+  type: "coal_request",
+  tableId: "...",
+  tableName: "..."
+}
+
+✅ BİLDİRİM OLUŞTURULDU: [notification-id]
+---
+
+========================================
+EĞER BUNLARI GÖRMÜYORSANız:
+========================================
+
+❌ Hiç log yok
+→ Sayfa açılmamış veya console temizlenmiş
+
+❌ "NotificationButtons BAŞLATILDI" yok
+→ Component render olmamış
+→ CustomerMenu'de problem var
+
+❌ "FAB BUTON TIKLANDI" yok
+→ Butona tıklanmamış veya button disabled
+
+❌ "BUTONA TIKLANDI" yok
+→ 3 buton açılmamış veya köz butonuna tıklanmamış
+
+❌ "sendNotification ÇAĞRILDI" yok
+→ onClick handler çalışmamış
+
+❌ "BİLDİRİM GÖNDERİLİYOR" yok ama "KONTROL BAŞARISIZ" var
+→ restaurantId veya tableId eksik/yanlış
+
+❌ Permission Denied hatası
+→ Firestore rules sorunu
+
+========================================
+HATA MESAJI GÖRÜYORSANız:
+========================================
+
+Tam olarak ne yazıyor? Kopyala yapıştır yap!
+
+Örnek hatalar:
+- "Cannot read property 'restaurantId' of null"
+- "Permission denied"
+- "Network error"
+- "createNotification is not a function"
+
+========================================

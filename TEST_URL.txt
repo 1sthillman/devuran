@@ -1,0 +1,35 @@
+========================================
+MÜŞTERİ BUTONLARI TEST URL
+========================================
+
+Development server başlatıldıysa (npm run dev):
+
+http://localhost:3000/restaurant/nk5O1R45VhqxiB0FZTjr/table/U_0RDjoXmh
+
+========================================
+TEST ADIMLARI:
+========================================
+
+1. Yukarıdaki URL'i tarayıcıda aç
+2. F12 bas (Console aç)
+3. Console'da şu logu gör:
+   "🔔 ========== NotificationButtons BAŞLATILDI =========="
+4. Sağ alt FAB buton (turuncu yuvarlak)
+5. "Köz" butonuna tıkla
+6. Toast: "🔥 Köz talebiniz iletildi!"
+7. Garson paneline git:
+   http://localhost:3000/dashboard?tab=restaurant
+8. "Yeni Köz Talepleri" bölümünde kart gör
+
+========================================
+EĞER ÇALIŞMAZSA:
+========================================
+
+Browser Console'da HATA VAR MI kontrol et!
+
+Olası hatalar:
+- "Cannot read property restaurantId" → table yüklenmemiş
+- "Permission denied" → Firestore rules sorunu
+- Hiç log yok → Component render olmamış
+
+========================================

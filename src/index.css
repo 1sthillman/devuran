@@ -3,6 +3,29 @@
 @tailwind utilities;
 
 @layer utilities {
+  /* Custom Scrollbar - Modern Glass Style */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+    background-clip: content-box;
+  }
+
   /* Hide scrollbar for Chrome, Safari and Opera */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -113,9 +136,9 @@
   }
 }
 
-/* Dark Theme (Default) */
+/* Premium Restaurant Management - Dark Theme */
 :root {
-  /* Core Colors - Dark */
+  /* Core Colors - Minimal & Professional */
   --void: #0a0a0f;
   --slate-surface: #13131a;
   --slate-elevated: #1a1a24;
@@ -126,14 +149,23 @@
   --ash: #4a4a5c;
   --liquid-chrome: #60a5fa;
   
-  /* Status Colors */
-  --success: #2DC24E;
-  --warning: #E5A522;
+  /* Premium Accent - Single elegant color */
+  --premium-accent: #8b5cf6;
+  --premium-accent-light: #a78bfa;
+  --premium-accent-dark: #7c3aed;
+  
+  /* Status Colors - Professional & Minimal */
+  --success: #10b981;
+  --warning: #f59e0b;
   --error: #ef4444;
   --info: #60a5fa;
+  
+  /* Oval Border Radius */
+  --radius-oval: 28px;
+  --radius-pill: 9999px;
 }
 
-/* Light Theme */
+/* Light Theme - Premium & Minimal */
 :root[data-theme="light"] {
   /* Core Colors - Light */
   --void: #ffffff;
@@ -146,11 +178,20 @@
   --ash: #9a9aac;
   --liquid-chrome: #3b82f6;
   
-  /* Status Colors - Same for both themes */
-  --success: #2DC24E;
-  --warning: #E5A522;
+  /* Premium Accent */
+  --premium-accent: #8b5cf6;
+  --premium-accent-light: #a78bfa;
+  --premium-accent-dark: #7c3aed;
+  
+  /* Status Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
+  
+  /* Oval Border Radius */
+  --radius-oval: 28px;
+  --radius-pill: 9999px;
 }
 
 * {
@@ -175,18 +216,18 @@ code {
     monospace;
 }
 
-/* Navigation - Glassmorphism */
+/* Navigation - Premium Oval Glass */
 .liquid-nav-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1.5rem;
   background: rgba(19, 19, 26, 0.4);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   transition: all 0.3s ease;
 }
@@ -234,7 +275,7 @@ code {
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.5rem;
+  border-radius: var(--radius-oval);
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
 }
@@ -252,7 +293,7 @@ code {
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   transition: all 0.3s ease;
 }
 
@@ -268,7 +309,7 @@ code {
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.5rem;
+  border-radius: var(--radius-oval);
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
 }
@@ -282,12 +323,12 @@ code {
 }
 
 .obsidian-card-hover:hover {
-  border-color: rgba(96, 165, 250, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(96, 165, 250, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(139, 92, 246, 0.15);
   transform: translateY(-2px);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Premium Oval */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -295,11 +336,12 @@ code {
 
 ::-webkit-scrollbar-track {
   background: var(--slate-surface);
+  border-radius: var(--radius-pill);
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--obsidian-rim);
-  border-radius: 4px;
+  border-radius: var(--radius-pill);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -313,12 +355,12 @@ code {
 
 .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -329,4 +371,109 @@ code {
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) rgba(255, 255, 255, 0.03);
+}
+
+/* Premium Oval Button Styles */
+.btn-premium {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.btn-premium-primary {
+  background: linear-gradient(135deg, var(--premium-accent) 0%, var(--premium-accent-dark) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+}
+
+.btn-premium-primary:hover {
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
+  transform: translateY(-2px);
+}
+
+.btn-premium-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--chrome-white);
+}
+
+.btn-premium-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Premium Oval Input Styles */
+.input-premium {
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-oval);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--chrome-white);
+  transition: all 0.3s ease;
+}
+
+.input-premium:focus {
+  outline: none;
+  border-color: var(--premium-accent);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Premium Oval Card */
+.card-premium {
+  background: rgba(19, 19, 26, 0.5);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-oval);
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.card-premium:hover {
+  border-color: rgba(139, 92, 246, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Premium Badge */
+.badge-premium {
+  padding: 0.375rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--premium-accent-light);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* Premium Toggle/Switch */
+.toggle-premium {
+  width: 52px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.toggle-premium.active {
+  background: var(--premium-accent);
+}
+
+.toggle-premium .toggle-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: white;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s ease;
+}
+
+.toggle-premium.active .toggle-circle {
+  left: 26px;
 }

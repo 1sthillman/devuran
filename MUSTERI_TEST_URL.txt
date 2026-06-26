@@ -1,0 +1,42 @@
+===========================================
+MÜŞTERİ MENÜSÜ TEST URL'LERİ
+===========================================
+
+Aşağıdaki URL'lerden birini tarayıcıda aç:
+
+MASA 3:
+http://localhost:3000/restaurant/nk5O1R45VhqxiB0FZTjr/table/U_0RDjoXmh
+
+MASA TEST:
+http://localhost:3000/restaurant/nk5O1R45VhqxiB0FZTjr/table/g5J5476WuS
+
+===========================================
+TEST ADIMLARI:
+===========================================
+
+1. Yukarıdaki URL'lerden birini aç
+2. F12 bas (Console aç)
+3. Sağ alt köşede turuncu FAB butonuna tıkla
+4. "Köz" butonuna bas
+5. Console'da şu logları gör:
+
+🔔 ========== NotificationButtons BAŞLATILDI ==========
+📊 Props: { restaurantId, tableId, tableName }
+✅ Component mount edildi
+
+🔔 BİLDİRİM GÖNDERİLİYOR! { ... }
+✅ BİLDİRİM OLUŞTURULDU: [ID]
+
+6. Toast mesajı gör: "🔥 Köz talebiniz iletildi!"
+
+7. Garson paneline git:
+http://localhost:3000/dashboard?tab=restaurant
+
+8. "Yeni Köz Talepleri" bölümünde yeni kart gör
+
+9. Butonu test et:
+   - X butonu → Hemen silinmeli
+   - "İşleme Al" → Toast görmeli
+   - "Tamamlandı" → Silinmeli
+
+===========================================

@@ -1,0 +1,62 @@
+===========================================
+TARAYICI KONSOLUNDA ÇALIŞTIR
+===========================================
+
+1. Müşteri menüsü sayfasını aç:
+   http://localhost:3000/restaurant/nk5O1R45VhqxiB0FZTjr/table/U_0RDjoXmh
+
+2. F12 bas (konsolu aç)
+
+3. Console sekmesine geç
+
+4. Aşağıdaki kodu KOPYALA ve YAPIŞTIR, sonra ENTER bas:
+
+===========================================
+KOD BAŞLANGICI:
+===========================================
+
+import { db } from './src/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+(async () => {
+  try {
+    const docRef = await addDoc(collection(db, 'restaurantNotifications'), {
+      restaurantId: "nk5O1R45VhqxiB0FZTjr",
+      type: "coal_request",
+      message: "Masa TEST - KÖZ İSTİYOR (Konsol Testi)",
+      tableId: "KOaUdLOdBopxBgejDN0O",
+      tableName: "TEST",
+      isRead: false,
+      createdAt: serverTimestamp()
+    });
+    console.log('✅ Bildirim oluşturuldu:', docRef.id);
+    alert('✅ Test bildirimi oluşturuldu! Garson panelini kontrol et.');
+  } catch (error) {
+    console.error('❌ Hata:', error);
+    alert('❌ Hata: ' + error.message);
+  }
+})();
+
+===========================================
+KOD BİTİŞİ
+===========================================
+
+5. Eğer çalışırsa "✅ Test bildirimi oluşturuldu!" uyarısı göreceksin
+
+6. Garson paneline git ve bildirimin görünüp görünmediğini kontrol et
+
+===========================================
+EĞer import hatası alırsan, alternatif kod:
+===========================================
+
+(async () => {
+  try {
+    const response = await fetch('/__/firebase/init.json');
+    console.log('Firebase bağlantısı aktif');
+    alert('⚠️ Manuel olarak Firebase Console\'dan oluştur!\nAdımlar:\n1. Firebase Console aç\n2. restaurantNotifications koleksiyonu oluştur\n3. Belgeleri ekle');
+  } catch (error) {
+    console.error('Firebase erişim hatası:', error);
+  }
+})();
+
+===========================================

@@ -308,6 +308,36 @@ export function CategoryIcon({ category, size = 48, className = '' }: CategoryIc
         <path d="M20 16C20 16 24 12 28 16C28 16 32 12 36 16" stroke="url(#kahve-gradient)" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
+
+    // Restaurant & Food Service
+    restoran: (
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="restoran-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+        </defs>
+        <path d="M16 24V12M16 12V8M20 12V8M24 12V8M16 12H24M16 16V52" stroke="url(#restoran-gradient)" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M40 8V24C40 26 38 28 36 28V52" stroke="url(#restoran-gradient)" strokeWidth="3" strokeLinecap="round"/>
+        <circle cx="32" cy="40" r="8" fill="url(#restoran-gradient)" opacity="0.2"/>
+      </svg>
+    ),
+    kafe: (
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="kafe-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#92400e" />
+            <stop offset="100%" stopColor="#f97316" />
+          </linearGradient>
+        </defs>
+        <path d="M18 20H38V40C38 44.4 34.4 48 30 48H26C21.6 48 18 44.4 18 40V20Z" fill="url(#kafe-gradient)" opacity="0.2"/>
+        <path d="M18 20H38V40C38 44.4 34.4 48 30 48H26C21.6 48 18 44.4 18 40V20Z" stroke="url(#kafe-gradient)" strokeWidth="3"/>
+        <path d="M38 26H42C44.2 26 46 27.8 46 30V34C46 36.2 44.2 38 42 38H38" stroke="url(#kafe-gradient)" strokeWidth="3"/>
+        <path d="M22 12C22 12 26 8 30 12C30 12 34 8 38 12" stroke="url(#kafe-gradient)" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M14 52H42" stroke="url(#kafe-gradient)" strokeWidth="3" strokeLinecap="round"/>
+      </svg>
+    ),
   };
 
   return (

@@ -28,6 +28,7 @@ import {
   X,
   CreditCard,
   Link2,
+  ChefHat,
   ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,7 @@ import { SubscriptionGuard } from '@/components/subscription/SubscriptionGuard';
 import { SubscriptionOverviewCard } from '@/components/subscription/SubscriptionOverviewCard';
 import { AnnouncementPopup } from '@/components/announcement/AnnouncementPopup';
 import { QRCodeCard } from '@/components/qr/ModernQRGenerator';
+import { RestaurantDashboard } from '@/components/restaurant/RestaurantDashboard';
 import { appointmentsService, salonsService, servicesService, staffService } from '@/services/firebaseService';
 import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
@@ -63,6 +65,7 @@ const sidebarItems = [
   { key: 'overview', label: 'Genel Bakış', icon: LayoutDashboard },
   { key: 'subscription', label: 'Abonelik', icon: CreditCard },
   { key: 'appointments', label: 'Randevular', icon: CalendarIcon },
+  { key: 'restaurant', label: 'Restoran', icon: ChefHat },
   { key: 'analytics', label: 'Analitik', icon: BarChart3 },
   { key: 'customers', label: 'Musteriler', icon: UserCheck },
   { key: 'reviews', label: 'Yorumlar', icon: Star },
@@ -1008,8 +1011,8 @@ export function OwnerDashboard() {
             <h1 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
               {sidebarItems.find((i) => i.key === activeTab)?.label}
             </h1>
-            {/* Floating Navigation Menu Button - Hidden when BusinessSetupWizard is open */}
-            {!showSalonSetup && <FloatingNavMenu activeTab={activeTab} onTabChange={setActiveTab} />}
+            {/* Floating Navigation Menu Button - Hidden when BusinessSetupWizard or Restaurant panel is open */}
+            {!showSalonSetup && activeTab !== 'restaurant' && <FloatingNavMenu activeTab={activeTab} onTabChange={setActiveTab} />}
           </div>
           {salon && (
             <p className="font-body text-sm text-[var(--muted-lead)] truncate max-w-[200px]">
@@ -1353,6 +1356,34 @@ export function OwnerDashboard() {
               </motion.div>
             )}
 
+            {/* RESTORAN PANELİ KARTI */}
+            {salon && (salon.category === 'restoran' || salon.category === 'kafe') && (
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                onClick={() => setActiveTab('restaurant')}
+                className="relative w-full overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-xl p-6 hover:bg-white/[0.05] transition-colors group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-red-500/5 pointer-events-none" />
+                
+                <div className="relative flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-white/[0.08] flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ChefHat size={24} className="text-orange-400" strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)] mb-1">
+                      Restoran Paneli
+                    </h3>
+                    <p className="text-xs text-[var(--muted-lead)] mt-0.5">
+                      Mutfak, Garson, Kasiyer, Menü ve Masa Yönetimi
+                    </p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-[var(--muted-lead)] -rotate-90 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </motion.button>
+            )}
+
             {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
@@ -1621,6 +1652,14 @@ export function OwnerDashboard() {
         {/* REVIEWS */}
         {activeTab === 'reviews' && salon && (
           <ReviewList salonId={salon.id} limit={50} showOwnerActions={true} />
+        )}
+
+        {/* RESTAURANT PANEL - Rendered via portal to body */}
+        {activeTab === 'restaurant' && salon && createPortal(
+          <div className="fixed inset-0 z-[9998] bg-[var(--void)] overflow-y-auto">
+            <RestaurantDashboard />
+          </div>,
+          document.body
         )}
 
         {/* SETTINGS */}

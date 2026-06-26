@@ -286,6 +286,25 @@ export const SERVICE_TEMPLATES: Record<CategoryId, ServiceTemplate[]> = {
     { name: 'Özel Kahve İkramı', duration: 180, price: 2000, category: 'Özel' },
     { name: 'Çay & Kahve Servisi', duration: 240, price: 1000, category: 'Servis' },
   ],
+
+  // Restaurant & Food Service
+  restoran: [
+    { name: 'Ana Yemek', duration: 0, price: 150, category: 'Ana Yemek' },
+    { name: 'Başlangıç', duration: 0, price: 75, category: 'Başlangıç' },
+    { name: 'Salata', duration: 0, price: 50, category: 'Salata' },
+    { name: 'İçecek', duration: 0, price: 25, category: 'İçecek' },
+    { name: 'Tatlı', duration: 0, price: 60, category: 'Tatlı' },
+  ],
+
+  kafe: [
+    { name: 'Kahve', duration: 0, price: 35, category: 'Sıcak İçecek' },
+    { name: 'Filtre Kahve', duration: 0, price: 40, category: 'Sıcak İçecek' },
+    { name: 'Çay', duration: 0, price: 25, category: 'Sıcak İçecek' },
+    { name: 'Pasta', duration: 0, price: 55, category: 'Tatlı' },
+    { name: 'Kurabiye', duration: 0, price: 30, category: 'Tatlı' },
+    { name: 'Sandviç', duration: 0, price: 75, category: 'Atıştırmalık' },
+    { name: 'Tost', duration: 0, price: 50, category: 'Atıştırmalık' },
+  ],
 };
 
 // Helper fonksiyonlar

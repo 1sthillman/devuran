@@ -564,6 +564,15 @@ export const appointmentsService = {
 
   // Auto-complete appointments after service duration
   async autoCompleteAppointments() {
+    // ⚠️ Bu fonksiyon client-side'dan çalışmıyor çünkü:
+    // 1. Firestore rules permission hatası veriyor
+    // 2. Composite index gerekiyor ama Firebase Console'da oluşturulamıyor
+    // 3. Bu işlem backend'de (Cloud Function) yapılmalı
+    
+    // Geçici olarak devre dışı - Cloud Function'a taşınmalı
+    return;
+    
+    /* ORIGINAL CODE - Cloud Function'a taşınacak
     try {
       const now = new Date();
       const currentDate = now.toISOString().split('T')[0];
@@ -593,6 +602,7 @@ export const appointmentsService = {
     } catch (error) {
       // Sessizce geç - müşteri tarafında permission hatası bekleniyor
     }
+    */
   },
 };
 

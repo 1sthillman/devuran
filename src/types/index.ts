@@ -108,7 +108,8 @@ export interface Salon {
     | 'dugun-salonu' | 'etkinlik-alani'
     | 'bungalov' | 'otel' | 'villa' | 'kamp-alani'
     | 'fotograf' | 'video-produksiyon' | 'drone-cekim'
-    | 'catering' | 'pasta-tatli' | 'kahve-ikram';
+    | 'catering' | 'pasta-tatli' | 'kahve-ikram'
+    | 'restoran' | 'kafe';
   description: string;
   phone: string;
   whatsappNumber: string;
@@ -519,3 +520,25 @@ export type {
   SubscriptionHistory,
   FeatureAccess,
 } from './subscription';
+
+// Re-export restaurant types
+export type {
+  TableStatus,
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+  NotificationType,
+  ProductIngredient,
+  ProductExtra,
+  MenuCategory,
+  MenuItem,
+  OrderItem,
+  Table,
+  Order,
+  RestaurantNotification,
+  RestaurantSettings,
+  RestaurantStats,
+  TableTransfer,
+  RestaurantRole,
+  RestaurantStaff,
+} from './restaurant';

@@ -372,3 +372,40 @@ export function formatDuration(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
+
+// Service instance export
+class MediaCompressionService {
+  async compressImage(file: File, options?: { maxSizeMB?: number; maxWidthOrHeight?: number }) {
+    return compressImage(file);
+  }
+
+  async compressVideo(file: File) {
+    return compressVideo(file);
+  }
+
+  async compressMultipleImages(files: File[], onProgress?: (progress: number) => void) {
+    return compressMultipleImages(files, onProgress);
+  }
+
+  getBase64Size(base64: string) {
+    return getBase64Size(base64);
+  }
+
+  isValidImageType(file: File) {
+    return isValidImageType(file);
+  }
+
+  isValidVideoType(file: File) {
+    return isValidVideoType(file);
+  }
+
+  formatFileSize(bytes: number) {
+    return formatFileSize(bytes);
+  }
+
+  formatDuration(seconds: number) {
+    return formatDuration(seconds);
+  }
+}
+
+export const mediaCompressionService = new MediaCompressionService();

@@ -255,32 +255,64 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
   };
 
   const handleSubmit = async () => {
+    console.log('handleSubmit çağrıldı');
+    
     // Önce detaylı validasyon yap
     const validation = getDetailedValidation();
+    console.log('Validation sonucu:', validation);
     
     if (validation.length > 0) {
+      console.log('Eksik alanlar var, modal açılıyor');
       setMissingFields(validation);
       setShowValidationModal(true);
       return;
     }
     
+    console.log('Validasyon geçti, kaydetme başlıyor');
     setLoading(true);
     
     try {
-      // Salon data hazırla - ownerId'yi sadece yeni oluşturmada ekle
+      // Salon data hazırla - undefined alanları temizle
       const salonData: any = {
-        ...formData,
+        category: formData.category,
+        name: formData.name,
+        phone: formData.phone,
+        whatsappNumber: formData.whatsappNumber,
+        email: formData.email,
+        description: formData.description,
+        address: formData.address,
+        logo: formData.logo,
+        coverImage: formData.coverImage,
+        galleryImages: formData.galleryImages,
+        socialMedia: formData.socialMedia,
+        workingHours: formData.workingHours,
+        settings: formData.settings,
+        staff: formData.staff,
+        services: formData.services,
         slug: formData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
       };
       
-      // Sadece yeni salon oluşturuluyorsa ownerId ekle
-      if (!salon && !(salonData as any).ownerId) {
-        (salonData as any).ownerId = salon?.ownerId || '';
+      // Sadece tanımlı opsiyonel alanları ekle
+      if (formData.bankAccount && formData.bankAccount.iban) {
+        salonData.bankAccount = formData.bankAccount;
       }
       
+      if (formData.depositSettings && formData.depositSettings.enabled !== undefined) {
+        salonData.depositSettings = formData.depositSettings;
+      }
+      
+      console.log('Salon data hazırlandı:', salonData);
+      
+      // Sadece yeni salon oluşturuluyorsa ownerId ekle
+      if (!salon && !salonData.ownerId) {
+        salonData.ownerId = salon?.ownerId || '';
+      }
+      
+      console.log('onSave çağrılıyor...');
       // Save the salon
       await onSave(salonData);
       
+      console.log('Kaydetme başarılı!');
       setLoading(false);
       
       // Show confetti immediately after save
@@ -288,12 +320,14 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
       
       // Wait 5 seconds, then redirect (modal stays open during confetti)
       setTimeout(() => {
+        console.log('Dashboard\'a yönlendiriliyor...');
         // Redirect to overview page
         window.location.href = '/dashboard?tab=overview';
       }, 5000);
       
     } catch (error) {
       console.error('Error saving business:', error);
+      alert('İşletme kaydedilemedi: ' + (error as any).message);
       setLoading(false);
     }
   };
@@ -919,15 +953,20 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
                       </motion.button>
                     ) : (
                       <motion.button
+                        type="button"
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
-                          handleSubmit();
+                          console.log('Tamamla butonu tıklandı, loading:', loading);
+                          if (!loading) {
+                            handleSubmit();
+                          }
                         }}
                         disabled={loading}
                         whileHover={{ scale: loading ? 1 : 1.05 }}
                         whileTap={{ scale: loading ? 1 : 0.95 }}
                         className="relative px-6 h-12 rounded-2xl flex items-center justify-center gap-2 overflow-hidden shrink-0 cursor-pointer z-50"
-                        style={{ pointerEvents: 'auto' }}
+                        style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
                       >
                         <motion.div
                           animate={!loading ? { 

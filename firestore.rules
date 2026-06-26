@@ -562,6 +562,103 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
     
+    // --- RESTAURANT COLLECTIONS ---
+    // Menü Kategorileri
+    match /menuCategories/{categoryId} {
+      // Public read (müşteriler görebilir)
+      allow read: if true;
+      
+      // Restoran sahibi kendi kategorilerini yönetebilir
+      allow write: if request.auth != null && 
+                      (resource == null || isSalonOwner(resource.data.restaurantId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // Menü Ürünleri
+    match /menuItems/{itemId} {
+      // Public read (müşteriler görebilir)
+      allow read: if true;
+      
+      // Restoran sahibi kendi ürünlerini yönetebilir
+      allow write: if request.auth != null && 
+                      (resource == null || isSalonOwner(resource.data.restaurantId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // Masalar
+    match /tables/{tableId} {
+      // Public read (QR kod ile erişim için)
+      allow read: if true;
+      
+      // Restoran sahibi kendi masalarını yönetebilir
+      allow write: if request.auth != null && 
+                      (resource == null || isSalonOwner(resource.data.restaurantId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // Siparişler
+    match /orders/{orderId} {
+      // Müşteriler kendi siparişlerini görebilir
+      allow read: if true;
+      
+      // Müşteriler sipariş oluşturabilir
+      allow create: if true;
+      
+      // Restoran sahibi/personeli siparişleri yönetebilir
+      allow update: if request.auth != null && isSalonOwner(resource.data.restaurantId);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // Restoran Bildirimleri
+    match /restaurantNotifications/{notificationId} {
+      // Herkes okuyabilir (authenticated olmayan garsonlar için)
+      allow read: if true;
+      
+      // Müşteriler bildirim oluşturabilir (garson çağır, hesap iste vb.)
+      allow create: if true;
+      
+      // Herkes güncelleyebilir ve silebilir (authenticated olmayan garsonlar için)
+      // TODO: Production'da authentication eklenince kısıtla
+      allow update, delete: if true;
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // Restoran Ayarları
+    match /restaurantSettings/{restaurantId} {
+      // Restoran sahibi kendi ayarlarını okuyabilir
+      allow read: if request.auth != null && isSalonOwner(restaurantId);
+      
+      // Restoran sahibi kendi ayarlarını yönetebilir
+      allow write: if request.auth != null && isSalonOwner(restaurantId);
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // Restoran Personeli
+    match /restaurantStaff/{staffId} {
+      // Restoran sahibi personeli görebilir
+      allow read: if request.auth != null && 
+                     (resource == null || isSalonOwner(resource.data.restaurantId));
+      
+      // Restoran sahibi personeli yönetebilir
+      allow write: if request.auth != null && 
+                      (resource == null || isSalonOwner(resource.data.restaurantId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
     // Default: Deny all other access except super admin
     match /{document=**} {
       allow read, write: if isSuperAdmin();

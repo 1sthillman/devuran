@@ -43,6 +43,10 @@ export const CATEGORY_RESERVATION_TYPE: Record<CategoryId, ReservationType> = {
   'catering': 'order',
   'pasta-tatli': 'order',
   'kahve-ikram': 'order',
+  
+  // Restaurant & Food Service - slot bazlı
+  'restoran': 'slot',
+  'kafe': 'slot',
 };
 
 // Sıra sistemi sadece bu kategorilerde aktif
