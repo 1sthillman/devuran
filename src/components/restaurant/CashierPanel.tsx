@@ -81,12 +81,21 @@ export function CashierPanel({ restaurantId }: CashierPanelProps) {
       return;
     }
 
-    // En son siparişi seç
-    const latestOrder = tableOrders.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
+    // Eğer birden fazla sipariş varsa, birleştirilmiş bir sipariş oluştur
+    if (tableOrders.length > 1) {
+      // Tüm siparişleri birleştir
+      const combinedOrder: Order = {
+        ...tableOrders[0], // İlk siparişin yapısını kullan
+        orderNumber: `Masa ${table.tableNumber} (${tableOrders.length} sipariş)`,
+        items: tableOrders.flatMap(o => o.items), // Tüm ürünleri birleştir
+        total: tableOrders.reduce((sum, o) => sum + o.total, 0), // Toplamları birleştir
+      };
+      setSelectedOrder(combinedOrder);
+    } else {
+      // Tek sipariş varsa direkt göster
+      setSelectedOrder(tableOrders[0]);
+    }
 
-    setSelectedOrder(latestOrder);
     setIsPaymentDialogOpen(true);
   }
 

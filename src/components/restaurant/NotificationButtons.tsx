@@ -32,45 +32,27 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   }, [restaurantId, tableId, tableName]);
 
   const handleButtonClick = useCallback(async (type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) => {
-    console.log('🎯 BUTTON CLICK HANDLER!', { type, label, tableId });
+    console.log('🎯 ========== BUTTON CLICKED! ==========');
+    console.log('📊 Click Details:', { 
+      type, 
+      label, 
+      tableId,
+      tableName,
+      restaurantId,
+      timestamp: new Date().toISOString()
+    });
     
     if (tableId === 'loading') {
-      console.warn('⚠️ TableId loading!');
+      console.warn('⚠️ TableId is still loading!');
       toast.error('Lütfen bekleyin...');
       return;
     }
     
-    await sendNotification(type, message, label);
-  }, [tableId, restaurantId, tableName]);
-
-  async function sendNotification(type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) {
-    console.log('🎯 sendNotification ÇAĞRILDI!', { type, label });
-    
-    if (!restaurantId || !tableId || tableId === 'loading') {
-      console.error('❌ KONTROL BAŞARISIZ:', { restaurantId, tableId });
-      toast.error('Lütfen bekleyin, masa bilgileri yükleniyor...');
-      return;
-    }
-    
-    console.log('🔔 BİLDİRİM GÖNDERİLİYOR!', {
-      restaurantId,
-      type,
-      tableId,
-      tableName
-    });
-    
+    // Direkt sendNotification çağır
     try {
       setSending(type);
+      console.log('🔔 Sending notification...');
       
-      // Loading toast
-      const loadingToast = toast.loading(
-        type === 'coal_request' ? '🔥 Köz talebiniz gönderiliyor...' : 
-        type === 'waiter_call' ? '📞 Garson çağrılıyor...' :
-        '💰 Hesap isteniyor...',
-        { description: `Masa ${tableName}` }
-      );
-      
-      // Firebase'e yaz
       const notificationId = await restaurantService.createNotification(
         restaurantId, 
         type, 
@@ -79,38 +61,30 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
         tableName
       );
       
-      console.log('✅ BİLDİRİM OLUŞTURULDU:', notificationId);
+      console.log('✅ Notification created:', notificationId);
       
-      // Başarı mesajı
       toast.success(
         type === 'coal_request' ? '🔥 Köz talebiniz iletildi!' :
         type === 'waiter_call' ? '📞 Garson çağrıldı!' :
         '💰 Hesap talebi alındı!',
         {
-          id: loadingToast,
           description: '✅ Garsonumuz masanıza gelecek',
           duration: 3000
         }
       );
       
-      // Butonları kapat
       setTimeout(() => setIsExpanded(false), 1500);
       
     } catch (error: any) {
-      console.error('❌ BİLDİRİM HATASI:', error);
-      
+      console.error('❌ NOTIFICATION ERROR:', error);
       toast.error('Bildirim gönderilemedi', {
         description: error?.message || 'Lütfen tekrar deneyin',
-        duration: 5000,
-        action: {
-          label: '🔄 Tekrar Dene',
-          onClick: () => sendNotification(type, message, label)
-        }
+        duration: 5000
       });
     } finally {
       setSending(null);
     }
-  }
+  }, [tableId, restaurantId, tableName]);
 
   const buttons = [
     {
@@ -188,25 +162,30 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                   >
                     <button
                       type="button"
-                      disabled={false}
-                      onClick={() => handleButtonClick(button.type, button.message, button.label)}
+                      disabled={sending === button.type}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔴 BUTTON ONCLICK!', button.label);
+                        handleButtonClick(button.type, button.message, button.label);
+                      }}
                       className={cn(
                         'relative flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all w-full',
                         'bg-white/95 dark:bg-black/90 backdrop-blur-xl',
                         'border border-gray-200/50 dark:border-white/10',
                         'shadow-xl shadow-black/10',
                         'hover:scale-105 active:scale-95',
-                        isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        sending === button.type ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       )}
                       style={{
-                        boxShadow: isLoading ? undefined : `0 4px 16px -4px ${
+                        boxShadow: sending === button.type ? undefined : `0 4px 16px -4px ${
                           button.type === 'waiter_call' ? 'rgba(59, 130, 246, 0.4)' :
                           button.type === 'coal_request' ? 'rgba(251, 146, 60, 0.4)' :
                           'rgba(34, 197, 94, 0.4)'
                         }`
                       }}
                     >
-                      {isLoading ? (
+                      {sending === button.type ? (
                         <div className="w-9 h-9 border-3 rounded-full border-orange-500 border-t-transparent animate-spin" />
                       ) : (
                         <div className={cn(

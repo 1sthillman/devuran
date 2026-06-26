@@ -93,6 +93,24 @@ export function TableGrid({ tables, orders, onTableClick, onTableLongPress }: Ta
     return orders.find(order => order.tableId === tableId && order.status !== 'completed' && order.status !== 'cancelled');
   }
 
+  // Masa için toplam tutarı hesapla (tüm aktif siparişlerin toplamı)
+  function getTableTotal(tableId: string): number {
+    const tableOrders = orders.filter(order => 
+      order.tableId === tableId && 
+      ['delivered', 'ready', 'preparing', 'order_placed'].includes(order.status)
+    );
+    return tableOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+  }
+
+  // Masa için toplam ürün sayısını hesapla
+  function getTableItemCount(tableId: string): number {
+    const tableOrders = orders.filter(order => 
+      order.tableId === tableId && 
+      ['delivered', 'ready', 'preparing', 'order_placed'].includes(order.status)
+    );
+    return tableOrders.reduce((sum, order) => sum + order.items.length, 0);
+  }
+
   function handleTableLongPress(table: Table) {
     if (onTableLongPress) {
       onTableLongPress(table);
@@ -169,18 +187,20 @@ export function TableGrid({ tables, orders, onTableClick, onTableLongPress }: Ta
                 </Badge>
               </div>
 
-              {/* Sipariş Bilgisi */}
-              {order && (
+              {/* Sipariş Bilgisi - TÜM SİPARİŞLERİN TOPLAMI */}
+              {!isEmpty && (
                 <div className="mt-3 pt-3 border-t border-current/20">
                   <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{order.orderNumber}</span>
+                    <span className="font-medium">
+                      {order ? order.orderNumber : 'Sipariş'}
+                    </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {order.items.length} ürün
+                      {getTableItemCount(table.id)} ürün
                     </span>
                   </div>
                   <div className="text-xs font-bold mt-1 text-gray-900 dark:text-white">
-                    {order.total?.toFixed(2) || '0.00'} ₺
+                    {getTableTotal(table.id).toFixed(2)} ₺
                   </div>
                 </div>
               )}
