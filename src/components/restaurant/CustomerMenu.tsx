@@ -153,29 +153,18 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
 
   if (loading) {
     return (
-      <>
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 border-4 border-orange-500 dark:border-orange-400 border-t-transparent rounded-full mb-4"
-          />
-          <p className="text-gray-600 dark:text-gray-400 font-medium">Menü yükleniyor...</p>
-        </div>
-
-        {/* Bildirim Butonları - Loading sırasında da göster */}
-        {table && (
-          <NotificationButtons 
-            restaurantId={table.restaurantId} 
-            tableId={table.id}
-            tableName={table.tableNumber}
-          />
-        )}
-      </>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-orange-500 dark:border-orange-400 border-t-transparent rounded-full mb-4"
+        />
+        <p className="text-gray-600 dark:text-gray-400 font-medium">Menü yükleniyor...</p>
+      </div>
     );
   }
 
-  if (!table || !canOrder) {
+  if (!table) {
     return (
       <>
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a] p-4">
@@ -188,23 +177,13 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
               <MapPin className="w-10 h-10 text-orange-500 dark:text-orange-400" strokeWidth={2.5} />
             </div>
             <h2 className="text-2xl font-heading font-bold text-gray-900 dark:text-white mb-2">
-              Sipariş Verilemez
+              Masa Bulunamadı
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              {!table ? 'Masa bulunamadı. Lütfen masanızdaki QR kodu okutun.' 
-                      : 'Sipariş verebilmek için restoran içinde olmalısınız veya eve servis aktif olmalıdır.'}
+              Lütfen masanızdaki QR kodu okutun.
             </p>
           </motion.div>
         </div>
-
-        {/* Bildirim Butonları - Sipariş verilemese bile göster */}
-        {table && (
-          <NotificationButtons 
-            restaurantId={table.restaurantId} 
-            tableId={table.id}
-            tableName={table.tableNumber}
-          />
-        )}
       </>
     );
   }

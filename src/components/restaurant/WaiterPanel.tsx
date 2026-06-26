@@ -591,16 +591,16 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
 
             {/* Alan Filtreleme */}
             {areas.length > 1 && (
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Filter className="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
                   {areas.map((area) => (
                     <motion.button
                       key={area}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setSelectedArea(area)}
                       className={cn(
-                        'px-4 py-1.5 rounded-full text-sm font-heading font-bold whitespace-nowrap transition-all',
+                        'px-4 py-1.5 rounded-full text-sm font-heading font-bold whitespace-nowrap transition-all flex-shrink-0',
                         selectedArea === area
                           ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
                           : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
