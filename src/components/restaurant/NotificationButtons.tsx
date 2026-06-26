@@ -31,7 +31,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
     console.log('✅ Component mount edildi, butonlar görünmeli!');
   }, [restaurantId, tableId, tableName]);
 
-  const handleButtonClick = useCallback((type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) => {
+  const handleButtonClick = useCallback(async (type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) => {
     console.log('🎯 BUTTON CLICK HANDLER!', { type, label, tableId });
     
     if (tableId === 'loading') {
@@ -40,7 +40,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       return;
     }
     
-    sendNotification(type, message, label);
+    await sendNotification(type, message, label);
   }, [tableId, restaurantId, tableName]);
 
   async function sendNotification(type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) {
