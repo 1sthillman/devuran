@@ -183,7 +183,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Garson',
       gradient: 'from-blue-500 to-cyan-500',
       message: `Masa ${tableName} - Garson çağırıyor`,
-      gifUrl: '/asset/Modern_digital_waiter_robot_holding_a_sleek_d.gif',
+      gifUrl: '/asset/Modern_digital_waiter_character_sleek_and_st.gif', // Garson karakter
     },
     {
       type: 'coal_request' as const,
@@ -191,7 +191,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Köz',
       gradient: 'from-orange-500 to-red-500',
       message: `Masa ${tableName} - Köz istiyor`,
-      gifUrl: '/asset/Transform_the_scene_the_same_modern_digital.gif',
+      gifUrl: '/asset/Transform_the_scene_the_same_modern_digital.gif', // Köz sahnesi
     },
     {
       type: 'bill_request' as const,
@@ -199,7 +199,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Hesap',
       gradient: 'from-green-500 to-emerald-500',
       message: `Masa ${tableName} - Hesap istiyor`,
-      gifUrl: '/asset/Modern_digital_waiter_character_sleek_and_st.gif',
+      gifUrl: '/asset/Modern_digital_waiter_robot_holding_a_sleek_d.gif', // Robot garson
     },
   ];
 
@@ -288,18 +288,6 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                           : 'cursor-pointer hover:bg-white/15 dark:hover:bg-white/10 hover:scale-[1.02]'
                       )}
                     >
-                      {/* GIF Background - 9:16 aspect ratio, centered */}
-                      <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-2xl">
-                        <img 
-                          src={button.gifUrl}
-                          alt=""
-                          className="h-full w-auto object-cover opacity-30"
-                          style={{ aspectRatio: '9/16' }}
-                        />
-                        {/* Dark overlay for better text contrast */}
-                        <div className="absolute inset-0 bg-black/40" />
-                      </div>
-
                       {/* Gradient Glow on Hover */}
                       <div className={cn(
                         'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500',
@@ -333,10 +321,10 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                       
                       {/* Icon Section */}
                       {sending === button.type ? (
-                        <div className="relative z-10 w-12 h-12 flex items-center justify-center">
+                        <div className="relative z-10 w-16 h-16 flex items-center justify-center">
                           <motion.div
                             className={cn(
-                              "w-8 h-8 rounded-full border-[3px]",
+                              "w-12 h-12 rounded-full border-[3px]",
                               button.type === 'waiter_call' ? 'border-blue-400' :
                               button.type === 'coal_request' ? 'border-orange-400' :
                               'border-green-400',
@@ -348,11 +336,23 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         </div>
                       ) : (
                         <div className={cn(
-                          "relative z-10 w-12 h-12 rounded-xl flex items-center justify-center",
-                          "bg-gradient-to-br shadow-lg transition-transform group-hover:scale-110",
-                          `${button.gradient}`
+                          "relative z-10 w-16 h-16 rounded-full flex items-center justify-center overflow-hidden",
+                          "shadow-2xl transition-all group-hover:scale-110 group-hover:shadow-3xl",
+                          "ring-2 ring-white/30"
                         )}>
-                          <Icon className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={2.5} />
+                          {/* GIF Background - Full cover, circular */}
+                          <img 
+                            src={button.gifUrl}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover scale-110"
+                          />
+                          {/* Subtle gradient overlay for depth */}
+                          <div className={cn(
+                            "absolute inset-0 bg-gradient-to-br opacity-40 mix-blend-overlay",
+                            `${button.gradient}`
+                          )} />
+                          {/* Icon on top with strong shadow */}
+                          <Icon className="relative z-10 w-7 h-7 text-white drop-shadow-2xl" strokeWidth={2.5} />
                         </div>
                       )}
                       
