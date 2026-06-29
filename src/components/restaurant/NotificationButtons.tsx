@@ -237,6 +237,15 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
               {buttons.map((button, index) => {
                 const Icon = button.icon;
                 const isLoading = sending === button.type;
+                
+                // Cooldown hesaplama
+                const now = Date.now();
+                const lastClick = lastClickTimes[button.type] || 0;
+                const timeSinceLastClick = now - lastClick;
+                const cooldownPeriod = 60000; // 60 saniye
+                const remainingMs = cooldownPeriod - timeSinceLastClick;
+                const isInCooldown = remainingMs > 0;
+                const remainingSeconds = Math.ceil(remainingMs / 1000);
 
                 return (
                   <motion.div
@@ -254,7 +263,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                   >
                     <button
                       type="button"
-                      disabled={sending === button.type}
+                      disabled={sending === button.type || isInCooldown}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -271,6 +280,8 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         'active:scale-[0.98]',
                         sending === button.type 
                           ? 'opacity-80 cursor-wait' 
+                          : isInCooldown
+                          ? 'opacity-50 cursor-not-allowed'
                           : 'cursor-pointer hover:bg-white/15 dark:hover:bg-white/10 hover:scale-[1.02]'
                       )}
                     >
@@ -331,9 +342,21 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                       )}
                       
                       {/* Text Section */}
-                      <span className="relative z-10 text-base font-heading font-bold text-white whitespace-nowrap">
-                        {button.label}
-                      </span>
+                      <div className="relative z-10 flex flex-col items-start flex-1">
+                        <span className="text-base font-heading font-bold text-white whitespace-nowrap">
+                          {button.label}
+                        </span>
+                        {isInCooldown && (
+                          <motion.span 
+                            key={remainingSeconds}
+                            initial={{ scale: 1.2, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-xs font-medium text-orange-300 mt-0.5"
+                          >
+                            {remainingSeconds} saniye sonra
+                          </motion.span>
+                        )}
+                      </div>
                     </button>
                   </motion.div>
                 );

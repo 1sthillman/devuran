@@ -16,6 +16,19 @@ interface WaiterPanelProps {
   restaurantId: string;
 }
 
+// Helper: Calculate minutes ago from createdAt (handles both Firebase Timestamp and string)
+function getMinutesAgo(createdAt: string | any): string {
+  try {
+    const createdTime = typeof createdAt === 'object' && createdAt?.seconds
+      ? new Date(createdAt.seconds * 1000) 
+      : new Date(createdAt);
+    const minutes = Math.floor((Date.now() - createdTime.getTime()) / (1000 * 60));
+    return isNaN(minutes) || minutes < 0 ? '0 dk' : `${minutes} dk`;
+  } catch {
+    return '0 dk';
+  }
+}
+
 export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
   const [notifications, setNotifications] = useState<RestaurantNotification[]>([]);
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
@@ -320,7 +333,7 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
                           </span>
                           <Badge variant="destructive" className="flex items-center gap-1 text-xs rounded-full animate-pulse">
                             <Clock className="h-3 w-3" />
-                            {Math.floor((Date.now() - new Date(notif.createdAt).getTime()) / (1000 * 60))} dk
+                            {getMinutesAgo(notif.createdAt)}
                           </Badge>
                         </div>
                         <div className="text-base text-white font-semibold flex items-center gap-2">
@@ -413,13 +426,28 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
                           </span>
                           <Badge variant="destructive" className="flex items-center gap-1 text-xs rounded-full animate-pulse">
                             <Clock className="h-3 w-3" />
-                            {Math.floor((Date.now() - new Date(notif.createdAt).getTime()) / (1000 * 60))} dk
+                            {getMinutesAgo(notif.createdAt)}
                           </Badge>
                         </div>
-                        <div className="text-base text-white font-semibold">
-                          {notif.type === 'waiter_call' && '📞 Garson çağırıyor'}
-                          {notif.type === 'coal_request' && '🔥 Köz istiyor'}
-                          {notif.type === 'bill_request' && '💳 Hesap istiyor'}
+                        <div className="text-base text-white font-semibold flex items-center gap-2">
+                          {notif.type === 'waiter_call' && (
+                            <>
+                              <Phone className="h-4 w-4" />
+                              Garson Çağırıyor
+                            </>
+                          )}
+                          {notif.type === 'coal_request' && (
+                            <>
+                              <Flame className="h-4 w-4" />
+                              Köz İstiyor
+                            </>
+                          )}
+                          {notif.type === 'bill_request' && (
+                            <>
+                              <Receipt className="h-4 w-4" />
+                              Hesap İstiyor
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
