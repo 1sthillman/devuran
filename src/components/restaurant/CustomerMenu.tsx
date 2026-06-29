@@ -159,7 +159,7 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
     : menuItems.filter(item => item.categoryId === selectedCategory))
     .filter(item => item.isAvailable && item.isActive); // Only show available and active items
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
 

@@ -82,11 +82,25 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
   const subtotal = total / (1 + taxRate); // KDV'siz tutar
   const taxAmount = total - subtotal; // KDV tutarı
 
+  // DEBUG: Sepet detaylarını konsola yazdır
+  console.log('🛒 CART DEBUG:', {
+    cartItems: cart.map(item => ({
+      name: item.name,
+      basePrice: item.price,
+      quantity: item.quantity,
+      extras: item.addedExtras,
+      totalPrice: item.totalPrice
+    })),
+    calculatedTotal: total,
+    subtotal,
+    taxAmount
+  });
+
   return (
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent 
         side="bottom" 
-        className="h-[90vh] rounded-t-3xl border-0 p-0 bg-gray-50 dark:bg-[#0a0a0a]"
+        className="h-[95vh] max-h-[95vh] rounded-t-3xl border-0 p-0 bg-gray-50 dark:bg-[#0a0a0a] flex flex-col"
       >
         {/* Header with Handle */}
         <div className="sticky top-0 z-10 bg-white/95 dark:bg-black/95 backdrop-blur-xl border-b border-gray-200 dark:border-white/10">
@@ -136,9 +150,9 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
             </motion.button>
           </div>
         ) : (
-          <div className="flex flex-col h-full">
-            {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <>
+            {/* Cart Items - Scrollable */}
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3" style={{ WebkitOverflowScrolling: 'touch' }}>
               {cart.map((item) => (
                 <motion.div
                   key={item.id}
@@ -234,8 +248,8 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
               ))}
             </div>
 
-            {/* Bottom Summary and Actions */}
-            <div className="sticky bottom-0 bg-white dark:bg-black border-t border-gray-200 dark:border-white/10 px-6 py-4 space-y-4">
+            {/* Bottom Summary and Actions - Sticky */}
+            <div className="flex-shrink-0 bg-white dark:bg-black border-t border-gray-200 dark:border-white/10 px-6 py-4 space-y-4 pb-safe">
               {/* Price Breakdown */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -298,7 +312,7 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
                 </motion.button>
               </div>
             </div>
-          </div>
+          </>
         )}
       </SheetContent>
     </Sheet>
