@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Flame, Receipt, Check, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { UserCircle, Flame, Receipt, Check, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -166,13 +166,14 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   const buttons = [
     {
       type: 'waiter_call' as const,
-      icon: Phone,
+      icon: UserCircle,
       label: 'Garson',
       gradient: 'from-blue-500 to-cyan-500',
       message: `Masa ${tableName} - Garson çağırıyor`,
-      mediaUrl: '/asset/garson.gif', // GIF
+      mediaUrl: '/asset/Modern_digital_waiter_character_sleek_and_st.gif',
       soundUrl: '/asset/garsonses.mp3',
-      isVideo: false,
+      isVideo: true, // GIF'i video gibi yönetmek için
+      isGif: true, // Bu bir GIF
     },
     {
       type: 'coal_request' as const,
@@ -183,6 +184,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       mediaUrl: '/asset/koz.mp4', // Video
       soundUrl: '/asset/nargile_kömürünün_dolsun_ekrana_202606291839_[cut_2sec].mp3',
       isVideo: true,
+      isGif: false,
     },
     {
       type: 'bill_request' as const,
@@ -193,6 +195,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       mediaUrl: '/asset/hesap.mp4', // Video
       soundUrl: '/asset/hesap.mp3',
       isVideo: true,
+      isGif: false,
     },
   ];
 
@@ -334,7 +337,8 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                           "ring-2 ring-white/30"
                         )}>
                           {/* Video or GIF Background */}
-                          {button.isVideo ? (
+                          {button.isVideo && !button.isGif ? (
+                            // Normal video
                             <video
                               key={clickedButton === button.type ? 'playing' : 'paused'}
                               src={button.mediaUrl}
@@ -344,18 +348,18 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                               playsInline
                               autoPlay={clickedButton === button.type}
                             />
-                          ) : (
-                            // GIF - CSS ile kontrol
+                          ) : button.isGif ? (
+                            // GIF - Opacity ile kontrol
                             <img 
                               key={clickedButton === button.type ? Date.now() : 'static'}
                               src={button.mediaUrl}
                               alt=""
-                              className="absolute inset-0 w-full h-full object-cover scale-110"
-                              style={{
-                                animationPlayState: clickedButton === button.type ? 'running' : 'paused'
-                              }}
+                              className={cn(
+                                "absolute inset-0 w-full h-full object-cover scale-110 transition-all duration-300",
+                                clickedButton === button.type ? 'opacity-100 brightness-110' : 'opacity-70 brightness-90'
+                              )}
                             />
-                          )}
+                          ) : null}
                           
                           {/* Subtle gradient overlay for depth */}
                           <div className={cn(
