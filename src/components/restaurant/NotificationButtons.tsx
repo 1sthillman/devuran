@@ -17,6 +17,9 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successType, setSuccessType] = useState<'waiter_call' | 'coal_request' | 'bill_request' | null>(null);
+  const [lastClickTimes, setLastClickTimes] = useState<Record<string, number>>({});
+  const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
 
   // CRITICAL DEBUG: Component mount testi
   console.log('🚨 ========== NotificationButtons COMPONENT LOADED ==========');
@@ -36,21 +39,60 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
     setMounted(true);
     console.log('✅ mounted = true yapıldı');
     
+    // Cooldown timer
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setCooldowns(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(key => {
+          const remaining = updated[key] - now;
+          if (remaining <= 0) {
+            delete updated[key];
+          }
+        });
+        return updated;
+      });
+    }, 1000);
+    
     return () => {
       console.log('🔴 NotificationButtons unmounting');
+      clearInterval(interval);
     };
   }, [restaurantId, tableId, tableName]);
 
+  // Bildirim sesi çal
+  function playNotificationSound(type: 'waiter_call' | 'coal_request' | 'bill_request') {
+    try {
+      // Farklı frekanslarda beep sesleri
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Buton tipine göre frekans
+      const frequency = {
+        waiter_call: 800,   // Yüksek ton
+        coal_request: 600,  // Orta ton
+        bill_request: 700   // Orta-yüksek ton
+      }[type];
+      
+      oscillator.frequency.value = frequency;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+      console.log('Ses çalınamadı:', error);
+    }
+  }
+
   const handleButtonClick = useCallback(async (type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) => {
     console.log('🎯 ========== BUTTON CLICKED! ==========');
-    console.log('📊 Click Details:', { 
-      type, 
-      label, 
-      tableId,
-      tableName,
-      restaurantId,
-      timestamp: new Date().toISOString()
-    });
     
     if (tableId === 'loading') {
       console.warn('⚠️ TableId is still loading!');
@@ -58,9 +100,25 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       return;
     }
     
+    // Cooldown kontrolü
+    const now = Date.now();
+    const lastClick = lastClickTimes[type] || 0;
+    const timeSinceLastClick = now - lastClick;
+    const cooldownPeriod = 60000; // 60 saniye
+    
+    if (timeSinceLastClick < cooldownPeriod) {
+      const remainingSeconds = Math.ceil((cooldownPeriod - timeSinceLastClick) / 1000);
+      toast.error('Çok sık istek gönderiyorsunuz', {
+        description: `${remainingSeconds} saniye sonra tekrar deneyebilirsiniz`
+      });
+      return;
+    }
+    
     try {
       setSending(type);
-      console.log('🔔 Sending notification...');
+      
+      // Bildirim sesi çal
+      playNotificationSound(type);
       
       const notificationId = await restaurantService.createNotification(
         restaurantId, 
@@ -72,51 +130,51 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       
       console.log('✅ Notification created:', notificationId);
       
-      // Modern success feedback - buton rengine göre
-      const successConfig = {
+      // Cooldown başlat
+      setLastClickTimes(prev => ({ ...prev, [type]: now }));
+      setCooldowns(prev => ({ ...prev, [type]: now + cooldownPeriod }));
+      
+      // Success animation
+      setSuccessType(type);
+      setShowSuccess(true);
+      
+      // Success mesajı
+      const successMessages = {
         waiter_call: {
-          icon: '📞',
           title: 'Garson Çağrıldı!',
-          description: 'Garsonumuz hemen geliyor',
-          gradient: 'from-blue-500 to-cyan-500'
+          description: 'Garsonumuz hemen geliyor'
         },
         coal_request: {
-          icon: '🔥',
           title: 'Köz Talebiniz Alındı!',
-          description: 'Sıcak közleriniz geliyor',
-          gradient: 'from-orange-500 to-red-500'
+          description: 'Sıcak közleriniz yolda'
         },
         bill_request: {
-          icon: '💳',
           title: 'Hesap İstendi!',
-          description: 'Hesabınızı getiriyoruz',
-          gradient: 'from-green-500 to-emerald-500'
+          description: 'Hesabınızı getiriyoruz'
         }
       }[type];
       
-      toast.success(successConfig.title, {
-        description: successConfig.description,
+      toast.success(successMessages.title, {
+        description: successMessages.description,
         duration: 3000,
-        className: 'backdrop-blur-xl',
       });
       
-      // Success animation on FAB
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
-      
-      // Butonları kapat
-      setTimeout(() => setIsExpanded(false), 1500);
+      // Animasyonları temizle
+      setTimeout(() => {
+        setShowSuccess(false);
+        setSuccessType(null);
+        setIsExpanded(false);
+      }, 2000);
       
     } catch (error: any) {
       console.error('❌ NOTIFICATION ERROR:', error);
       toast.error('Bildirim gönderilemedi', {
-        description: error?.message || 'Lütfen tekrar deneyin',
-        duration: 5000
+        description: error?.message || 'Lütfen tekrar deneyin'
       });
     } finally {
       setSending(null);
     }
-  }, [tableId, restaurantId, tableName]);
+  }, [tableId, restaurantId, tableName, lastClickTimes]);
 
   const buttons = [
     {
