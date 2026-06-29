@@ -77,13 +77,16 @@ export function BookingSuccess() {
   }
 
   const getReservationDetails = () => {
+    // Restoran/kafe kontrolü - businessCategory ile
+    const isRestaurant = reservation.businessCategory === 'restoran' || reservation.businessCategory === 'kafe';
+    
     switch (reservation.type) {
       case 'slot':
         return {
-          title: 'Randevunuz Oluşturuldu',
+          title: isRestaurant ? 'Masa Rezervasyonunuz Oluşturuldu' : 'Randevunuz Oluşturuldu',
           details: [
             { icon: Calendar, label: 'Tarih', value: reservation.date },
-            { icon: Clock, label: 'Saat', value: `${reservation.startTime} - ${reservation.endTime}` },
+            { icon: Clock, label: 'Saat', value: reservation.endTime ? `${reservation.startTime} - ${reservation.endTime}` : reservation.startTime },
             { icon: Phone, label: 'Telefon', value: reservation.userPhone }
           ]
         };
@@ -121,6 +124,15 @@ export function BookingSuccess() {
             { icon: Calendar, label: 'Teslimat Tarihi', value: reservation.deliveryDate },
             { icon: Clock, label: 'Teslimat Saati', value: reservation.deliveryTime },
             { icon: MapPin, label: 'Adres', value: reservation.deliveryAddress }
+          ]
+        };
+      default:
+        // Fallback - bilinmeyen tip için
+        return {
+          title: 'Rezervasyonunuz Oluşturuldu',
+          details: [
+            { icon: Calendar, label: 'İşletme', value: (reservation as any).businessName || 'N/A' },
+            { icon: Phone, label: 'Telefon', value: (reservation as any).userPhone || 'N/A' }
           ]
         };
     }

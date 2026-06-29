@@ -17,9 +17,6 @@ export function BookingWizardRouter() {
   }
 
   switch (bookingType) {
-    case 'table':
-      // 🍽️ Restoran masa rezervasyonu - slot wizard kullan (aynı mantık)
-      return <SlotBookingWizard />;
     case 'slot':
       return <SlotBookingWizard />;
     case 'daily':

@@ -21,7 +21,7 @@ interface BookingState {
   // Ortak alanlar
   salonId: string | null;
   salon: Salon | null;
-  bookingType: 'slot' | 'daily' | 'nightly' | 'project' | 'order' | 'table' | null;
+  bookingType: 'slot' | 'daily' | 'nightly' | 'project' | 'order' | null;
   
   // Slot bazlı (Kuaför, Fotoğraf)
   selectedServices: Service[];
@@ -94,10 +94,10 @@ const calculateTotals = (services: Service[]) => ({
   totalDuration: services.reduce((sum, s) => sum + s.duration, 0),
 });
 
-const getBookingType = (category: string): 'slot' | 'daily' | 'nightly' | 'project' | 'order' | 'table' => {
-  // Restoran masa rezervasyonu
-  if (category === 'restoran') {
-    return 'table';
+const getBookingType = (category: string): 'slot' | 'daily' | 'nightly' | 'project' | 'order' => {
+  // Restoran masa rezervasyonu - slot olarak işle
+  if (category === 'restoran' || category === 'kafe') {
+    return 'slot';
   }
   // Slot bazlı kategoriler
   if (['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(category)) {
@@ -339,38 +339,12 @@ export const useBookingStore = create<BookingState>()(
       // TODO: Backend validation eklenmelidir (Firebase Functions)
       
       // Tip bazlı veri ekleme
-      if (state.bookingType === 'table') {
-        // 🍽️ RESTORAN MASA REZERVASYONU
-        const selectedTable = state.selectedServices[0]; // İlk seçilen servis = masa
-        
-        if (!selectedTable) {
-          throw new Error('Lütfen bir masa seçin');
-        }
-        
-        // tableId kontrolü - güvenli erişim
-        const tableId = (selectedTable as any)?.tableId || selectedTable.id;
-        const capacity = (selectedTable as any)?.pricingRules?.maxGuests || 4;
-        
-        reservationData = {
-          ...reservationData,
-          date: state.selectedDate,
-          startTime: state.selectedTime,
-          duration: selectedTable.duration || 120, // Varsayılan 2 saat
-          tableId: tableId,
-          tableName: selectedTable.name,
-          capacity: capacity,
-          services: [{
-            id: selectedTable.id,
-            name: selectedTable.name,
-            duration: selectedTable.duration || 120,
-            price: selectedTable.price
-          }],
-          totalPrice: selectedTable.price || 0,
-          _requiresPriceValidation: true,
-        };
-      } else if (state.bookingType === 'slot') {
+      if (state.bookingType === 'slot') {
         const endTime = new Date(`2000-01-01T${state.selectedTime}`);
         endTime.setMinutes(endTime.getMinutes() + state.totalDuration);
+        
+        // 🍽️ Restoran kontrolü - businessCategory ile
+        const isRestaurant = freshSalon.category === 'restoran' || freshSalon.category === 'kafe';
         
         reservationData = {
           ...reservationData,
@@ -386,13 +360,22 @@ export const useBookingStore = create<BookingState>()(
             price: s.price
           })),
           businessCategory: state.salon?.category,
-          // ✅ GÜVENLİK: Fiyat client-side hesaplama (backend validation gerekli)
           totalPrice: state.totalPrice,
-          // ⚠️ UYARI: Backend'de servis ID'lerinden fiyat yeniden hesaplanmalı
           _requiresPriceValidation: true,
           ...(state.gpsLocation && { gpsLocation: state.gpsLocation }),
           ...(state.address && { address: state.address }),
         };
+        
+        // 🍽️ Restoran için ek bilgiler
+        if (isRestaurant && state.selectedServices.length > 0) {
+          const selectedTable = state.selectedServices[0];
+          const tableId = (selectedTable as any)?.tableId || selectedTable.id;
+          const capacity = (selectedTable as any)?.pricingRules?.maxGuests || 4;
+          
+          reservationData.tableId = tableId;
+          reservationData.tableName = selectedTable.name;
+          reservationData.capacity = capacity;
+        }
       } else if (state.bookingType === 'nightly') {
         const roomPrice = state.selectedPackage?.price || 0;
         const nights = Math.ceil((new Date(state.checkOut!).getTime() - new Date(state.checkIn!).getTime()) / (1000 * 60 * 60 * 24));
