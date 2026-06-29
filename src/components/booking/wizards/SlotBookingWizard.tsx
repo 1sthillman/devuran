@@ -213,17 +213,17 @@ export function SlotBookingWizard() {
       icon: Scissors, 
       gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' 
     },
-    ...(salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? [
+    ...(salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran' ? [
       { id: 2, title: 'Personel', icon: User, gradient: 'from-amber-500 via-orange-500 to-red-500' }
     ] : []),
     { 
-      id: (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran') ? 3 : 2, 
+      id: (salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran') ? 3 : 2, 
       title: 'Tarih & Saat', 
       icon: Calendar, 
       gradient: 'from-cyan-500 via-blue-500 to-indigo-500' 
     },
     { 
-      id: (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran') ? 4 : 3, 
+      id: (salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran') ? 4 : 3, 
       title: 'İletişim', 
       icon: Clock, 
       gradient: 'from-emerald-500 via-teal-500 to-cyan-500' 
@@ -404,7 +404,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === 2 && salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' && (
+                          {step.id === 2 && salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran' && (
                             <>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {salon.staff.map((staff) => {
@@ -432,7 +432,7 @@ export function SlotBookingWizard() {
                                       <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
                                         {staff.name}
                                       </h4>
-                                      <p className="text-xs text-[var(--muted-lead)]">{staff.title}</p>
+                                      <p className="text-xs text-[var(--muted-lead)]">{staff.title || 'Çalışan'}</p>
                                       {selectedStaffId === staff.id && (
                                         <div className="mt-2 flex items-center justify-center gap-1 text-emerald-400">
                                           <CheckCircle2 size={14} />
