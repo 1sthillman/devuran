@@ -1,12 +1,13 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { motion } from 'framer-motion';
-import { Minus, Plus, X, ShoppingBag, Trash2, Send, Check } from 'lucide-react';
-import { useRestaurantStore } from '@/store/restaurantStore';
+import { Minus, Plus, X, ShoppingBag, Trash2, Send, Check, Pencil } from 'lucide-react';
+import { useRestaurantStore, type CartItem } from '@/store/restaurantStore';
 import { restaurantService } from '@/services/restaurantService';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import type { Table } from '@/types/restaurant';
+import type { Table, MenuItem } from '@/types/restaurant';
+import { ProductCustomizationDialog } from './ProductCustomizationDialog';
 
 interface CartSheetProps {
   open: boolean;
@@ -16,8 +17,9 @@ interface CartSheetProps {
 }
 
 export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps) {
-  const { cart, removeFromCart, updateCartItemQuantity, clearCart, getCartTotal } = useRestaurantStore();
+  const { cart, removeFromCart, updateCartItemQuantity, clearCart, getCartTotal, updateCartItem } = useRestaurantStore();
   const [submitting, setSubmitting] = useState(false);
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
   async function handleSubmitOrder() {
     if (cart.length === 0) {
@@ -168,14 +170,28 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
                         <h3 className="font-heading font-bold text-gray-900 dark:text-white">
                           {item.name}
                         </h3>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center transition-colors flex-shrink-0"
-                        >
-                          <X className="w-4 h-4 text-red-500 dark:text-red-400" strokeWidth={2.5} />
-                        </motion.button>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {/* Edit Button */}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setEditingItem(item)}
+                            className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 flex items-center justify-center transition-colors"
+                            title="Düzenle"
+                          >
+                            <Pencil className="w-4 h-4 text-blue-500 dark:text-blue-400" strokeWidth={2.5} />
+                          </motion.button>
+                          {/* Remove Button */}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center transition-colors"
+                            title="Kaldır"
+                          >
+                            <X className="w-4 h-4 text-red-500 dark:text-red-400" strokeWidth={2.5} />
+                          </motion.button>
+                        </div>
                       </div>
 
                       {/* Price per item */}
@@ -315,6 +331,28 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
           </>
         )}
       </SheetContent>
+
+      {/* Edit Dialog */}
+      {editingItem && editingItem.menuItem && (
+        <ProductCustomizationDialog
+          open={!!editingItem}
+          onClose={() => setEditingItem(null)}
+          menuItem={editingItem.menuItem}
+          onAddToCart={(customization) => {
+            updateCartItem(editingItem.id, customization);
+            setEditingItem(null);
+            toast.success('Ürün güncellendi', {
+              icon: <Check className="w-5 h-5" />,
+            });
+          }}
+          initialCustomization={{
+            removedIngredients: editingItem.removedIngredients,
+            addedExtras: editingItem.addedExtras,
+            notes: editingItem.notes || '',
+          }}
+          isEditing={true}
+        />
+      )}
     </Sheet>
   );
 }

@@ -501,7 +501,7 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
       {/* Ürün Özelleştirme Dialog */}
       {selectedItem && (
         <ProductCustomizationDialog
-          item={selectedItem}
+          menuItem={selectedItem}
           open={!!selectedItem}
           onClose={() => setSelectedItem(null)}
         />

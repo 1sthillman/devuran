@@ -10,7 +10,7 @@ import type {
   TableStatus,
 } from '@/types/restaurant';
 
-interface CartItem extends OrderItem {
+export interface CartItem extends OrderItem {
   menuItem: MenuItem;
 }
 
@@ -22,6 +22,7 @@ interface RestaurantStore {
   addToCart: (item: MenuItem, customization: { removedIngredients: string[]; addedExtras: any[]; notes?: string }) => void;
   removeFromCart: (itemId: string) => void;
   updateCartItemQuantity: (itemId: string, quantity: number) => void;
+  updateCartItem: (itemId: string, customization: { removedIngredients: string[]; addedExtras: any[]; notes?: string }) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   
@@ -112,6 +113,26 @@ export const useRestaurantStore = create<RestaurantStore>((set, get) => ({
             ...item,
             quantity,
             totalPrice: basePrice * quantity,
+          };
+        }
+        return item;
+      }),
+    }));
+  },
+
+  updateCartItem: (itemId, customization) => {
+    set(state => ({
+      cart: state.cart.map(item => {
+        if (item.id === itemId) {
+          const { removedIngredients, addedExtras, notes } = customization;
+          // Yeni fiyat hesaplama
+          const basePrice = item.price + addedExtras.reduce((sum, e) => sum + e.price, 0);
+          return {
+            ...item,
+            removedIngredients,
+            addedExtras,
+            notes,
+            totalPrice: basePrice * item.quantity,
           };
         }
         return item;

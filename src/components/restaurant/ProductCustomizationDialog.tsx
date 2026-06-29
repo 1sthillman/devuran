@@ -7,18 +7,32 @@ import { cn } from '@/lib/utils';
 import type { MenuItem } from '@/types/restaurant';
 
 interface ProductCustomizationDialogProps {
-  item: MenuItem;
+  menuItem: MenuItem;
   open: boolean;
   onClose: () => void;
+  onAddToCart?: (customization: { removedIngredients: string[]; addedExtras: any[]; notes?: string }) => void;
+  initialCustomization?: {
+    removedIngredients: string[];
+    addedExtras: any[];
+    notes: string;
+  };
+  isEditing?: boolean;
 }
 
-export function ProductCustomizationDialog({ item, open, onClose }: ProductCustomizationDialogProps) {
+export function ProductCustomizationDialog({ 
+  menuItem, 
+  open, 
+  onClose, 
+  onAddToCart,
+  initialCustomization,
+  isEditing = false 
+}: ProductCustomizationDialogProps) {
   const [quantity, setQuantity] = useState(1);
-  const [removedIngredients, setRemovedIngredients] = useState<string[]>([]);
-  const [addedExtras, setAddedExtras] = useState<{ id: string; name: string; price: number }[]>([]);
-  const [notes, setNotes] = useState('');
+  const [removedIngredients, setRemovedIngredients] = useState<string[]>(initialCustomization?.removedIngredients || []);
+  const [addedExtras, setAddedExtras] = useState<{ id: string; name: string; price: number }[]>(initialCustomization?.addedExtras || []);
+  const [notes, setNotes] = useState(initialCustomization?.notes || '');
   
-  const { addToCart } = useRestaurantStore();
+  const { addToCart: addToCartStore } = useRestaurantStore();
 
   function toggleIngredient(ingredient: { id: string; name: string }) {
     setRemovedIngredients(prev =>
@@ -40,28 +54,25 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
   }
 
   function calculateTotal() {
-    const basePrice = item.price;
+    const basePrice = menuItem.price;
     const extrasPrice = addedExtras.reduce((sum, extra) => sum + extra.price, 0);
     return (basePrice + extrasPrice) * quantity;
   }
 
   function handleAddToCart() {
-    for (let i = 0; i < quantity; i++) {
-      addToCart(item, { removedIngredients, addedExtras, notes });
+    if (isEditing && onAddToCart) {
+      // Editing mode - call custom callback
+      onAddToCart({ removedIngredients, addedExtras, notes });
+    } else {
+      // Adding mode - use store
+      for (let i = 0; i < quantity; i++) {
+        addToCartStore(menuItem, { removedIngredients, addedExtras, notes });
+      }
+      toast.success('Sepete eklendi', {
+        icon: <Check className="w-5 h-5" />,
+      });
     }
-    toast.success('Sepete eklendi!', {
-      description: `${quantity} x ${item.name}`,
-      icon: <Check className="w-5 h-5" />,
-    });
     onClose();
-    resetForm();
-  }
-
-  function resetForm() {
-    setQuantity(1);
-    setRemovedIngredients([]);
-    setAddedExtras([]);
-    setNotes('');
   }
 
   return (
@@ -91,11 +102,11 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
             {/* Header */}
             <div className="flex-shrink-0 relative">
               {/* Image */}
-              {item.image ? (
+              {menuItem.image ? (
                 <div className="relative h-48 sm:h-64 overflow-hidden">
                   <img
-                    src={item.image}
-                    alt={item.name}
+                    src={menuItem.image}
+                    alt={menuItem.name}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -111,15 +122,15 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
                   {/* Title Overlay */}
                   <div className="absolute bottom-0 left-0 right-0 p-5">
                     <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white mb-2 drop-shadow-2xl">
-                      {item.name}
+                      {menuItem.name}
                     </h2>
                     <div className="flex items-center gap-3">
                       <div className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm flex items-center gap-1.5">
                         <Clock className="w-4 h-4 text-white" strokeWidth={2.5} />
-                        <span className="text-sm font-bold text-white">{item.preparationTime} dk</span>
+                        <span className="text-sm font-bold text-white">{menuItem.preparationTime} dk</span>
                       </div>
                       <span className="text-3xl font-heading font-bold text-white drop-shadow-2xl">
-                        {item.price.toFixed(2)} ₺
+                        {menuItem.price.toFixed(2)} ₺
                       </span>
                     </div>
                   </div>
@@ -139,15 +150,15 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
                   {/* Title */}
                   <div className="absolute bottom-0 left-0 right-0 p-5">
                     <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white mb-2">
-                      {item.name}
+                      {menuItem.name}
                     </h2>
                     <div className="flex items-center gap-3">
                       <div className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm flex items-center gap-1.5">
                         <Clock className="w-4 h-4 text-white" strokeWidth={2.5} />
-                        <span className="text-sm font-bold text-white">{item.preparationTime} dk</span>
+                        <span className="text-sm font-bold text-white">{menuItem.preparationTime} dk</span>
                       </div>
                       <span className="text-3xl font-heading font-bold text-white">
-                        {item.price.toFixed(2)} ₺
+                        {menuItem.price.toFixed(2)} ₺
                       </span>
                     </div>
                   </div>
@@ -158,15 +169,15 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {/* Description */}
-              {item.description && (
+              {menuItem.description && (
                 <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {item.description}
+                  {menuItem.description}
                 </p>
               )}
 
 
               {/* İçindekiler */}
-              {item.ingredients.length > 0 && (
+              {menuItem.ingredients.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
@@ -177,7 +188,7 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
                     </h3>
                   </div>
                   <div className="space-y-2">
-                    {item.ingredients.map((ingredient) => {
+                    {menuItem.ingredients.map((ingredient) => {
                       const isRemoved = removedIngredients.includes(ingredient.name);
                       return (
                         <motion.button
@@ -227,7 +238,7 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
               )}
 
               {/* Ekstralar */}
-              {item.availableExtras.length > 0 && (
+              {menuItem.availableExtras.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
@@ -238,7 +249,7 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
                     </h3>
                   </div>
                   <div className="space-y-2">
-                    {item.availableExtras.map((extra) => {
+                    {menuItem.availableExtras.map((extra) => {
                       const isAdded = addedExtras.some(e => e.id === extra.id);
                       return (
                         <motion.button
@@ -308,28 +319,30 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
             {/* Footer - Sticky */}
             <div className="flex-shrink-0 p-4 bg-gradient-to-t from-white to-white/95 dark:from-[#0a0a0a] dark:to-[#0a0a0a]/95 backdrop-blur-xl border-t border-gray-200 dark:border-white/10">
               <div className="flex items-center gap-3">
-                {/* Quantity Controls */}
-                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-white/5 rounded-full p-1">
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-8 h-8 rounded-full bg-white dark:bg-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/20 transition-colors"
-                  >
-                    <Minus className="w-4 h-4 text-gray-900 dark:text-white" strokeWidth={2.5} />
-                  </motion.button>
-                  <span className="w-8 text-center font-heading font-bold text-lg text-gray-900 dark:text-white">
-                    {quantity}
-                  </span>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-8 h-8 rounded-full bg-white dark:bg-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/20 transition-colors"
-                  >
-                    <Plus className="w-4 h-4 text-gray-900 dark:text-white" strokeWidth={2.5} />
-                  </motion.button>
-                </div>
+                {/* Quantity Controls - Only show when adding, not editing */}
+                {!isEditing && (
+                  <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-white/5 rounded-full p-1">
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 rounded-full bg-white dark:bg-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/20 transition-colors"
+                    >
+                      <Minus className="w-4 h-4 text-gray-900 dark:text-white" strokeWidth={2.5} />
+                    </motion.button>
+                    <span className="w-8 text-center font-heading font-bold text-lg text-gray-900 dark:text-white">
+                      {quantity}
+                    </span>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-8 h-8 rounded-full bg-white dark:bg-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/20 transition-colors"
+                    >
+                      <Plus className="w-4 h-4 text-gray-900 dark:text-white" strokeWidth={2.5} />
+                    </motion.button>
+                  </div>
+                )}
 
-                {/* Add to Cart Button */}
+                {/* Add/Update Button */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -338,11 +351,15 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
                 >
                   <div className="flex flex-col items-center">
                     <div className="flex items-center gap-2">
-                      <span>Sepete Ekle</span>
-                      <span className="text-white/80">•</span>
-                      <span>{calculateTotal().toFixed(2)} ₺</span>
+                      <span>{isEditing ? 'Güncelle' : 'Sepete Ekle'}</span>
+                      {!isEditing && (
+                        <>
+                          <span className="text-white/80">•</span>
+                          <span>{calculateTotal().toFixed(2)} ₺</span>
+                        </>
+                      )}
                     </div>
-                    <span className="text-xs text-white/70 font-normal mt-0.5">KDV Dahil</span>
+                    {!isEditing && <span className="text-xs text-white/70 font-normal mt-0.5">KDV Dahil</span>}
                   </div>
                 </motion.button>
               </div>
@@ -353,3 +370,4 @@ export function ProductCustomizationDialog({ item, open, onClose }: ProductCusto
     </AnimatePresence>
   );
 }
+

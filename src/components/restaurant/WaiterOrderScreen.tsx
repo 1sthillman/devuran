@@ -339,7 +339,7 @@ export function WaiterOrderScreen({ open, onClose, restaurantId, table }: Waiter
       {/* Product Customization Dialog */}
       {selectedItem && (
         <ProductCustomizationDialog
-          item={selectedItem}
+          menuItem={selectedItem}
           open={!!selectedItem}
           onClose={() => setSelectedItem(null)}
         />
