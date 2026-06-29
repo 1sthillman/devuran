@@ -347,14 +347,18 @@ export const useBookingStore = create<BookingState>()(
           throw new Error('Lütfen bir masa seçin');
         }
         
+        // tableId kontrolü - güvenli erişim
+        const tableId = (selectedTable as any)?.tableId || selectedTable.id;
+        const capacity = (selectedTable as any)?.pricingRules?.maxGuests || 4;
+        
         reservationData = {
           ...reservationData,
           date: state.selectedDate,
           startTime: state.selectedTime,
           duration: selectedTable.duration || 120, // Varsayılan 2 saat
-          tableId: (selectedTable as any).tableId || selectedTable.id,
+          tableId: tableId,
           tableName: selectedTable.name,
-          capacity: (selectedTable as any).pricingRules?.maxGuests || 4,
+          capacity: capacity,
           services: [{
             id: selectedTable.id,
             name: selectedTable.name,
