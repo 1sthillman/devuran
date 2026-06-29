@@ -316,7 +316,7 @@ export function OwnerDashboard() {
       setReservations(reservationsData);
       
       // 🍽️ RESTORAN İÇİN OTOMATIK MASA-HİZMET MİGRASYONU
-      if (salonData && (salonData.category === 'restaurant' || (salonData as any).type === 'restaurant')) {
+      if (salonData && (salonData.category === 'restoran' || (salonData as any).category === 'restaurant')) {
         try {
           console.log('🍽️ Restoran kategorisi tespit edildi, masa-hizmet kontrolü yapılıyor...');
           
@@ -1500,7 +1500,7 @@ export function OwnerDashboard() {
         {activeTab === 'services' && (
           <div className="space-y-4">
             {/* 🍽️ Restoran için özel bilgilendirme */}
-            {salon && (salon.category === 'restaurant' || (salon as any).type === 'restaurant') && (
+            {salon && (salon.category === 'restoran' || (salon as any).category === 'restaurant') && (
               <div className="obsidian-card p-4 border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
                 <div className="flex items-start gap-3">
                   <ChefHat className="w-6 h-6 text-purple-400 flex-shrink-0 mt-1" />
@@ -1539,7 +1539,7 @@ export function OwnerDashboard() {
               <span>Yeni Hizmet Ekle</span>
             </motion.button>
 
-            {services.length === 0 && salon && (salon.category === 'restaurant' || (salon as any).type === 'restaurant') ? (
+            {services.length === 0 && salon && (salon.category === 'restoran' || (salon as any).category === 'restaurant') ? (
               <div className="obsidian-card p-8 text-center">
                 <ChefHat className="w-16 h-16 mx-auto mb-4 text-orange-500/50" />
                 <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)] mb-2">

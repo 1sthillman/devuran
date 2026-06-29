@@ -177,62 +177,6 @@ export async function migrateTableToServices(restaurantId: string): Promise<{
     };
   }
 }
-        continue;
-      }
-      
-      // Yeni service oluştur
-      const newService: Service = {
-        id: nanoid(12),
-        salonId: restaurantId,
-        tableId: table.id,
-        name: `Masa ${table.tableNumber}`,
-        description: `${table.capacity} kişilik masa rezervasyonu`,
-        category: 'restaurant',
-        duration: 120, // 2 saat varsayılan
-        price: 0, // Ücretsiz (isteğe bağlı değiştirilebilir)
-        gender: 'all',
-        staffIds: [],
-        isActive: true,
-        pricingRules: {
-          basePrice: 0,
-          minGuests: 1,
-          maxGuests: table.capacity
-        }
-      };
-      
-      newServices.push(newService);
-      servicesCreated++;
-      console.log(`✅ Masa ${table.tableNumber} için hizmet oluşturuldu`);
-    }
-    
-    // 4. Tüm servisleri restaurant'a ekle
-    if (newServices.length > 0) {
-      const updatedServices = [...currentServices, ...newServices];
-      await updateDoc(doc(db, 'salons', restaurantId), {
-        services: updatedServices,
-        updatedAt: new Date()
-      });
-      
-      console.log(`🎉 ${servicesCreated} masa hizmet olarak eklendi!`);
-    }
-    
-    return {
-      success: true,
-      message: `${servicesCreated} masa başarıyla hizmet olarak eklendi`,
-      tablesProcessed: tables.length,
-      servicesCreated
-    };
-    
-  } catch (error) {
-    console.error('❌ Migration hatası:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Bilinmeyen hata',
-      tablesProcessed: 0,
-      servicesCreated: 0
-    };
-  }
-}
 
 /**
  * TÜM RESTORANLARIN MASALARINI MİGRE ET
