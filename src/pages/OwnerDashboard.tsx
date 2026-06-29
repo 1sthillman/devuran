@@ -48,6 +48,7 @@ import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { FloatingNavMenu } from '@/components/dashboard/FloatingNavMenu';
+import { toast } from 'sonner';
 import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus';
 import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
 import { SubscriptionGuard } from '@/components/subscription/SubscriptionGuard';
@@ -313,6 +314,36 @@ export function OwnerDashboard() {
       setSalon(salonData);
       // Reservations'ı hem orijinal hem de appointments formatında sakla
       setReservations(reservationsData);
+      
+      // 🍽️ RESTORAN İÇİN OTOMATIK MASA-HİZMET MİGRASYONU
+      if (salonData && (salonData.category === 'restaurant' || (salonData as any).type === 'restaurant')) {
+        try {
+          console.log('🍽️ Restoran kategorisi tespit edildi, masa-hizmet kontrolü yapılıyor...');
+          
+          // Eğer hizmet yoksa veya çok azsa, migration yap
+          if (servicesData.length === 0) {
+            console.log('⚠️ Hizmet bulunamadı, masa migration başlatılıyor...');
+            const { migrateTableToServices } = await import('@/scripts/migrateTableToServices');
+            const result = await migrateTableToServices(user.salonId);
+            
+            if (result.success && result.servicesCreated > 0) {
+              console.log(`✅ ${result.servicesCreated} masa hizmete dönüştürüldü`);
+              // Hizmetleri yeniden yükle
+              const updatedServices = await servicesService.getBySalon(user.salonId);
+              setServices(updatedServices);
+              
+              // Bilgi toast'ı göster
+              toast.success('Masalar Rezervasyona Hazır!', {
+                description: `${result.servicesCreated} masa artık müşteriler tarafından rezerve edilebilir`,
+                duration: 5000
+              });
+            }
+          }
+        } catch (migrationError) {
+          console.error('❌ Otomatik migration hatası:', migrationError);
+          // Migration hata verse bile devam et
+        }
+      }
       
       // Reservations'ı appointments formatına çevir (eski sistemle uyumluluk için)
       const appointmentsData = reservationsData.map((res: any) => ({
@@ -1468,6 +1499,33 @@ export function OwnerDashboard() {
         {/* SERVICES */}
         {activeTab === 'services' && (
           <div className="space-y-4">
+            {/* 🍽️ Restoran için özel bilgilendirme */}
+            {salon && (salon.category === 'restaurant' || (salon as any).type === 'restaurant') && (
+              <div className="obsidian-card p-4 border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
+                <div className="flex items-start gap-3">
+                  <ChefHat className="w-6 h-6 text-purple-400 flex-shrink-0 mt-1" />
+                  <div className="flex-1">
+                    <h4 className="font-heading font-bold text-[var(--chrome-white)] mb-2">
+                      🍽️ Masa Rezervasyon Sistemi
+                    </h4>
+                    <p className="text-sm text-[var(--muted-lead)] mb-3">
+                      Masalarınız otomatik olarak rezervasyon hizmeti olarak ekleniyor. 
+                      Müşteriler "Randevu Al" butonundan masalarınıza rezervasyon yapabilir.
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-purple-400">
+                      <span className="flex items-center gap-1">
+                        ✅ Otomatik hizmet oluşturma
+                      </span>
+                      <span className="text-[var(--muted-lead)]">•</span>
+                      <span className="flex items-center gap-1">
+                        ✅ Online rezervasyon
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -1481,51 +1539,89 @@ export function OwnerDashboard() {
               <span>Yeni Hizmet Ekle</span>
             </motion.button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services.map((service) => (
-                <div
-                  key={service.id}
-                  className="obsidian-card p-4 hover:border-[var(--liquid-chrome)] transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedService(service);
-                    setShowServiceForm(true);
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <h4 className="font-heading font-semibold text-[var(--chrome-white)] mb-1">
-                        {service.name}
-                      </h4>
-                      <p className="font-body text-sm text-[var(--muted-lead)] mb-2">
-                        {service.category}
-                      </p>
-                      <div className="flex items-center gap-3 text-sm">
-                        {/* Sadece slot-based kategorilerde dakika göster */}
-                        {salon && ['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salon.category) && (
-                          <span className="font-mono text-[var(--silver-frost)]">
-                            {service.duration} dk
+            {services.length === 0 && salon && (salon.category === 'restaurant' || (salon as any).type === 'restaurant') ? (
+              <div className="obsidian-card p-8 text-center">
+                <ChefHat className="w-16 h-16 mx-auto mb-4 text-orange-500/50" />
+                <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)] mb-2">
+                  Masalarınızı Ekleyin
+                </h3>
+                <p className="text-[var(--muted-lead)] mb-4">
+                  "Restoran Dashboard" → "Masalar" bölümünden masalarınızı ekleyin.
+                  Masalar otomatik olarak rezervasyon hizmeti olarak burada görünecek.
+                </p>
+              </div>
+            ) : services.length === 0 ? (
+              <div className="obsidian-card p-8 text-center">
+                <Scissors className="w-16 h-16 mx-auto mb-4 text-purple-500/50" />
+                <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)] mb-2">
+                  Henüz Hizmet Yok
+                </h3>
+                <p className="text-[var(--muted-lead)]">
+                  İlk hizmetinizi ekleyerek başlayın
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    className={cn(
+                      "obsidian-card p-4 hover:border-[var(--liquid-chrome)] transition-colors cursor-pointer",
+                      service.tableId && "border-l-4 border-l-orange-500"
+                    )}
+                    onClick={() => {
+                      setSelectedService(service);
+                      setShowServiceForm(true);
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-heading font-semibold text-[var(--chrome-white)]">
+                            {service.name}
+                          </h4>
+                          {service.tableId && (
+                            <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs rounded-full font-bold">
+                              MASA
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-body text-sm text-[var(--muted-lead)] mb-2">
+                          {service.description || service.category}
+                        </p>
+                        <div className="flex items-center gap-3 text-sm">
+                          {/* Sadece slot-based kategorilerde dakika göster */}
+                          {salon && ['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salon.category) && (
+                            <span className="font-mono text-[var(--silver-frost)]">
+                              {service.duration} dk
+                            </span>
+                          )}
+                          {service.tableId && service.pricingRules?.maxGuests && (
+                            <span className="font-mono text-[var(--silver-frost)]">
+                              {service.pricingRules.maxGuests} kişi
+                            </span>
+                          )}
+                          <span className="font-mono font-semibold text-[var(--chrome-white)]">
+                            {service.price} TL
                           </span>
-                        )}
-                        <span className="font-mono font-semibold text-[var(--chrome-white)]">
-                          {service.price} TL
-                        </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-10 h-6 rounded-full relative transition-colors ${
+                          service.isActive ? 'bg-[var(--success)]' : 'bg-[var(--slate-elevated)]'
+                        }`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                            service.isActive ? 'translate-x-4' : 'translate-x-0.5'
+                          }`}
+                        />
                       </div>
                     </div>
-                    <div
-                      className={`w-10 h-6 rounded-full relative transition-colors ${
-                        service.isActive ? 'bg-[var(--success)]' : 'bg-[var(--slate-elevated)]'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                          service.isActive ? 'translate-x-4' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
