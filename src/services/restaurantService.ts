@@ -183,7 +183,7 @@ class RestaurantService {
       const { salonsService } = await import('./firebaseService');
       
       // Restaurant bilgisini al
-      const restaurantDoc = await getDoc(doc(db, COLLECTIONS.SALONS, restaurantId));
+      const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
       if (restaurantDoc.exists()) {
         const restaurant = restaurantDoc.data();
         const currentServices = restaurant.services || [];
