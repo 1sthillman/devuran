@@ -289,6 +289,7 @@ class RestaurantService {
   }
 
   async completePayment(orderId: string, paymentMethod: string, paidAmount: number, change: number): Promise<void> {
+    // Siparişi completed yap
     await updateDoc(doc(db, ORDERS, orderId), {
       status: 'completed',
       paymentMethod,
@@ -298,14 +299,29 @@ class RestaurantService {
       completedAt: serverTimestamp(),
     });
     
-    // Masayı temizle
+    // Masayı temizle - SADECE bu masanın başka aktif siparişi yoksa
     const orderDoc = await getDoc(doc(db, ORDERS, orderId));
     const order = orderDoc.data() as Order;
+    
     if (order.tableId) {
-      await this.updateTable(order.tableId, {
-        status: 'empty',
-        currentOrderId: null,
-      });
+      // Bu masanın diğer aktif siparişlerini kontrol et
+      const q = query(
+        collection(db, ORDERS),
+        where('tableId', '==', order.tableId),
+        where('status', 'in', ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'order_placed'])
+      );
+      const snapshot = await getDocs(q);
+      
+      // Başka aktif sipariş yoksa masayı temizle
+      if (snapshot.empty) {
+        console.log('✅ Masa temizleniyor - tüm siparişler tamamlandı:', order.tableId);
+        await this.updateTable(order.tableId, {
+          status: 'empty',
+          currentOrderId: null,
+        });
+      } else {
+        console.log('⚠️ Masada hala aktif sipariş var:', snapshot.size, 'sipariş');
+      }
     }
   }
 

@@ -44,14 +44,33 @@ export function PaymentDialog({ order, isOpen, onClose }: PaymentDialogProps) {
       setProcessing(true);
       const change = paymentMethod === 'cash' ? paid - total : 0;
       
-      await restaurantService.completePayment(
-        order.id,
-        paymentMethod,
-        paid || total,
-        change
+      // CRITICAL: Birleştirilmiş sipariş kontrolü (ID'de virgül varsa birden fazla sipariş var)
+      const orderIds = order.id.includes(',') ? order.id.split(',') : [order.id];
+      
+      console.log('💰 ÖDEME ALINIYOR:', {
+        orderIds,
+        isCombined: orderIds.length > 1,
+        total,
+        paymentMethod
+      });
+      
+      // TÜM siparişleri complete yap
+      await Promise.all(
+        orderIds.map(orderId => 
+          restaurantService.completePayment(
+            orderId,
+            paymentMethod,
+            paid || total / orderIds.length, // Her siparişe eşit dağıt
+            change / orderIds.length // Para üstünü eşit dağıt
+          )
+        )
       );
 
-      toast.success('Ödeme tamamlandı');
+      toast.success('Ödeme tamamlandı', {
+        description: orderIds.length > 1 
+          ? `${orderIds.length} sipariş kapatıldı` 
+          : undefined
+      });
       
       if (change > 0) {
         toast.info(`Para üstü: ${change.toFixed(2)} ₺`, { duration: 5000 });
@@ -61,7 +80,7 @@ export function PaymentDialog({ order, isOpen, onClose }: PaymentDialogProps) {
       setPaymentMethod('credit_card');
       onClose();
     } catch (error) {
-      console.error('Ödeme hatası:', error);
+      console.error('❌ Ödeme hatası:', error);
       toast.error('Ödeme alınamadı');
     } finally {
       setProcessing(false);

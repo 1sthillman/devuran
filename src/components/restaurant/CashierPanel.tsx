@@ -86,9 +86,12 @@ export function CashierPanel({ restaurantId }: CashierPanelProps) {
       // Tüm siparişleri birleştir
       const combinedOrder: Order = {
         ...tableOrders[0], // İlk siparişin yapısını kullan
+        id: tableOrders.map(o => o.id).join(','), // CRITICAL: Tüm ID'leri virgülle birleştir
         orderNumber: `Masa ${table.tableNumber} (${tableOrders.length} sipariş)`,
         items: tableOrders.flatMap(o => o.items), // Tüm ürünleri birleştir
         total: tableOrders.reduce((sum, o) => sum + o.total, 0), // Toplamları birleştir
+        subtotal: tableOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0),
+        tax: tableOrders.reduce((sum, o) => sum + (o.tax || 0), 0),
       };
       setSelectedOrder(combinedOrder);
     } else {
