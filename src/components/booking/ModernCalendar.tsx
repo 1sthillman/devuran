@@ -162,12 +162,11 @@ export function ModernCalendar({
       const hasAvailability = availabilityMap.get(dateKey) ?? true; // Default true if not checked yet
       
       // Disabled logic: 
-      // - Geçmiş günler disabled (bugün hariç)
+      // - Geçmiş günler disabled (bugün dahil değil - bugün seçilebilir)
       // - MinDate/MaxDate kontrolü
+      // - Kapalı günler disabled
       // - Availability kontrolü SADECE businessId varsa yapılır
-      // - BusinessId yoksa sadece past, min, max kontrolü yap
-      const shouldCheckAvailability = businessId !== undefined;
-      const isDisabled = isPast || isBeforeMin || isAfterMax || (shouldCheckAvailability && (isClosed || !hasAvailability));
+      const isDisabled = isPast || isBeforeMin || isAfterMax || isClosed;
       
       days.push({
         date: d,
@@ -282,9 +281,12 @@ export function ModernCalendar({
           return (
             <button
               key={i}
+              type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 if (!day.isDisabled) {
+                  console.log('📅 Gün seçildi:', day.dateObj);
                   onSelect(day.dateObj);
                 }
               }}
@@ -298,9 +300,6 @@ export function ModernCalendar({
                 // Geçmiş günler
                 !day.isClosed && day.isPast && 
                   'text-[var(--ash)]/30 cursor-not-allowed opacity-30',
-                // Dolu günler (müsait slot yok)
-                !day.isClosed && !day.isPast && !day.hasAvailability && businessId && 
-                  'text-[var(--muted-lead)]/60 cursor-not-allowed bg-white/[0.02]',
                 // Normal müsait günler
                 !day.isDisabled && !selected && 
                   'text-[var(--chrome-white)] bg-white/[0.06] border-2 border-white/[0.08] hover:border-purple-500/50 hover:bg-white/[0.1] hover:scale-105 active:scale-95 cursor-pointer',
@@ -314,7 +313,7 @@ export function ModernCalendar({
               title={
                 day.isClosed ? 'Kapalı' : 
                 day.isPast ? 'Geçmiş tarih' : 
-                !day.hasAvailability && businessId ? 'Müsait saat yok' : 
+                !day.hasAvailability && businessId ? 'Müsait saat yok (devam edebilirsiniz)' : 
                 ''
               }
             >
@@ -324,6 +323,10 @@ export function ModernCalendar({
                   <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-[16px]" />
                   <div className="absolute -inset-1 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-[18px] blur-md -z-10" />
                 </>
+              )}
+              {/* Dolu gün göstergesi (advisory only - engellemiyor) */}
+              {!day.isDisabled && !day.hasAvailability && businessId && !selected && (
+                <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-orange-400" title="Az slot kaldı" />
               )}
             </button>
           );
@@ -340,16 +343,6 @@ export function ModernCalendar({
           <div className="w-3 h-3 rounded bg-gradient-to-br from-[var(--liquid-chrome)] to-purple-600" />
           <span>Seçili</span>
         </div>
-        {businessId && (
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20 relative">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-0.5 h-full bg-red-500/40 rotate-45" />
-              </div>
-            </div>
-            <span>Dolu</span>
-          </div>
-        )}
       </div>
     </div>
   );
