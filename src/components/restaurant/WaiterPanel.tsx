@@ -11,7 +11,6 @@ import { TableGrid } from './TableGrid';
 import { TableActionMenu } from './TableActionMenu';
 import { TableTransferDialog } from './TableTransferDialog';
 import { WaiterOrderScreen } from './WaiterOrderScreen';
-import { NotificationToast } from './NotificationToast';
 
 interface WaiterPanelProps {
   restaurantId: string;
@@ -615,6 +614,7 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
           <TableGrid 
             tables={filteredTables} 
             orders={orders}
+            notifications={notifications}
             onTableLongPress={handleTableLongPress}
           />
         </div>
@@ -737,21 +737,6 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
           </motion.button>
         )}
       </AnimatePresence>
-
-      {/* Floating Notification Toasts - Top Right */}
-      <div className="fixed top-6 right-6 z-[9999] space-y-3 max-w-sm w-full pointer-events-none">
-        <AnimatePresence>
-          {notifications.slice(0, 3).map((notif, index) => (
-            <div key={notif.id} className="pointer-events-auto">
-              <NotificationToast
-                notification={notif}
-                onDismiss={() => handleRespond(notif.id, notif.tableId)}
-                onRespond={() => handleRespond(notif.id, notif.tableId)}
-              />
-            </div>
-          ))}
-        </AnimatePresence>
-      </div>
     </>
   );
 }

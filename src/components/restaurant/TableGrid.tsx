@@ -8,20 +8,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, MoveHorizontal, Users, Clock, Flame } from 'lucide-react';
+import { MoreVertical, MoveHorizontal, Users, Clock, Flame, Phone, Receipt, CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Table, Order } from '@/types/restaurant';
+import { motion, AnimatePresence } from 'framer-motion';
+import { restaurantService } from '@/services/restaurantService';
+import { toast } from 'sonner';
+import type { Table, Order, RestaurantNotification } from '@/types/restaurant';
 import { TableTransferDialog } from './TableTransferDialog';
 
 interface TableGridProps {
   tables: Table[];
   orders: Order[];
+  notifications?: RestaurantNotification[]; // Yeni: Bildirimler
   onTableClick?: (table: Table) => void;
   onTableLongPress?: (table: Table) => void;
 }
 
-export function TableGrid({ tables, orders, onTableClick, onTableLongPress }: TableGridProps) {
+export function TableGrid({ tables, orders, notifications = [], onTableClick, onTableLongPress }: TableGridProps) {
   const [transferDialog, setTransferDialog] = useState<{ table: Table; order: Order } | null>(null);
+  const [notificationDialog, setNotificationDialog] = useState<{ table: Table; notification: RestaurantNotification } | null>(null);
+  const [responding, setResponding] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<number | null>(null);
 
   function getTableStatusColor(status: string): string {
@@ -136,6 +142,51 @@ export function TableGrid({ tables, orders, onTableClick, onTableLongPress }: Ta
     }
   }
 
+  // Masa bildirimlerini kontrol et ve dialog aç
+  function handleTableClickWithNotification(table: Table) {
+    // Bildirimleri kontrol et (coal_requested, waiter_called, bill_requested)
+    const tableNotification = notifications.find(n => n.tableId === table.id && !n.isRead);
+    
+    if (tableNotification) {
+      // Bildirim varsa dialog aç
+      setNotificationDialog({ table, notification: tableNotification });
+    } else {
+      // Bildirim yoksa normal tıklama
+      if (!table.status || table.status === 'empty') return;
+      onTableClick?.(table);
+    }
+  }
+
+  // Bildirime yanıt ver
+  async function handleRespondToNotification() {
+    if (!notificationDialog) return;
+    
+    try {
+      setResponding(true);
+      
+      // Bildirimi sil
+      await restaurantService.deleteNotification(notificationDialog.notification.id);
+      
+      // Masa durumunu güncelle
+      if (notificationDialog.table.id) {
+        await restaurantService.updateTable(notificationDialog.table.id, {
+          status: 'occupied' // Normale dön
+        });
+      }
+      
+      toast.success('Müşteriye bildiriliyor', {
+        description: `Masa ${notificationDialog.table.tableNumber} - Yola çıkıldı`
+      });
+      
+      setNotificationDialog(null);
+    } catch (error) {
+      console.error('Yanıt hatası:', error);
+      toast.error('İşlem başarısız');
+    } finally {
+      setResponding(false);
+    }
+  }
+
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -150,7 +201,7 @@ export function TableGrid({ tables, orders, onTableClick, onTableLongPress }: Ta
                 'relative p-4 border-2 cursor-pointer transition-all select-none',
                 getTableStatusColor(table.status)
               )}
-              onClick={() => !isEmpty && onTableClick?.(table)}
+              onClick={() => handleTableClickWithNotification(table)}
               onPointerDown={() => handlePointerDown(table)}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
@@ -244,6 +295,96 @@ export function TableGrid({ tables, orders, onTableClick, onTableLongPress }: Ta
           }}
         />
       )}
+
+      {/* Bildirim Dialog - Glassmorphism */}
+      <AnimatePresence>
+        {notificationDialog && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setNotificationDialog(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
+            />
+
+            {/* Dialog */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            >
+              <div className="relative max-w-md w-full backdrop-blur-2xl backdrop-saturate-150 bg-white/10 dark:bg-white/5 border border-white/20 rounded-3xl p-6 shadow-2xl">
+                {/* X Button */}
+                <button
+                  onClick={() => setNotificationDialog(null)}
+                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5 text-white" strokeWidth={2.5} />
+                </button>
+
+                {/* Icon */}
+                <div className="flex justify-center mb-4">
+                  <div className={cn(
+                    "w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl",
+                    notificationDialog.notification.type === 'coal_request' && "bg-gradient-to-br from-orange-500 to-red-500",
+                    notificationDialog.notification.type === 'waiter_call' && "bg-gradient-to-br from-blue-500 to-cyan-500",
+                    notificationDialog.notification.type === 'bill_request' && "bg-gradient-to-br from-green-500 to-emerald-500"
+                  )}>
+                    {notificationDialog.notification.type === 'coal_request' && <Flame className="w-10 h-10 text-white" strokeWidth={2.5} />}
+                    {notificationDialog.notification.type === 'waiter_call' && <Phone className="w-10 h-10 text-white" strokeWidth={2.5} />}
+                    {notificationDialog.notification.type === 'bill_request' && <Receipt className="w-10 h-10 text-white" strokeWidth={2.5} />}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    Masa {notificationDialog.table.tableNumber}
+                  </h3>
+                  <p className="text-lg text-white/90 font-semibold">
+                    {notificationDialog.notification.type === 'coal_request' && '🔥 Köz İstiyor'}
+                    {notificationDialog.notification.type === 'waiter_call' && '📞 Garson Çağırıyor'}
+                    {notificationDialog.notification.type === 'bill_request' && '💳 Hesap İstiyor'}
+                  </p>
+                  <div className="mt-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3">
+                    <p className="text-sm text-white/80">
+                      {notificationDialog.notification.message}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleRespondToNotification}
+                  disabled={responding}
+                  className={cn(
+                    "w-full h-14 text-lg font-bold rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 text-white",
+                    notificationDialog.notification.type === 'coal_request' && "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600",
+                    notificationDialog.notification.type === 'waiter_call' && "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600",
+                    notificationDialog.notification.type === 'bill_request' && "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                  )}
+                >
+                  {responding ? (
+                    <>
+                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-6 h-6" />
+                      Geliyorum
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
