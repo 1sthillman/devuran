@@ -315,6 +315,25 @@ export function OwnerDashboard() {
       // Reservations'ı hem orijinal hem de appointments formatında sakla
       setReservations(reservationsData);
       
+      // 🍽️ Hizmetleri yükle - Restoran için salon.services array'ini de ekle
+      let allServices = [...servicesData];
+      if (salonData && salonData.services && Array.isArray(salonData.services) && salonData.services.length > 0) {
+        const salonServices = salonData.services.filter((s: any) => s.isActive !== false);
+        allServices = [...allServices, ...salonServices];
+        
+        // Duplicate kontrolü
+        const uniqueServices = allServices.reduce((acc: any[], curr: any) => {
+          if (!acc.find(s => s.id === curr.id)) {
+            acc.push(curr);
+          }
+          return acc;
+        }, []);
+        allServices = uniqueServices;
+        
+        console.log(`📊 Toplam ${allServices.length} hizmet yüklendi (${servicesData.length} collection + ${salonServices.length} array)`);
+      }
+      setServices(allServices);
+      
       // 🍽️ RESTORAN İÇİN OTOMATIK MASA-HİZMET MİGRASYONU
       if (salonData && (salonData.category === 'restoran' || (salonData as any).category === 'restaurant')) {
         try {
@@ -328,9 +347,15 @@ export function OwnerDashboard() {
             
             if (result.success && result.servicesCreated > 0) {
               console.log(`✅ ${result.servicesCreated} masa hizmete dönüştürüldü`);
-              // Hizmetleri yeniden yükle
-              const updatedServices = await servicesService.getBySalon(user.salonId);
-              setServices(updatedServices);
+              
+              // Salon'u yeniden yükle (services array güncellenmiş olacak)
+              const freshSalon = await salonsService.getById(user.salonId);
+              if (freshSalon && freshSalon.services) {
+                const salonServices = freshSalon.services.filter((s: any) => s.isActive !== false);
+                console.log(`📊 Salon services array'inden ${salonServices.length} hizmet yüklendi`);
+                setServices(salonServices);
+                setSalon(freshSalon);
+              }
               
               // Bilgi toast'ı göster
               toast.success('Masalar Rezervasyona Hazır!', {
@@ -370,7 +395,7 @@ export function OwnerDashboard() {
         createdAt: res.createdAt,
       })) as Appointment[];
       setAppointments(appointmentsData);
-      setServices(servicesData);
+      // setServices ve setStaff yukarıda zaten set edildi
       setStaff(staffData);
 
       // Update subscription usage stats
@@ -378,7 +403,7 @@ export function OwnerDashboard() {
         try {
           await subscriptionService.updateUsageStats(user.salonId, {
             staffCount: staffData.length,
-            serviceCount: servicesData.length,
+            serviceCount: allServices.length, // Güncellenmiş hizmet sayısını kullan
             monthlyBookings: appointmentsData.filter(a => {
               const appointmentDate = new Date(a.date);
               const now = new Date();

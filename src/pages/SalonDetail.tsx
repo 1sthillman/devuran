@@ -83,8 +83,27 @@ export function SalonDetail() {
         staffService.getBySalon(salonData.id),
       ]);
       
+      // 🍽️ RESTORAN İÇİN: Salon.services array'inden de hizmetleri al
+      let allServices = [...servicesData];
+      if (salonData.services && Array.isArray(salonData.services) && salonData.services.length > 0) {
+        // Salon array'indeki hizmetleri ekle (masa rezervasyonları için)
+        const salonServices = salonData.services.filter((s: any) => s.isActive !== false);
+        allServices = [...allServices, ...salonServices];
+        
+        // Duplicate kontrolü (aynı ID'ye sahip hizmetler varsa bir tane al)
+        const uniqueServices = allServices.reduce((acc: Service[], curr: Service) => {
+          if (!acc.find(s => s.id === curr.id)) {
+            acc.push(curr);
+          }
+          return acc;
+        }, []);
+        allServices = uniqueServices;
+        
+        console.log(`🍽️ Salon services array'inden ${salonServices.length} hizmet eklendi`);
+      }
+      
       setSalon(salonData);
-      setServices(servicesData);
+      setServices(allServices);
       setStaff(staffData);
       
       // ✅ Salon belgesindeki subscriptionActive alanını kontrol et (subscriptions koleksyonunu okumaya gerek yok)
