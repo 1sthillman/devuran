@@ -343,20 +343,19 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                               autoPlay={clickedButton === button.type}
                             />
                           ) : (
-                            // GIF - Tıklayınca animate, yoksa static
+                            // GIF - Tıklayınca animate, yoksa gradient göster
                             <div className="absolute inset-0 w-full h-full">
                               {clickedButton === button.type ? (
                                 <img 
+                                  key="animated"
                                   src={button.mediaUrl}
                                   alt=""
                                   className="w-full h-full object-cover scale-110"
                                 />
                               ) : (
-                                <img 
-                                  src={button.mediaUrl + '?static=true'}
-                                  alt=""
-                                  className="w-full h-full object-cover scale-110"
-                                  style={{ imageRendering: 'auto' }}
+                                // Static durumda gradient göster
+                                <div 
+                                  className="w-full h-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center"
                                 />
                               )}
                             </div>
