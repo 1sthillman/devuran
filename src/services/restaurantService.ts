@@ -377,7 +377,8 @@ class RestaurantService {
     message: string,
     tableId?: string,
     tableName?: string,
-    orderId?: string
+    orderId?: string,
+    soundUrl?: string
   ): Promise<string> {
     // ✅ FIX: Firebase undefined değerleri kabul etmez - sadece tanımlı alanları ekle
     const notificationData: any = {
@@ -392,6 +393,7 @@ class RestaurantService {
     if (tableId !== undefined) notificationData.tableId = tableId;
     if (tableName !== undefined) notificationData.tableName = tableName;
     if (orderId !== undefined) notificationData.orderId = orderId;
+    if (soundUrl !== undefined) notificationData.soundUrl = soundUrl;
     
     const docRef = await addDoc(collection(db, NOTIFICATIONS), notificationData);
     

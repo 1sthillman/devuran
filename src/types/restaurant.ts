@@ -163,6 +163,7 @@ export interface RestaurantNotification {
   tableName?: string;
   orderId?: string;
   message: string;
+  soundUrl?: string; // Bildirim sesi URL'i
   isRead: boolean;
   respondedAt?: string;
   createdAt: string;

@@ -60,8 +60,24 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
     const unsubscribeNotifications = restaurantService.subscribeToNotifications(
       restaurantId,
       (newNotifications) => {
+        // Yeni bildirim geldiğinde ses çal
         if (newNotifications.length > notifications.length) {
-          soundService.playNotification();
+          // En son bildirimin sesini çal
+          const latestNotification = newNotifications[0];
+          if (latestNotification?.soundUrl) {
+            try {
+              const audio = new Audio(latestNotification.soundUrl);
+              audio.volume = 0.8; // %80 ses seviyesi
+              audio.play().catch(err => {
+                console.warn('Garson panelinde ses çalınamadı:', err);
+              });
+            } catch (error) {
+              console.warn('Ses hatası:', error);
+            }
+          } else {
+            // Eski bildirimler için varsayılan ses
+            soundService.playNotification();
+          }
         }
         setNotifications(newNotifications);
       }

@@ -101,7 +101,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       setSending(type);
       setClickedButton(type); // Animasyonu tetikle
       
-      // Özel sesi çal
+      // Özel sesi çal (müşteri tarafında)
       playNotificationSound(soundUrl);
       
       const notificationId = await restaurantService.createNotification(
@@ -109,7 +109,9 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
         type, 
         message, 
         tableId, 
-        tableName
+        tableName,
+        undefined, // orderId
+        soundUrl // Ses URL'ini garson da duysun diye kaydet
       );
       
       console.log('✅ Notification created:', notificationId);
@@ -343,22 +345,16 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                               autoPlay={clickedButton === button.type}
                             />
                           ) : (
-                            // GIF - Tıklayınca animate, yoksa gradient göster
-                            <div className="absolute inset-0 w-full h-full">
-                              {clickedButton === button.type ? (
-                                <img 
-                                  key="animated"
-                                  src={button.mediaUrl}
-                                  alt=""
-                                  className="w-full h-full object-cover scale-110"
-                                />
-                              ) : (
-                                // Static durumda gradient göster
-                                <div 
-                                  className="w-full h-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center"
-                                />
-                              )}
-                            </div>
+                            // GIF - CSS ile kontrol
+                            <img 
+                              key={clickedButton === button.type ? Date.now() : 'static'}
+                              src={button.mediaUrl}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover scale-110"
+                              style={{
+                                animationPlayState: clickedButton === button.type ? 'running' : 'paused'
+                              }}
+                            />
                           )}
                           
                           {/* Subtle gradient overlay for depth */}
