@@ -1,6 +1,7 @@
 export interface Service {
   id: string;
   salonId?: string;
+  tableId?: string; // 🍽️ Restoran masası için (masa rezervasyonu)
   name: string;
   description?: string;
   category: string;

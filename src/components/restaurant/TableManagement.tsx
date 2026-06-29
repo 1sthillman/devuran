@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, Trash2, QrCode, Users, Download, Sparkles, Check, X, UtensilsCrossed } from 'lucide-react';
+import { Plus, Edit, Trash2, QrCode, Users, Download, Sparkles, Check, X, UtensilsCrossed, RefreshCw } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import QRCodeStyling from 'qr-code-styling';
 import type { Table } from '@/types/restaurant';
+import { migrateTableToServices } from '@/scripts/migrateTableToServices';
 
 interface TableManagementProps {
   restaurantId: string;
@@ -21,6 +22,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
   const [area, setArea] = useState('');
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
+  const [migrating, setMigrating] = useState(false);
 
   useEffect(() => {
     loadTables();
@@ -84,7 +86,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
 
   async function handleDelete(tableId: string) {
     try {
-      await restaurantService.deleteTable(tableId);
+      await restaurantService.deleteTable(tableId, restaurantId);
       toast.success('Masa silindi!', {
         icon: <Check className="w-5 h-5" />,
       });
@@ -144,6 +146,43 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     toast.success('QR kod indiriliyor!', {
       icon: <Check className="w-5 h-5" />,
     });
+  }
+
+  // 🍽️ MASA REZERVASYON SİSTEMİ - Masaları hizmete dönüştür
+  async function handleMigrateToServices() {
+    if (migrating) return;
+    
+    try {
+      setMigrating(true);
+      
+      toast.loading('Masalar hizmete dönüştürülüyor...', {
+        id: 'migration'
+      });
+      
+      const result = await migrateTableToServices(restaurantId);
+      
+      if (result.success) {
+        toast.success(result.message, {
+          id: 'migration',
+          description: `${result.servicesCreated} masa artık rezervasyon için hazır!`,
+          duration: 5000,
+          icon: <Check className="w-5 h-5" />
+        });
+      } else {
+        toast.error('Dönüştürme başarısız', {
+          id: 'migration',
+          description: result.message
+        });
+      }
+    } catch (error) {
+      console.error('Migration hatası:', error);
+      toast.error('Bir hata oluştu', {
+        id: 'migration',
+        description: 'Lütfen tekrar deneyin'
+      });
+    } finally {
+      setMigrating(false);
+    }
   }
 
   function downloadAllQRCodes() {
@@ -217,6 +256,30 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
             </p>
           </div>
           <div className="flex gap-3 w-full sm:w-auto">
+            {/* 🍽️ Rezervasyon Sistemi Aktifleştirme Butonu */}
+            {tables.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleMigrateToServices}
+                disabled={migrating}
+                className={cn(
+                  "flex-1 sm:flex-none px-4 py-3 rounded-2xl font-heading font-bold text-sm flex items-center justify-center gap-2 transition-all",
+                  migrating
+                    ? "bg-gray-200 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
+                    : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg shadow-purple-500/30"
+                )}
+              >
+                <RefreshCw className={cn("w-5 h-5", migrating && "animate-spin")} strokeWidth={2.5} />
+                <span className="hidden sm:inline">
+                  {migrating ? 'Dönüştürülüyor...' : 'Rezervasyon Sistemini Aktifleştir'}
+                </span>
+                <span className="sm:hidden">
+                  {migrating ? 'İşleniyor...' : 'Rezervasyon'}
+                </span>
+              </motion.button>
+            )}
+            
             {tables.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.02 }}

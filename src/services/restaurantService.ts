@@ -166,6 +166,8 @@ class RestaurantService {
   
   async createTable(restaurantId: string, table: Omit<Table, 'id' | 'restaurantId' | 'qrCode'>): Promise<string> {
     const qrCode = nanoid(10);
+    
+    // Masa oluştur
     const docRef = await addDoc(collection(db, TABLES), {
       ...table,
       restaurantId,
@@ -173,7 +175,59 @@ class RestaurantService {
       status: 'empty' as TableStatus,
       createdAt: serverTimestamp(),
     });
-    return docRef.id;
+    
+    const tableId = docRef.id;
+    
+    // 🍽️ Otomatik olarak hizmet olarak da ekle (Rezervasyon için)
+    try {
+      const { salonsService } = await import('./firebaseService');
+      
+      // Restaurant bilgisini al
+      const restaurantDoc = await getDoc(doc(db, COLLECTIONS.SALONS, restaurantId));
+      if (restaurantDoc.exists()) {
+        const restaurant = restaurantDoc.data();
+        const currentServices = restaurant.services || [];
+        
+        // Bu masa için zaten service var mı kontrol et
+        const existingService = currentServices.find(
+          (s: any) => s.tableId === tableId
+        );
+        
+        if (!existingService) {
+          // Yeni service oluştur
+          const newService = {
+            id: nanoid(12),
+            salonId: restaurantId,
+            tableId: tableId, // Masayla ilişkilendir
+            name: `Masa ${table.tableNumber}`,
+            description: `${table.capacity} kişilik masa rezervasyonu`,
+            category: 'restaurant', // Restoran kategorisi
+            duration: 120, // 2 saat varsayılan süre
+            price: 0, // Masa rezervasyonu ücretsiz (isteğe göre değiştirilebilir)
+            gender: 'all' as const,
+            staffIds: [], // Masa için personel ataması yok
+            isActive: true,
+            pricingRules: {
+              basePrice: 0,
+              minGuests: 1,
+              maxGuests: table.capacity,
+            }
+          };
+          
+          // Service'i salon'a ekle
+          await salonsService.update(restaurantId, {
+            services: [...currentServices, newService]
+          });
+          
+          console.log(`✅ Masa ${table.tableNumber} için hizmet oluşturuldu`);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Masa için hizmet oluşturulamadı:', error);
+      // Hata olsa da masa oluşturuldu, devam et
+    }
+    
+    return tableId;
   }
 
   async updateTable(tableId: string, updates: Partial<Table>): Promise<void> {
@@ -181,10 +235,84 @@ class RestaurantService {
       ...updates,
       updatedAt: serverTimestamp(),
     });
+    
+    // 🍽️ Eğer masa numarası veya kapasitesi değiştiyse, service'i de güncelle
+    if (updates.tableNumber || updates.capacity) {
+      try {
+        // Önce tablonun restaurant ID'sini al
+        const tableDoc = await getDoc(doc(db, TABLES, tableId));
+        if (tableDoc.exists()) {
+          const tableData = tableDoc.data();
+          const restaurantId = tableData.restaurantId;
+          
+          const { salonsService } = await import('./firebaseService');
+          const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
+          
+          if (restaurantDoc.exists()) {
+            const restaurant = restaurantDoc.data();
+            const currentServices = restaurant.services || [];
+            
+            // Bu masa için olan service'i bul ve güncelle
+            const updatedServices = currentServices.map((s: any) => {
+              if (s.tableId === tableId) {
+                return {
+                  ...s,
+                  name: updates.tableNumber ? `Masa ${updates.tableNumber}` : s.name,
+                  description: updates.capacity 
+                    ? `${updates.capacity} kişilik masa rezervasyonu` 
+                    : s.description,
+                  pricingRules: updates.capacity ? {
+                    ...s.pricingRules,
+                    maxGuests: updates.capacity
+                  } : s.pricingRules
+                };
+              }
+              return s;
+            });
+            
+            await salonsService.update(restaurantId, {
+              services: updatedServices
+            });
+            
+            console.log(`✅ Masa ${tableId} için hizmet güncellendi`);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Masa için hizmet güncellenemedi:', error);
+      }
+    }
   }
 
-  async deleteTable(tableId: string): Promise<void> {
+  async deleteTable(tableId: string, restaurantId?: string): Promise<void> {
+    // Masayı sil
     await deleteDoc(doc(db, TABLES, tableId));
+    
+    // 🍽️ İlgili service'i de sil
+    if (restaurantId) {
+      try {
+        const { salonsService } = await import('./firebaseService');
+        const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
+        
+        if (restaurantDoc.exists()) {
+          const restaurant = restaurantDoc.data();
+          const currentServices = restaurant.services || [];
+          
+          // Bu masa için olan service'i filtrele
+          const updatedServices = currentServices.filter(
+            (s: any) => s.tableId !== tableId
+          );
+          
+          if (updatedServices.length !== currentServices.length) {
+            await salonsService.update(restaurantId, {
+              services: updatedServices
+            });
+            console.log(`✅ Masa ${tableId} için hizmet silindi`);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Masa için hizmet silinemedi:', error);
+      }
+    }
   }
 
   async getTables(restaurantId: string): Promise<Table[]> {
