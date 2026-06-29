@@ -17,7 +17,7 @@ export default defineConfig({
   },
   build: {
     sourcemap: false, // ❌ Source map KAPALI - kaynak kodlar görünmez
-    minify: 'esbuild', // Kod sıkıştırma
+    minify: 'esbuild', // ✅ esbuild kullan - terser değil (console drop kontrolü için)
     rollupOptions: {
       output: {
         manualChunks: {
@@ -30,7 +30,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   esbuild: {
-    // Console logları geçici olarak aktif - debug için
-    // drop: ['debugger'], 
+    // ✅ CRITICAL: Console logları AÇIK - debug için
+    drop: [], // Hiçbir şeyi drop etme
+    pure: [], // Hiçbir fonksiyonu pure olarak işaretleme
   },
 });
