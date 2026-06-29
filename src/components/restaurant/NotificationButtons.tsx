@@ -20,6 +20,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   const [successType, setSuccessType] = useState<'waiter_call' | 'coal_request' | 'bill_request' | null>(null);
   const [lastClickTimes, setLastClickTimes] = useState<Record<string, number>>({});
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
+  const [clickedButton, setClickedButton] = useState<string | null>(null); // Hangi buton tıklandı
 
   // CRITICAL DEBUG: Component mount testi
   console.log('🚨 ========== NotificationButtons COMPONENT LOADED ==========');
@@ -61,37 +62,17 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   }, [restaurantId, tableId, tableName]);
 
   // Bildirim sesi çal
-  function playNotificationSound(type: 'waiter_call' | 'coal_request' | 'bill_request') {
+  function playNotificationSound(soundUrl: string) {
     try {
-      // Farklı frekanslarda beep sesleri
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // Buton tipine göre frekans
-      const frequency = {
-        waiter_call: 800,   // Yüksek ton
-        coal_request: 600,  // Orta ton
-        bill_request: 700   // Orta-yüksek ton
-      }[type];
-      
-      oscillator.frequency.value = frequency;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.7;
+      audio.play().catch(err => console.log('Ses çalınamadı:', err));
     } catch (error) {
       console.log('Ses çalınamadı:', error);
     }
   }
 
-  const handleButtonClick = useCallback(async (type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) => {
+  const handleButtonClick = useCallback(async (type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string, soundUrl: string) => {
     console.log('🎯 ========== BUTTON CLICKED! ==========');
     
     if (tableId === 'loading') {
@@ -116,9 +97,10 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
     
     try {
       setSending(type);
+      setClickedButton(type); // Animasyonu tetikle
       
-      // Bildirim sesi çal
-      playNotificationSound(type);
+      // Özel sesi çal
+      playNotificationSound(soundUrl);
       
       const notificationId = await restaurantService.createNotification(
         restaurantId, 
@@ -163,6 +145,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       setTimeout(() => {
         setShowSuccess(false);
         setSuccessType(null);
+        setClickedButton(null);
         setIsExpanded(false);
       }, 2000);
       
@@ -183,7 +166,9 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Garson',
       gradient: 'from-blue-500 to-cyan-500',
       message: `Masa ${tableName} - Garson çağırıyor`,
-      gifUrl: '/asset/Modern_digital_waiter_character_sleek_and_st.gif', // Garson karakter
+      mediaUrl: '/asset/garson.gif', // GIF
+      soundUrl: '/asset/garson.mp3',
+      isVideo: false,
     },
     {
       type: 'coal_request' as const,
@@ -191,7 +176,9 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Köz',
       gradient: 'from-orange-500 to-red-500',
       message: `Masa ${tableName} - Köz istiyor`,
-      gifUrl: '/asset/Transform_the_scene_the_same_modern_digital.gif', // Köz sahnesi
+      mediaUrl: '/asset/koz.mp4', // Video
+      soundUrl: '/asset/nargile_kömürünün_dolsun_ekrana_202606291839_[cut_2sec].mp3',
+      isVideo: true,
     },
     {
       type: 'bill_request' as const,
@@ -199,7 +186,9 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Hesap',
       gradient: 'from-green-500 to-emerald-500',
       message: `Masa ${tableName} - Hesap istiyor`,
-      gifUrl: '/asset/Modern_digital_waiter_robot_holding_a_sleek_d.gif', // Robot garson
+      mediaUrl: '/asset/hesap.mp4', // Video
+      soundUrl: '/asset/hesap.mp3',
+      isVideo: true,
     },
   ];
 
@@ -271,7 +260,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         e.preventDefault();
                         e.stopPropagation();
                         console.log('🔴 BUTTON ONCLICK!', button.label);
-                        handleButtonClick(button.type, button.message, button.label);
+                        handleButtonClick(button.type, button.message, button.label, button.soundUrl);
                       }}
                       className={cn(
                         'relative group flex items-center gap-3 px-5 py-4 rounded-2xl transition-all w-full overflow-hidden',
@@ -340,12 +329,32 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                           "shadow-2xl transition-all group-hover:scale-110 group-hover:shadow-3xl",
                           "ring-2 ring-white/30"
                         )}>
-                          {/* GIF Background - Full cover, circular */}
-                          <img 
-                            src={button.gifUrl}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover scale-110"
-                          />
+                          {/* Video or GIF Background */}
+                          {button.isVideo ? (
+                            <video
+                              src={button.mediaUrl}
+                              className="absolute inset-0 w-full h-full object-cover scale-110"
+                              loop
+                              muted
+                              playsInline
+                              ref={(el) => {
+                                if (el && clickedButton === button.type) {
+                                  el.currentTime = 0;
+                                  el.play();
+                                } else if (el) {
+                                  el.pause();
+                                  el.currentTime = 0;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <img 
+                              src={button.mediaUrl}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover scale-110"
+                            />
+                          )}
+                          
                           {/* Subtle gradient overlay for depth */}
                           <div className={cn(
                             "absolute inset-0 bg-gradient-to-br opacity-40 mix-blend-overlay",
