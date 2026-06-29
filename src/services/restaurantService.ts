@@ -379,16 +379,21 @@ class RestaurantService {
     tableName?: string,
     orderId?: string
   ): Promise<string> {
-    const docRef = await addDoc(collection(db, NOTIFICATIONS), {
+    // ✅ FIX: Firebase undefined değerleri kabul etmez - sadece tanımlı alanları ekle
+    const notificationData: any = {
       restaurantId,
       type,
       message,
-      tableId,
-      tableName,
-      orderId,
       isRead: false,
       createdAt: serverTimestamp(),
-    });
+    };
+    
+    // Optional alanları sadece tanımlıysa ekle
+    if (tableId !== undefined) notificationData.tableId = tableId;
+    if (tableName !== undefined) notificationData.tableName = tableName;
+    if (orderId !== undefined) notificationData.orderId = orderId;
+    
+    const docRef = await addDoc(collection(db, NOTIFICATIONS), notificationData);
     
     // Masa durumunu güncelle
     if (tableId) {
