@@ -89,7 +89,7 @@ export function SlotBookingWizard() {
       return;
     }
 
-    if (totalPrice <= 0) {
+    if (totalPrice <= 0 && salon.category !== 'restoran') {
       addToast('Lütfen hizmet seçin ve fiyat bilgisini kontrol edin', 'error');
       return;
     }
@@ -457,6 +457,7 @@ export function SlotBookingWizard() {
                                     selectDateTime(dateStr, selectedTime || '');
                                   }}
                                   minDate={new Date()}
+                                  workingHours={salon.workingHours}
                                 />
                               </div>
                               <div>
@@ -465,10 +466,27 @@ export function SlotBookingWizard() {
                                   value={selectedTime || ''}
                                   onChange={(time) => selectDateTime(selectedDate || '', time)}
                                   workingHours={
-                                    salon?.workingHours?.start ? {
-                                      start: salon.workingHours.start.open,
-                                      end: salon.workingHours.end.close
-                                    } : undefined
+                                    selectedDate && salon?.workingHours ? (() => {
+                                      // Seçilen tarihin gününe göre çalışma saatlerini al
+                                      const date = new Date(selectedDate);
+                                      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                                      const dayName = dayNames[date.getDay()];
+                                      const dayHours = salon.workingHours[dayName];
+                                      
+                                      if (dayHours && dayHours.open && dayHours.close) {
+                                        return {
+                                          start: dayHours.open,
+                                          end: dayHours.close
+                                        };
+                                      }
+                                      
+                                      // Fallback: İlk açık günün saatlerini kullan
+                                      const firstOpenDay = Object.values(salon.workingHours).find(h => h && h.open && h.close);
+                                      return firstOpenDay ? {
+                                        start: firstOpenDay.open,
+                                        end: firstOpenDay.close
+                                      } : undefined;
+                                    })() : undefined
                                   }
                                   intervalMinutes={30}
                                   label="Randevu saati seçin"
@@ -560,14 +578,16 @@ export function SlotBookingWizard() {
                                 rows={2}
                                 className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
-                              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
-                                  <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
-                                    {totalPrice}₺
-                                  </span>
+                              {totalPrice > 0 && (
+                                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
+                                    <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                      {totalPrice}₺
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
