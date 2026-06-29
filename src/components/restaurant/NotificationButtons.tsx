@@ -17,9 +17,12 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // CRITICAL DEBUG: Component mount testi
+  console.log('🚨 ========== NotificationButtons COMPONENT LOADED ==========');
+  console.log('🚨 Component file executed at:', new Date().toISOString());
+
   useEffect(() => {
-    setMounted(true);
-    console.log('🔔 ========== NotificationButtons BAŞLATILDI ==========');
+    console.log('🔔 ========== NotificationButtons useEffect ÇALIŞTI ==========');
     console.log('📊 Props:', {
       restaurantId,
       tableId,
@@ -28,7 +31,13 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       tableIdType: typeof tableId,
       tableNameType: typeof tableName
     });
-    console.log('✅ Component mount edildi, butonlar görünmeli!');
+    
+    setMounted(true);
+    console.log('✅ mounted = true yapıldı');
+    
+    return () => {
+      console.log('🔴 NotificationButtons unmounting');
+    };
   }, [restaurantId, tableId, tableName]);
 
   const handleButtonClick = useCallback(async (type: 'waiter_call' | 'coal_request' | 'bill_request', message: string, label: string) => {
@@ -111,9 +120,11 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   ];
 
   if (!mounted) {
-    console.warn('⚠️ NotificationButtons henüz mount edilmedi!');
+    console.warn('⚠️ NotificationButtons henüz mount edilmedi! Rendering skipped.');
     return null;
   }
+
+  console.log('🎨 NotificationButtons RENDER EDİLİYOR - mounted=true');
 
   const content = (
     <>
@@ -212,9 +223,11 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔵 FAB BUTON TIKLANDI!', { 
+            console.log('🔵 ========== FAB BUTON TIKLANDI! ==========');
+            console.log('📊 State:', { 
               currentState: isExpanded, 
-              willBecome: !isExpanded 
+              willBecome: !isExpanded,
+              timestamp: new Date().toISOString()
             });
             setIsExpanded(!isExpanded);
           }}

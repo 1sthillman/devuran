@@ -33,6 +33,8 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
 
   useEffect(() => {
     setMounted(true);
+    console.log('🏠 ========== CustomerMenu MOUNTED ==========');
+    console.log('📊 Props:', { restaurantId, tableQR });
     loadData();
     
     // Scroll listener for scroll to top button
@@ -50,10 +52,14 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
 
   async function loadData() {
     try {
+      console.log('📥 loadData BAŞLADI - tableQR:', tableQR);
       setLoading(true);
       
       const tableData = await restaurantService.getTableByQR(tableQR);
+      console.log('🪑 TABLE DATA:', tableData);
+      
       if (!tableData) {
+        console.error('❌ MASA BULUNAMADI!');
         toast.error('Masa bulunamadı');
         return;
       }
@@ -79,6 +85,12 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
       
       setTable(tableData);
       setCurrentTable(tableData);
+      
+      console.log('🎯 NotificationButtons RENDER EDİLECEK - table:', {
+        id: tableData.id,
+        restaurantId: tableData.restaurantId,
+        tableNumber: tableData.tableNumber
+      });
       
       const settings = await restaurantService.getSettings(actualRestaurantId);
       
@@ -474,6 +486,12 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
       )}
 
       {/* Bildirim Butonları - HER ZAMAN GÖSTER */}
+      {console.log('🎯 RENDERING NotificationButtons with:', {
+        restaurantId: table?.restaurantId || restaurantId,
+        tableId: table?.id || 'loading',
+        tableName: table?.tableNumber || 'Loading',
+        tableExists: !!table
+      })}
       <NotificationButtons 
         restaurantId={table?.restaurantId || restaurantId} 
         tableId={table?.id || 'loading'}
