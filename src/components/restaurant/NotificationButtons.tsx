@@ -204,26 +204,32 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         handleButtonClick(button.type, button.message, button.label);
                       }}
                       className={cn(
-                        'relative flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all w-full overflow-hidden',
-                        'bg-white/95 dark:bg-black/90 backdrop-blur-xl',
-                        'border border-gray-200/50 dark:border-white/10',
-                        'shadow-xl shadow-black/10',
-                        'active:scale-95',
-                        sending === button.type ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'
+                        'relative group flex items-center gap-3 px-5 py-4 rounded-2xl transition-all w-full overflow-hidden',
+                        // Glassmorphism effect
+                        'bg-white/10 dark:bg-white/5',
+                        'backdrop-blur-2xl backdrop-saturate-150',
+                        'border border-white/20 dark:border-white/10',
+                        'shadow-2xl shadow-black/10',
+                        'active:scale-[0.98]',
+                        sending === button.type 
+                          ? 'opacity-80 cursor-wait' 
+                          : 'cursor-pointer hover:bg-white/15 dark:hover:bg-white/10 hover:scale-[1.02]'
                       )}
-                      style={{
-                        boxShadow: sending === button.type ? undefined : `0 4px 16px -4px ${
-                          button.type === 'waiter_call' ? 'rgba(59, 130, 246, 0.4)' :
-                          button.type === 'coal_request' ? 'rgba(251, 146, 60, 0.4)' :
-                          'rgba(34, 197, 94, 0.4)'
-                        }`
-                      }}
                     >
+                      {/* Gradient Glow on Hover */}
+                      <div className={cn(
+                        'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500',
+                        'bg-gradient-to-r',
+                        button.type === 'waiter_call' ? 'from-blue-500/10 to-cyan-500/10' :
+                        button.type === 'coal_request' ? 'from-orange-500/10 to-red-500/10' :
+                        'from-green-500/10 to-emerald-500/10'
+                      )} />
+                      
                       {/* Ripple Effect Background */}
                       {sending === button.type && (
                         <motion.div
                           className={cn(
-                            'absolute inset-0 rounded-xl',
+                            'absolute inset-0 rounded-2xl',
                             button.type === 'waiter_call' ? 'bg-blue-500/20' :
                             button.type === 'coal_request' ? 'bg-orange-500/20' :
                             'bg-green-500/20'
@@ -241,14 +247,15 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         />
                       )}
                       
+                      {/* Icon Section */}
                       {sending === button.type ? (
-                        <div className="relative z-10 w-9 h-9 flex items-center justify-center">
+                        <div className="relative z-10 w-12 h-12 flex items-center justify-center">
                           <motion.div
                             className={cn(
-                              "w-6 h-6 rounded-full border-3",
-                              button.type === 'waiter_call' ? 'border-blue-500' :
-                              button.type === 'coal_request' ? 'border-orange-500' :
-                              'border-green-500',
+                              "w-8 h-8 rounded-full border-[3px]",
+                              button.type === 'waiter_call' ? 'border-blue-400' :
+                              button.type === 'coal_request' ? 'border-orange-400' :
+                              'border-green-400',
                               'border-t-transparent'
                             )}
                             animate={{ rotate: 360 }}
@@ -257,13 +264,16 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         </div>
                       ) : (
                         <div className={cn(
-                          "relative z-10 w-9 h-9 rounded-lg flex items-center justify-center shadow-md",
-                          `bg-gradient-to-br ${button.gradient}`
+                          "relative z-10 w-12 h-12 rounded-xl flex items-center justify-center",
+                          "bg-gradient-to-br shadow-lg transition-transform group-hover:scale-110",
+                          `${button.gradient}`
                         )}>
-                          <Icon className="w-4 h-4 text-white drop-shadow-lg" strokeWidth={2.5} />
+                          <Icon className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={2.5} />
                         </div>
                       )}
-                      <span className="relative z-10 text-sm font-heading font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                      
+                      {/* Text Section */}
+                      <span className="relative z-10 text-base font-heading font-bold text-white whitespace-nowrap">
                         {button.label}
                       </span>
                     </button>
@@ -274,7 +284,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
           )}
         </AnimatePresence>
 
-        {/* FAB Toggle Button */}
+        {/* FAB Toggle Button - Glassmorphism */}
         <button
           type="button"
           onClick={(e) => {
@@ -289,28 +299,34 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
             setIsExpanded(!isExpanded);
           }}
           className={cn(
-            'relative w-14 h-14 rounded-full transition-all cursor-pointer overflow-hidden',
-            'bg-gradient-to-br from-orange-500 to-red-500',
-            'hover:from-orange-600 hover:to-red-600',
+            'relative w-16 h-16 rounded-full transition-all cursor-pointer overflow-hidden group',
+            // Glassmorphism base
+            'bg-gradient-to-br from-orange-500/90 to-red-500/90',
+            'backdrop-blur-xl backdrop-saturate-150',
             'flex items-center justify-center',
-            'shadow-xl shadow-orange-500/40',
+            'shadow-2xl shadow-orange-500/30',
+            'hover:shadow-orange-500/50',
+            'border border-white/20',
             'hover:scale-110 active:scale-95',
-            isExpanded && 'ring-4 ring-orange-500/20'
+            isExpanded && 'ring-4 ring-orange-500/20 scale-105'
           )}
         >
+          {/* Ambient glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
           {/* Success Ripple Effect */}
           <AnimatePresence>
             {showSuccess && (
               <>
                 <motion.div
-                  className="absolute inset-0 bg-green-500 rounded-full"
+                  className="absolute inset-0 bg-green-400 rounded-full"
                   initial={{ scale: 1, opacity: 1 }}
                   animate={{ scale: 2, opacity: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                 />
                 <motion.div
-                  className="absolute inset-0 bg-green-400 rounded-full"
+                  className="absolute inset-0 bg-green-300 rounded-full"
                   initial={{ scale: 1, opacity: 0.8 }}
                   animate={{ scale: 2.5, opacity: 0 }}
                   exit={{ opacity: 0 }}
@@ -331,7 +347,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                 transition={{ type: "spring", duration: 0.5, bounce: 0.4 }}
                 className="relative z-10"
               >
-                <CheckCircle2 className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={3} />
+                <CheckCircle2 className="w-8 h-8 text-white drop-shadow-2xl" strokeWidth={2.5} />
               </motion.div>
             ) : (
               <motion.div
@@ -340,21 +356,25 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                 animate={{ scale: 1, rotate: 0 }}
                 exit={{ scale: 0, rotate: -180 }}
                 transition={{ type: "spring", duration: 0.5, bounce: 0.4 }}
-                className="relative z-10 transition-transform"
+                className="relative z-10 transition-transform duration-300"
                 style={{
                   transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
                 }}
               >
-                <ChevronUp className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={3} />
+                <ChevronUp className="w-7 h-7 text-white drop-shadow-2xl" strokeWidth={3} />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Badge - Show notification indicator when collapsed */}
+          {/* Badge - Glassmorphism style */}
           {!isExpanded && !showSuccess && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-black flex items-center justify-center shadow-lg">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white/30 backdrop-blur-sm"
+            >
               <span className="text-xs font-bold text-white">3</span>
-            </div>
+            </motion.div>
           )}
         </button>
         </div>
