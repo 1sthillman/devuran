@@ -183,6 +183,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Garson',
       gradient: 'from-blue-500 to-cyan-500',
       message: `Masa ${tableName} - Garson çağırıyor`,
+      gifUrl: '/asset/Modern_digital_waiter_robot_holding_a_sleek_d.gif',
     },
     {
       type: 'coal_request' as const,
@@ -190,6 +191,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Köz',
       gradient: 'from-orange-500 to-red-500',
       message: `Masa ${tableName} - Köz istiyor`,
+      gifUrl: '/asset/Transform_the_scene_the_same_modern_digital.gif',
     },
     {
       type: 'bill_request' as const,
@@ -197,6 +199,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       label: 'Hesap',
       gradient: 'from-green-500 to-emerald-500',
       message: `Masa ${tableName} - Hesap istiyor`,
+      gifUrl: '/asset/Modern_digital_waiter_character_sleek_and_st.gif',
     },
   ];
 
@@ -285,6 +288,18 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                           : 'cursor-pointer hover:bg-white/15 dark:hover:bg-white/10 hover:scale-[1.02]'
                       )}
                     >
+                      {/* GIF Background - 9:16 aspect ratio, centered */}
+                      <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-2xl">
+                        <img 
+                          src={button.gifUrl}
+                          alt=""
+                          className="h-full w-auto object-cover opacity-30"
+                          style={{ aspectRatio: '9/16' }}
+                        />
+                        {/* Dark overlay for better text contrast */}
+                        <div className="absolute inset-0 bg-black/40" />
+                      </div>
+
                       {/* Gradient Glow on Hover */}
                       <div className={cn(
                         'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500',
