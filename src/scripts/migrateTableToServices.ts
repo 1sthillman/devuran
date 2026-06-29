@@ -48,7 +48,8 @@ export async function migrateTableToServices(restaurantId: string): Promise<{
   servicesCreated: number;
 }> {
   try {
-    console.log(`🍽️ Masa rezervasyon sistemi başlatılıyor: ${restaurantId}`);
+    console.log(`🍽️ ========== MIGRATION START ==========`);
+    console.log(`🍽️ Restaurant ID: ${restaurantId}`);
     
     // 1. Restoranın tüm masalarını al
     const tablesQuery = query(
@@ -61,20 +62,23 @@ export async function migrateTableToServices(restaurantId: string): Promise<{
       ...doc.data()
     } as Table));
     
+    console.log(`📊 Bulunan masa sayısı: ${tables.length}`);
+    
     if (tables.length === 0) {
+      console.warn('⚠️ Hiç masa bulunamadı!');
       return {
         success: false,
-        message: 'Hiç masa bulunamadı',
+        message: 'Hiç masa bulunamadı. Lütfen önce masa ekleyin.',
         tablesProcessed: 0,
         servicesCreated: 0
       };
     }
     
-    console.log(`📊 ${tables.length} masa bulundu`);
-    
     // 2. Restaurant bilgisini al
+    console.log('📖 Restoran bilgisi alınıyor...');
     const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
     if (!restaurantDoc.exists()) {
+      console.error('❌ Restoran bulunamadı!');
       return {
         success: false,
         message: 'Restoran bulunamadı',
@@ -84,20 +88,95 @@ export async function migrateTableToServices(restaurantId: string): Promise<{
     }
     
     const restaurantData = restaurantDoc.data();
-    const currentServices = restaurantData.services || [];
+    const currentServices = Array.isArray(restaurantData.services) ? restaurantData.services : [];
+    console.log(`📋 Mevcut hizmet sayısı: ${currentServices.length}`);
     
     // 3. Her masa için service oluştur
     let servicesCreated = 0;
     const newServices: Service[] = [];
     
     for (const table of tables) {
+      console.log(`\n🔍 Masa ${table.tableNumber} kontrol ediliyor...`);
+      
       // Bu masa için zaten service var mı kontrol et
       const existingService = currentServices.find(
         (s: any) => s.tableId === table.id
       );
       
       if (existingService) {
-        console.log(`⏭️  Masa ${table.tableNumber} zaten hizmet olarak mevcut`);
+        console.log(`⏭️  Masa ${table.tableNumber} zaten hizmet olarak mevcut (Service ID: ${existingService.id})`);
+        continue;
+      }
+      
+      // Yeni service oluştur
+      const newService: Service = {
+        id: nanoid(12),
+        salonId: restaurantId,
+        tableId: table.id,
+        name: `Masa ${table.tableNumber}`,
+        description: `${table.capacity} kişilik masa rezervasyonu`,
+        category: 'restaurant',
+        duration: 120, // 2 saat varsayılan
+        price: 0, // Ücretsiz (isteğe göre değiştirilebilir)
+        gender: 'all',
+        staffIds: [],
+        isActive: true,
+        pricingRules: {
+          basePrice: 0,
+          minGuests: 1,
+          maxGuests: table.capacity
+        }
+      };
+      
+      newServices.push(newService);
+      servicesCreated++;
+      console.log(`✅ Masa ${table.tableNumber} için hizmet oluşturuldu (Service ID: ${newService.id})`);
+    }
+    
+    console.log(`\n📊 Oluşturulacak yeni hizmet sayısı: ${newServices.length}`);
+    
+    // 4. Tüm servisleri restaurant'a ekle
+    if (newServices.length > 0) {
+      const updatedServices = [...currentServices, ...newServices];
+      console.log(`💾 ${updatedServices.length} hizmet Firestore'a kaydediliyor...`);
+      
+      await updateDoc(doc(db, 'salons', restaurantId), {
+        services: updatedServices,
+        updatedAt: new Date()
+      });
+      
+      console.log(`🎉 ${servicesCreated} masa başarıyla hizmete dönüştürüldü!`);
+      console.log(`🍽️ ========== MIGRATION SUCCESS ==========`);
+    } else {
+      console.log('ℹ️  Eklenecek yeni hizmet yok');
+      console.log(`🍽️ ========== MIGRATION COMPLETE (No Changes) ==========`);
+    }
+    
+    return {
+      success: true,
+      message: newServices.length > 0 
+        ? `${servicesCreated} masa başarıyla hizmete eklendi` 
+        : 'Tüm masalar zaten hizmet olarak mevcut',
+      tablesProcessed: tables.length,
+      servicesCreated
+    };
+    
+  } catch (error) {
+    console.error('❌ ========== MIGRATION ERROR ==========');
+    console.error('Migration hatası:', error);
+    console.error('Hata detayları:', {
+      name: (error as Error).name,
+      message: (error as Error).message,
+      stack: (error as Error).stack
+    });
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Bilinmeyen hata',
+      tablesProcessed: 0,
+      servicesCreated: 0
+    };
+  }
+}
         continue;
       }
       

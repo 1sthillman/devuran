@@ -23,10 +23,26 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
   const [migrating, setMigrating] = useState(false);
+  const [reservationEnabled, setReservationEnabled] = useState(false); // 🍽️ Rezervasyon durumu
+  const [checkingReservation, setCheckingReservation] = useState(false);
 
   useEffect(() => {
     loadTables();
+    checkReservationStatus();
   }, [restaurantId]);
+
+  async function checkReservationStatus() {
+    try {
+      const { salonsService } = await import('@/services/firebaseService');
+      const salon = await salonsService.getById(restaurantId);
+      if (salon) {
+        const hasTableServices = (salon.services || []).some((s: any) => s.tableId);
+        setReservationEnabled(hasTableServices);
+      }
+    } catch (error) {
+      console.error('Rezervasyon durumu kontrol hatası:', error);
+    }
+  }
 
   async function loadTables() {
     try {
@@ -154,6 +170,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     
     try {
       setMigrating(true);
+      setCheckingReservation(true);
       
       toast.loading('Masalar hizmete dönüştürülüyor...', {
         id: 'migration'
@@ -168,6 +185,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
           duration: 5000,
           icon: <Check className="w-5 h-5" />
         });
+        setReservationEnabled(true);
       } else {
         toast.error('Dönüştürme başarısız', {
           id: 'migration',
@@ -182,6 +200,44 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
       });
     } finally {
       setMigrating(false);
+      setCheckingReservation(false);
+    }
+  }
+
+  // 🍽️ Rezervasyon sistemini toggle et
+  async function toggleReservationSystem() {
+    if (reservationEnabled) {
+      // Kapatma - servisleri kaldır
+      if (!confirm('Masa rezervasyon sistemini kapatmak istediğinize emin misiniz? Masalar hizmetlerden kaldırılacak.')) {
+        return;
+      }
+      
+      try {
+        setCheckingReservation(true);
+        const { salonsService } = await import('@/services/firebaseService');
+        const salon = await salonsService.getById(restaurantId);
+        
+        if (salon) {
+          // Masa hizmetlerini filtrele (tableId olanları çıkar)
+          const nonTableServices = (salon.services || []).filter((s: any) => !s.tableId);
+          await salonsService.update(restaurantId, {
+            services: nonTableServices
+          });
+          
+          setReservationEnabled(false);
+          toast.success('Rezervasyon sistemi kapatıldı', {
+            description: 'Masalar hizmetlerden kaldırıldı'
+          });
+        }
+      } catch (error) {
+        console.error('Rezervasyon kapatma hatası:', error);
+        toast.error('İşlem başarısız');
+      } finally {
+        setCheckingReservation(false);
+      }
+    } else {
+      // Açma - migration yap
+      await handleMigrateToServices();
     }
   }
 
@@ -256,28 +312,55 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
             </p>
           </div>
           <div className="flex gap-3 w-full sm:w-auto">
-            {/* 🍽️ Rezervasyon Sistemi Aktifleştirme Butonu */}
+            {/* 🍽️ Rezervasyon Sistemi Toggle Switch */}
             {tables.length > 0 && (
-              <motion.button
+              <motion.div
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={handleMigrateToServices}
-                disabled={migrating}
-                className={cn(
-                  "flex-1 sm:flex-none px-4 py-3 rounded-2xl font-heading font-bold text-sm flex items-center justify-center gap-2 transition-all",
-                  migrating
-                    ? "bg-gray-200 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
-                    : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg shadow-purple-500/30"
-                )}
+                className="flex-1 sm:flex-none"
               >
-                <RefreshCw className={cn("w-5 h-5", migrating && "animate-spin")} strokeWidth={2.5} />
-                <span className="hidden sm:inline">
-                  {migrating ? 'Dönüştürülüyor...' : 'Rezervasyon Sistemini Aktifleştir'}
-                </span>
-                <span className="sm:hidden">
-                  {migrating ? 'İşleniyor...' : 'Rezervasyon'}
-                </span>
-              </motion.button>
+                <button
+                  onClick={toggleReservationSystem}
+                  disabled={checkingReservation}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-2xl font-heading font-bold text-sm flex items-center justify-center gap-3 transition-all",
+                    reservationEnabled
+                      ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/30"
+                      : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg shadow-purple-500/30",
+                    checkingReservation && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {checkingReservation ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" strokeWidth={2.5} />
+                  ) : (
+                    <div
+                      className={cn(
+                        "w-11 h-6 rounded-full relative transition-colors border-2",
+                        reservationEnabled 
+                          ? "bg-white/20 border-white/30" 
+                          : "bg-white/10 border-white/20"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-lg transition-transform duration-300",
+                          reservationEnabled ? "translate-x-5" : "translate-x-0.5"
+                        )}
+                      />
+                    </div>
+                  )}
+                  <span className="hidden sm:inline">
+                    {checkingReservation 
+                      ? 'İşleniyor...' 
+                      : reservationEnabled 
+                      ? 'Rezervasyon Aktif' 
+                      : 'Rezervasyon Pasif'}
+                  </span>
+                  <span className="sm:hidden">
+                    {reservationEnabled ? 'Aktif' : 'Pasif'}
+                  </span>
+                </button>
+              </motion.div>
             )}
             
             {tables.length > 0 && (
