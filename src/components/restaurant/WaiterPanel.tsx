@@ -295,53 +295,53 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.05 }}
-                  whileHover={{ scale: 1.02, y: -4 }}
+                  whileHover={{ scale: 1.01, y: -2 }}
                   className="relative group"
                 >
-                  {/* Glow Effect */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-500 rounded-3xl blur-xl opacity-40 animate-pulse" />
+                  {/* Subtle Glow Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
-                  <div className="relative backdrop-blur-xl bg-white/95 dark:bg-white/[0.03] border-2 border-orange-300 dark:border-orange-500/30 hover:border-orange-400 dark:hover:border-orange-500/50 rounded-3xl p-6 transition-all duration-300 shadow-lg shadow-black/5 dark:shadow-none">
-                    {/* X Butonu - Sağ Üst Köşe */}
+                  <div className="relative backdrop-blur-xl backdrop-saturate-150 bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 transition-all duration-300 shadow-2xl">
+                    {/* X Button - Glassmorphism */}
                     <button
                       onClick={() => handleDismiss(notif.id, notif.tableId)}
-                      className="absolute top-4 right-4 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-lg z-10"
+                      className="absolute top-4 right-4 w-9 h-9 rounded-full bg-red-500/90 hover:bg-red-500 backdrop-blur-sm text-white flex items-center justify-center transition-all shadow-lg hover:scale-110 active:scale-95"
                     >
                       <X className="h-4 w-4" strokeWidth={3} />
                     </button>
 
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-xl">
-                          <Flame className="h-7 w-7 text-white" strokeWidth={2.5} />
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-xl">
+                        <Flame className="h-8 w-8 text-white animate-pulse" strokeWidth={2.5} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-bold text-lg shadow-lg">
+                            Masa {notif.tableName}
+                          </span>
+                          <Badge variant="destructive" className="flex items-center gap-1 text-xs rounded-full animate-pulse">
+                            <Clock className="h-3 w-3" />
+                            {Math.floor((Date.now() - new Date(notif.createdAt).getTime()) / (1000 * 60))} dk
+                          </Badge>
                         </div>
-                        <div>
-                          <div className="font-bold text-2xl text-gray-900 dark:text-white flex items-center gap-2">
-                            <span className="px-3 py-1 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl">
-                              Masa {notif.tableName}
-                            </span>
-                          </div>
-                          <div className="text-base text-orange-600 dark:text-orange-400 font-semibold mt-1">🔥 Köz İstiyor</div>
+                        <div className="text-base text-white font-semibold flex items-center gap-2">
+                          <Flame className="h-4 w-4 text-orange-400" />
+                          Köz İstiyor
                         </div>
                       </div>
-                      <Badge variant="destructive" className="flex items-center gap-1 text-xs rounded-full animate-pulse px-3 py-1.5">
-                        <Clock className="h-3.5 w-3.5" />
-                        {Math.floor((Date.now() - new Date(notif.createdAt).getTime()) / (1000 * 60))} dk
-                      </Badge>
                     </div>
 
-                    {/* Message with Icon */}
-                    <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30 rounded-2xl p-4 mb-4">
-                      <p className="text-sm text-orange-900 dark:text-orange-200 font-medium flex items-center gap-2">
-                        <Flame className="h-4 w-4 flex-shrink-0" />
+                    {/* Message */}
+                    <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 mb-4">
+                      <p className="text-sm text-white/90 font-medium">
                         Köz yenilenmesi isteniyor
                       </p>
                     </div>
 
-                    {/* Action Button - Sadece "İşleme Al" */}
+                    {/* Action Button */}
                     <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      className="w-full h-12 text-base font-semibold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-full shadow-lg transition-all flex items-center justify-center gap-2"
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full h-12 text-base font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl shadow-xl transition-all flex items-center justify-center gap-2"
                       onClick={() => handleRespond(notif.id, notif.tableId)}
                       disabled={responding === notif.id}
                     >
@@ -383,60 +383,58 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.05 }}
-                  whileHover={{ scale: 1.02, y: -4 }}
+                  whileHover={{ scale: 1.01, y: -2 }}
                   className="relative group"
                 >
+                  {/* Subtle Hover Glow */}
                   <div className={cn(
-                    "absolute inset-0 rounded-3xl blur-xl opacity-40 animate-pulse",
-                    `bg-gradient-to-br ${getNotificationGradient(notif.type)}`
+                    "absolute inset-0 rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500",
+                    notif.type === 'waiter_call' && "bg-gradient-to-br from-blue-500/20 to-cyan-500/20",
+                    notif.type === 'coal_request' && "bg-gradient-to-br from-orange-500/20 to-red-500/20",
+                    notif.type === 'bill_request' && "bg-gradient-to-br from-green-500/20 to-emerald-500/20"
                   )} />
                   
-                  <div className={cn(
-                    "relative backdrop-blur-xl border-2 rounded-3xl p-6 transition-all duration-300 shadow-lg shadow-black/5 dark:shadow-none",
-                    "bg-white/95 dark:bg-white/[0.03]",
-                    notif.type === 'waiter_call' && "border-blue-300 dark:border-blue-500/30 hover:border-blue-400 dark:hover:border-blue-500/50",
-                    notif.type === 'coal_request' && "border-orange-300 dark:border-orange-500/30 hover:border-orange-400 dark:hover:border-orange-500/50",
-                    notif.type === 'bill_request' && "border-green-300 dark:border-green-500/30 hover:border-green-400 dark:hover:border-green-500/50"
-                  )}>
-                    {/* X Butonu - Sağ Üst Köşe */}
+                  <div className="relative backdrop-blur-xl backdrop-saturate-150 bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 transition-all duration-300 shadow-2xl">
+                    {/* X Button - Glassmorphism */}
                     <button
                       onClick={() => handleDismiss(notif.id, notif.tableId)}
-                      className="absolute top-4 right-4 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-lg z-10"
+                      className="absolute top-4 right-4 w-9 h-9 rounded-full bg-red-500/90 hover:bg-red-500 backdrop-blur-sm text-white flex items-center justify-center transition-all shadow-lg hover:scale-110 active:scale-95"
                     >
                       <X className="h-4 w-4" strokeWidth={3} />
                     </button>
 
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-12 h-12 rounded-full bg-gradient-to-br flex items-center justify-center shadow-lg", getNotificationGradient(notif.type))}>
-                          {getNotificationIcon(notif.type)}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={cn("w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-xl", getNotificationGradient(notif.type))}>
+                        {getNotificationIcon(notif.type)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={cn("px-4 py-1.5 text-white rounded-xl font-bold text-lg shadow-lg bg-gradient-to-r", getNotificationGradient(notif.type))}>
+                            Masa {notif.tableName}
+                          </span>
+                          <Badge variant="destructive" className="flex items-center gap-1 text-xs rounded-full animate-pulse">
+                            <Clock className="h-3 w-3" />
+                            {Math.floor((Date.now() - new Date(notif.createdAt).getTime()) / (1000 * 60))} dk
+                          </Badge>
                         </div>
-                        <div>
-                          <div className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2">
-                            <span className={cn("px-3 py-1 text-white rounded-xl bg-gradient-to-r", getNotificationGradient(notif.type))}>
-                              Masa {notif.tableName}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                            {notif.type === 'waiter_call' && '📞 Garson çağırıyor'}
-                            {notif.type === 'coal_request' && '🔥 Köz istiyor'}
-                            {notif.type === 'bill_request' && '💰 Hesap istiyor'}
-                          </div>
+                        <div className="text-base text-white font-semibold">
+                          {notif.type === 'waiter_call' && '📞 Garson çağırıyor'}
+                          {notif.type === 'coal_request' && '🔥 Köz istiyor'}
+                          {notif.type === 'bill_request' && '💳 Hesap istiyor'}
                         </div>
                       </div>
-                      <Badge variant="destructive" className="flex items-center gap-1 text-xs rounded-full animate-pulse px-3 py-1">
-                        <Clock className="h-3 w-3" />
-                        {Math.floor((Date.now() - new Date(notif.createdAt).getTime()) / (1000 * 60))} dk
-                      </Badge>
                     </div>
 
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{notif.message}</p>
+                    {/* Message */}
+                    <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 mb-4">
+                      <p className="text-sm text-white/90">{notif.message}</p>
+                    </div>
 
-                    {/* Action Button - Sadece "İşleme Al" */}
+                    {/* Action Button */}
                     <motion.button
-                      whileTap={{ scale: 0.95 }}
+                      whileTap={{ scale: 0.98 }}
                       className={cn(
-                        "w-full h-12 text-base font-semibold bg-gradient-to-r text-white rounded-full shadow-lg transition-all flex items-center justify-center gap-2",
+                        "w-full h-12 text-base font-bold bg-gradient-to-r text-white rounded-xl shadow-xl transition-all flex items-center justify-center gap-2",
                         getNotificationGradient(notif.type)
                       )}
                       onClick={() => handleRespond(notif.id, notif.tableId)}
