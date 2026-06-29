@@ -7,19 +7,18 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Table, MenuItem } from '@/types/restaurant';
-import { ProductCustomizationDialog } from './ProductCustomizationDialog';
 
 interface CartSheetProps {
   open: boolean;
   onClose: () => void;
   restaurantId: string;
   table: Table;
+  onEditItem?: (item: CartItem) => void;
 }
 
-export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps) {
-  const { cart, removeFromCart, updateCartItemQuantity, clearCart, getCartTotal, updateCartItem } = useRestaurantStore();
+export function CartSheet({ open, onClose, restaurantId, table, onEditItem }: CartSheetProps) {
+  const { cart, removeFromCart, updateCartItemQuantity, clearCart, getCartTotal } = useRestaurantStore();
   const [submitting, setSubmitting] = useState(false);
-  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
   async function handleSubmitOrder() {
     if (cart.length === 0) {
@@ -175,7 +174,12 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => setEditingItem(item)}
+                            onClick={() => {
+                              if (onEditItem) {
+                                onEditItem(item);
+                                onClose(); // Sepeti kapat
+                              }
+                            }}
                             className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 flex items-center justify-center transition-colors"
                             title="Düzenle"
                           >
@@ -331,28 +335,6 @@ export function CartSheet({ open, onClose, restaurantId, table }: CartSheetProps
           </>
         )}
       </SheetContent>
-
-      {/* Edit Dialog */}
-      {editingItem && editingItem.menuItem && (
-        <ProductCustomizationDialog
-          open={!!editingItem}
-          onClose={() => setEditingItem(null)}
-          menuItem={editingItem.menuItem}
-          onAddToCart={(customization) => {
-            updateCartItem(editingItem.id, customization);
-            setEditingItem(null);
-            toast.success('Ürün güncellendi', {
-              icon: <Check className="w-5 h-5" />,
-            });
-          }}
-          initialCustomization={{
-            removedIngredients: editingItem.removedIngredients,
-            addedExtras: editingItem.addedExtras,
-            notes: editingItem.notes || '',
-          }}
-          isEditing={true}
-        />
-      )}
     </Sheet>
   );
 }

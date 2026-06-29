@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { restaurantService } from '@/services/restaurantService';
-import { useRestaurantStore } from '@/store/restaurantStore';
+import { useRestaurantStore, type CartItem } from '@/store/restaurantStore';
 import { ShoppingCart, Phone, Receipt, Minus, Plus, X, MapPin, Check, Clock, ChefHat, Sparkles, Bell, DollarSign, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,13 +23,14 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [isWithinRange, setIsWithinRange] = useState(true);
   const [canOrder, setCanOrder] = useState(true); // Default true - herkes sipariş verebilir
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [mounted, setMounted] = useState(false);
   
-  const { cart, setCurrentTable } = useRestaurantStore();
+  const { cart, setCurrentTable, updateCartItem } = useRestaurantStore();
 
   useEffect(() => {
     setMounted(true);
@@ -513,7 +514,36 @@ export function CustomerMenu({ restaurantId, tableQR }: CustomerMenuProps) {
         onClose={() => setCartOpen(false)}
         restaurantId={table?.restaurantId || restaurantId}
         table={table}
+        onEditItem={(item) => {
+          setEditingCartItem(item);
+        }}
       />
+
+      {/* Edit Cart Item Dialog */}
+      {editingCartItem && editingCartItem.menuItem && (
+        <ProductCustomizationDialog
+          open={!!editingCartItem}
+          onClose={() => {
+            setEditingCartItem(null);
+            setCartOpen(true); // Sepeti tekrar aç
+          }}
+          menuItem={editingCartItem.menuItem}
+          onAddToCart={(customization) => {
+            updateCartItem(editingCartItem.id, customization);
+            setEditingCartItem(null);
+            setCartOpen(true); // Sepeti tekrar aç
+            toast.success('Ürün güncellendi', {
+              icon: <Check className="w-5 h-5" />,
+            });
+          }}
+          initialCustomization={{
+            removedIngredients: editingCartItem.removedIngredients,
+            addedExtras: editingCartItem.addedExtras,
+            notes: editingCartItem.notes || '',
+          }}
+          isEditing={true}
+        />
+      )}
     </>
   );
 }
