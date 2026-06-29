@@ -30,10 +30,28 @@ export function Booking() {
           staffService.getBySalon(salonId!)
         ]);
         
+        // 🍽️ RESTORAN İÇİN: Salon.services array'inden de hizmetleri al (masa rezervasyonları)
+        let allServices = [...services];
+        if (salonData.category === 'restoran' && salonData.services && Array.isArray(salonData.services) && salonData.services.length > 0) {
+          const salonServices = salonData.services.filter((s: any) => s.isActive !== false);
+          allServices = [...allServices, ...salonServices];
+          
+          // Duplicate kontrolü
+          const uniqueServices = allServices.reduce((acc: any[], curr: any) => {
+            if (!acc.find(s => s.id === curr.id)) {
+              acc.push(curr);
+            }
+            return acc;
+          }, []);
+          allServices = uniqueServices;
+          
+          console.log(`🍽️ Booking wizard: ${salonServices.length} masa hizmeti yüklendi`);
+        }
+        
         // Merge services and staff into salon object
         const completeSalon = {
           ...salonData,
-          services,
+          services: allServices,
           staff
         };
         

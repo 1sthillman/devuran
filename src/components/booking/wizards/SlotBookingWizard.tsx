@@ -47,7 +47,8 @@ export function SlotBookingWizard() {
 
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
-    if (user && activeStep === (salon?.staff && salon.staff.length > 0 ? 4 : 3)) {
+    const customerInfoStep = salon?.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3;
+    if (user && activeStep === customerInfoStep) {
       if (!localName && user.displayName) {
         setLocalName(user.displayName);
       }
@@ -66,7 +67,8 @@ export function SlotBookingWizard() {
       setCompletedSteps([...completedSteps, step]);
     }
     setTimeout(() => {
-      if (step < (salon?.staff && salon.staff.length > 0 ? 4 : 3)) {
+      const maxStep = salon?.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3;
+      if (step < maxStep) {
         setActiveStep(step + 1);
       }
     }, 100);
@@ -97,7 +99,7 @@ export function SlotBookingWizard() {
       return;
     }
 
-    const hasStaff = salon?.staff && salon.staff.length > 0;
+    const hasStaff = salon?.staff && salon.staff.length > 0 && salon.category !== 'restoran';
     
     if (hasStaff && !selectedStaffId) {
       addToast('Lütfen personel seçin', 'error');
@@ -205,12 +207,27 @@ export function SlotBookingWizard() {
   }
 
   const steps = [
-    { id: 1, title: 'Hizmet Seçimi', icon: Scissors, gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' },
-    ...(salon.staff && salon.staff.length > 0 ? [
+    { 
+      id: 1, 
+      title: salon.category === 'restoran' ? 'Masa Seçimi' : 'Hizmet Seçimi', 
+      icon: Scissors, 
+      gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' 
+    },
+    ...(salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? [
       { id: 2, title: 'Personel', icon: User, gradient: 'from-amber-500 via-orange-500 to-red-500' }
     ] : []),
-    { id: salon.staff && salon.staff.length > 0 ? 3 : 2, title: 'Tarih & Saat', icon: Calendar, gradient: 'from-cyan-500 via-blue-500 to-indigo-500' },
-    { id: salon.staff && salon.staff.length > 0 ? 4 : 3, title: 'İletişim', icon: Clock, gradient: 'from-emerald-500 via-teal-500 to-cyan-500' }
+    { 
+      id: (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran') ? 3 : 2, 
+      title: 'Tarih & Saat', 
+      icon: Calendar, 
+      gradient: 'from-cyan-500 via-blue-500 to-indigo-500' 
+    },
+    { 
+      id: (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran') ? 4 : 3, 
+      title: 'İletişim', 
+      icon: Clock, 
+      gradient: 'from-emerald-500 via-teal-500 to-cyan-500' 
+    }
   ];
 
   return (
@@ -218,12 +235,16 @@ export function SlotBookingWizard() {
       <div className="mb-6 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
-          <span className="text-sm font-semibold text-purple-300">Randevu</span>
+          <span className="text-sm font-semibold text-purple-300">
+            {salon.category === 'restoran' ? 'Masa Rezervasyonu' : 'Randevu'}
+          </span>
         </div>
         <h1 className="font-display font-bold text-2xl bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-1">
           {salon.name}
         </h1>
-        <p className="text-sm text-[var(--muted-lead)]">Premium rezervasyon deneyimi</p>
+        <p className="text-sm text-[var(--muted-lead)]">
+          {salon.category === 'restoran' ? 'Masa rezervasyonu yapın' : 'Premium rezervasyon deneyimi'}
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -279,10 +300,11 @@ export function SlotBookingWizard() {
                         {isCompleted && !isActive && (
                           <p className="text-xs text-emerald-400/80 mt-0.5 flex items-center gap-1">
                             <CheckCircle2 size={12} />
-                            {step.id === 1 && `${selectedServices.length} hizmet`}
+                            {step.id === 1 && salon.category === 'restoran' && `${selectedServices.length} masa seçildi`}
+                            {step.id === 1 && salon.category !== 'restoran' && `${selectedServices.length} hizmet`}
                             {step.id === 2 && salon.staff && salon.staff.length > 0 && salon.staff.find(s => s.id === selectedStaffId)?.name}
-                            {step.id === (salon.staff && salon.staff.length > 0 ? 3 : 2) && `${selectedDate} - ${selectedTime}`}
-                            {step.id === (salon.staff && salon.staff.length > 0 ? 4 : 3) && 'Tamamlandı'}
+                            {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 3 : 2) && `${selectedDate} - ${selectedTime}`}
+                            {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3) && 'Tamamlandı'}
                           </p>
                         )}
                       </div>
@@ -309,48 +331,65 @@ export function SlotBookingWizard() {
                         <div className="px-4 pb-4 space-y-3">
                           {step.id === 1 && (
                             <>
-                              {salon.services.map((service) => (
-                                <button
-                                  key={service.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleService(service);
-                                  }}
-                                  className={cn(
-                                    "w-full p-4 rounded-2xl border text-left transition-all duration-200",
-                                    selectedServices.some(s => s.id === service.id)
-                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
-                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
-                                  )}
-                                >
-                                  <div className="flex justify-between items-center">
-                                    <div className="flex-1">
-                                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
-                                        {service.name}
-                                      </h4>
-                                      <p className="text-xs text-[var(--muted-lead)]">{service.duration} dakika</p>
+                              {salon.services.map((service) => {
+                                const isTable = salon.category === 'restoran';
+                                const capacity = isTable ? (service as any).pricingRules?.maxGuests || 4 : null;
+                                
+                                return (
+                                  <button
+                                    key={service.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Restoranda sadece 1 masa seçilebilir
+                                      if (isTable && selectedServices.length > 0 && !selectedServices.some(s => s.id === service.id)) {
+                                        return; // Zaten bir masa seçili, değiştirmek için önce seçili olanı kaldır
+                                      }
+                                      toggleService(service);
+                                    }}
+                                    className={cn(
+                                      "w-full p-4 rounded-2xl border text-left transition-all duration-200",
+                                      selectedServices.some(s => s.id === service.id)
+                                        ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                    )}
+                                  >
+                                    <div className="flex justify-between items-center">
+                                      <div className="flex-1">
+                                        <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
+                                          {service.name}
+                                        </h4>
+                                        <p className="text-xs text-[var(--muted-lead)]">
+                                          {isTable 
+                                            ? `${capacity} kişilik masa` 
+                                            : `${service.duration} dakika`}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center gap-3 ml-3">
+                                        {service.price > 0 && (
+                                          <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                            {service.price}₺
+                                          </span>
+                                        )}
+                                        {selectedServices.some(s => s.id === service.id) && (
+                                          <CheckCircle2 size={20} className="text-emerald-400" />
+                                        )}
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-3 ml-3">
-                                      <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                        {service.price}₺
-                                      </span>
-                                      {selectedServices.some(s => s.id === service.id) && (
-                                        <CheckCircle2 size={20} className="text-emerald-400" />
-                                      )}
-                                    </div>
-                                  </div>
-                                </button>
-                              ))}
+                                  </button>
+                                );
+                              })}
                               {selectedServices.length > 0 && (
                                 <>
-                                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-sm text-[var(--muted-lead)]">Toplam</span>
-                                      <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
-                                        {totalPrice}₺
-                                      </span>
+                                  {totalPrice > 0 && (
+                                    <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm text-[var(--muted-lead)]">Toplam</span>
+                                        <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                          {totalPrice}₺
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
+                                  )}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -365,7 +404,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === 2 && salon.staff && salon.staff.length > 0 && (
+                          {step.id === 2 && salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' && (
                             <>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {salon.staff.map((staff) => {
@@ -407,7 +446,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === (salon.staff && salon.staff.length > 0 ? 3 : 2) && (
+                          {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 3 : 2) && (
                             <>
                               <div>
                                 <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Randevu Tarihi</h4>
@@ -439,7 +478,7 @@ export function SlotBookingWizard() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleStepComplete(salon.staff && salon.staff.length > 0 ? 3 : 2);
+                                    handleStepComplete(salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 3 : 2);
                                   }}
                                   className="w-full h-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
                                 >
@@ -449,7 +488,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === (salon.staff && salon.staff.length > 0 ? 4 : 3) && (
+                          {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3) && (
                             <div className="space-y-3">
                               <input
                                 type="text"
@@ -543,7 +582,7 @@ export function SlotBookingWizard() {
                                     <span>Oluşturuluyor...</span>
                                   </div>
                                 ) : (
-                                  'Randevu Oluştur'
+                                  salon.category === 'restoran' ? 'Rezervasyon Oluştur' : 'Randevu Oluştur'
                                 )}
                               </button>
                             </div>

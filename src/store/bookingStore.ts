@@ -21,7 +21,7 @@ interface BookingState {
   // Ortak alanlar
   salonId: string | null;
   salon: Salon | null;
-  bookingType: 'slot' | 'daily' | 'nightly' | 'project' | 'order' | null;
+  bookingType: 'slot' | 'daily' | 'nightly' | 'project' | 'order' | 'table' | null;
   
   // Slot bazlı (Kuaför, Fotoğraf)
   selectedServices: Service[];
@@ -94,7 +94,11 @@ const calculateTotals = (services: Service[]) => ({
   totalDuration: services.reduce((sum, s) => sum + s.duration, 0),
 });
 
-const getBookingType = (category: string): 'slot' | 'daily' | 'nightly' | 'project' | 'order' => {
+const getBookingType = (category: string): 'slot' | 'daily' | 'nightly' | 'project' | 'order' | 'table' => {
+  // Restoran masa rezervasyonu
+  if (category === 'restoran') {
+    return 'table';
+  }
   // Slot bazlı kategoriler
   if (['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(category)) {
     return 'slot';
@@ -335,7 +339,32 @@ export const useBookingStore = create<BookingState>()(
       // TODO: Backend validation eklenmelidir (Firebase Functions)
       
       // Tip bazlı veri ekleme
-      if (state.bookingType === 'slot') {
+      if (state.bookingType === 'table') {
+        // 🍽️ RESTORAN MASA REZERVASYONU
+        const selectedTable = state.selectedServices[0]; // İlk seçilen servis = masa
+        
+        if (!selectedTable) {
+          throw new Error('Lütfen bir masa seçin');
+        }
+        
+        reservationData = {
+          ...reservationData,
+          date: state.selectedDate,
+          startTime: state.selectedTime,
+          duration: selectedTable.duration || 120, // Varsayılan 2 saat
+          tableId: (selectedTable as any).tableId || selectedTable.id,
+          tableName: selectedTable.name,
+          capacity: (selectedTable as any).pricingRules?.maxGuests || 4,
+          services: [{
+            id: selectedTable.id,
+            name: selectedTable.name,
+            duration: selectedTable.duration || 120,
+            price: selectedTable.price
+          }],
+          totalPrice: selectedTable.price || 0,
+          _requiresPriceValidation: true,
+        };
+      } else if (state.bookingType === 'slot') {
         const endTime = new Date(`2000-01-01T${state.selectedTime}`);
         endTime.setMinutes(endTime.getMinutes() + state.totalDuration);
         

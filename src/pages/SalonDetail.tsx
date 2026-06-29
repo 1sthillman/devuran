@@ -293,11 +293,11 @@ export function SalonDetail() {
             </div>
             <div className="flex-1">
               <h3 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-0.5">
-                Randevu Oluştur
+                {salon.category === 'restoran' ? 'Masa Rezervasyonu' : 'Randevu Oluştur'}
               </h3>
               <p className="font-body text-[11px] text-[var(--muted-lead)] leading-relaxed">
                 {subscriptionStatus?.hasActiveSubscription 
-                  ? 'Müsait saatleri görüntüleyin'
+                  ? (salon.category === 'restoran' ? 'Müsait masaları görüntüleyin' : 'Müsait saatleri görüntüleyin')
                   : 'Randevu alınamaz'}
               </p>
             </div>
@@ -315,7 +315,11 @@ export function SalonDetail() {
               )}
             >
               <Calendar size={16} strokeWidth={2.5} />
-              <span>{subscriptionStatus?.hasActiveSubscription ? 'Randevu Al' : 'Kapalı'}</span>
+              <span>
+                {subscriptionStatus?.hasActiveSubscription 
+                  ? (salon.category === 'restoran' ? 'Rezervasyon Al' : 'Randevu Al')
+                  : 'Kapalı'}
+              </span>
             </button>
             <a
               href={`https://wa.me/${salon.whatsappNumber}`}
@@ -617,7 +621,11 @@ export function SalonDetail() {
             )}
           >
             <Calendar size={18} />
-            <span>{subscriptionStatus?.hasActiveSubscription ? 'Randevu Al' : 'Kapalı'}</span>
+            <span>
+              {subscriptionStatus?.hasActiveSubscription 
+                ? (salon.category === 'restoran' ? 'Rezervasyon Al' : 'Randevu Al')
+                : 'Kapalı'}
+            </span>
           </button>
         </div>
       </div>
