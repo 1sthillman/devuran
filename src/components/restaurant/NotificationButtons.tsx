@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Flame, Receipt, Check, ChevronUp } from 'lucide-react';
+import { Phone, Flame, Receipt, Check, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   const [sending, setSending] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // CRITICAL DEBUG: Component mount testi
   console.log('🚨 ========== NotificationButtons COMPONENT LOADED ==========');
@@ -57,7 +58,6 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       return;
     }
     
-    // Direkt sendNotification çağır
     try {
       setSending(type);
       console.log('🔔 Sending notification...');
@@ -72,16 +72,39 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       
       console.log('✅ Notification created:', notificationId);
       
-      toast.success(
-        type === 'coal_request' ? '🔥 Köz talebiniz iletildi!' :
-        type === 'waiter_call' ? '📞 Garson çağrıldı!' :
-        '💰 Hesap talebi alındı!',
-        {
-          description: '✅ Garsonumuz masanıza gelecek',
-          duration: 3000
+      // Modern success feedback - buton rengine göre
+      const successConfig = {
+        waiter_call: {
+          icon: '📞',
+          title: 'Garson Çağrıldı!',
+          description: 'Garsonumuz hemen geliyor',
+          gradient: 'from-blue-500 to-cyan-500'
+        },
+        coal_request: {
+          icon: '🔥',
+          title: 'Köz Talebiniz Alındı!',
+          description: 'Sıcak közleriniz geliyor',
+          gradient: 'from-orange-500 to-red-500'
+        },
+        bill_request: {
+          icon: '💳',
+          title: 'Hesap İstendi!',
+          description: 'Hesabınızı getiriyoruz',
+          gradient: 'from-green-500 to-emerald-500'
         }
-      );
+      }[type];
       
+      toast.success(successConfig.title, {
+        description: successConfig.description,
+        duration: 3000,
+        className: 'backdrop-blur-xl',
+      });
+      
+      // Success animation on FAB
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      
+      // Butonları kapat
       setTimeout(() => setIsExpanded(false), 1500);
       
     } catch (error: any) {
@@ -181,12 +204,12 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         handleButtonClick(button.type, button.message, button.label);
                       }}
                       className={cn(
-                        'relative flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all w-full',
+                        'relative flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all w-full overflow-hidden',
                         'bg-white/95 dark:bg-black/90 backdrop-blur-xl',
                         'border border-gray-200/50 dark:border-white/10',
                         'shadow-xl shadow-black/10',
-                        'hover:scale-105 active:scale-95',
-                        sending === button.type ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        'active:scale-95',
+                        sending === button.type ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'
                       )}
                       style={{
                         boxShadow: sending === button.type ? undefined : `0 4px 16px -4px ${
@@ -196,17 +219,51 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                         }`
                       }}
                     >
+                      {/* Ripple Effect Background */}
+                      {sending === button.type && (
+                        <motion.div
+                          className={cn(
+                            'absolute inset-0 rounded-xl',
+                            button.type === 'waiter_call' ? 'bg-blue-500/20' :
+                            button.type === 'coal_request' ? 'bg-orange-500/20' :
+                            'bg-green-500/20'
+                          )}
+                          initial={{ scale: 0, opacity: 1 }}
+                          animate={{ 
+                            scale: [0, 1.5, 1.5, 1.5],
+                            opacity: [1, 0.8, 0.4, 0]
+                          }}
+                          transition={{
+                            duration: 1.5,
+                            repeat: Infinity,
+                            ease: "easeOut"
+                          }}
+                        />
+                      )}
+                      
                       {sending === button.type ? (
-                        <div className="w-9 h-9 border-3 rounded-full border-orange-500 border-t-transparent animate-spin" />
+                        <div className="relative z-10 w-9 h-9 flex items-center justify-center">
+                          <motion.div
+                            className={cn(
+                              "w-6 h-6 rounded-full border-3",
+                              button.type === 'waiter_call' ? 'border-blue-500' :
+                              button.type === 'coal_request' ? 'border-orange-500' :
+                              'border-green-500',
+                              'border-t-transparent'
+                            )}
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                          />
+                        </div>
                       ) : (
                         <div className={cn(
-                          "w-9 h-9 rounded-lg flex items-center justify-center shadow-md",
+                          "relative z-10 w-9 h-9 rounded-lg flex items-center justify-center shadow-md",
                           `bg-gradient-to-br ${button.gradient}`
                         )}>
                           <Icon className="w-4 h-4 text-white drop-shadow-lg" strokeWidth={2.5} />
                         </div>
                       )}
-                      <span className="text-sm font-heading font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                      <span className="relative z-10 text-sm font-heading font-bold text-gray-900 dark:text-white whitespace-nowrap">
                         {button.label}
                       </span>
                     </button>
@@ -232,7 +289,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
             setIsExpanded(!isExpanded);
           }}
           className={cn(
-            'relative w-14 h-14 rounded-full transition-all cursor-pointer',
+            'relative w-14 h-14 rounded-full transition-all cursor-pointer overflow-hidden',
             'bg-gradient-to-br from-orange-500 to-red-500',
             'hover:from-orange-600 hover:to-red-600',
             'flex items-center justify-center',
@@ -241,18 +298,60 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
             isExpanded && 'ring-4 ring-orange-500/20'
           )}
         >
-          {/* Icon */}
-          <div
-            className="relative z-10 transition-transform"
-            style={{
-              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-            }}
-          >
-            <ChevronUp className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={3} />
-          </div>
+          {/* Success Ripple Effect */}
+          <AnimatePresence>
+            {showSuccess && (
+              <>
+                <motion.div
+                  className="absolute inset-0 bg-green-500 rounded-full"
+                  initial={{ scale: 1, opacity: 1 }}
+                  animate={{ scale: 2, opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                />
+                <motion.div
+                  className="absolute inset-0 bg-green-400 rounded-full"
+                  initial={{ scale: 1, opacity: 0.8 }}
+                  animate={{ scale: 2.5, opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                />
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Icon with smooth transition */}
+          <AnimatePresence mode="wait">
+            {showSuccess ? (
+              <motion.div
+                key="success"
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: 180 }}
+                transition={{ type: "spring", duration: 0.5, bounce: 0.4 }}
+                className="relative z-10"
+              >
+                <CheckCircle2 className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={3} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="default"
+                initial={{ scale: 0, rotate: 180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: -180 }}
+                transition={{ type: "spring", duration: 0.5, bounce: 0.4 }}
+                className="relative z-10 transition-transform"
+                style={{
+                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                }}
+              >
+                <ChevronUp className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={3} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Badge - Show notification indicator when collapsed */}
-          {!isExpanded && (
+          {!isExpanded && !showSuccess && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-black flex items-center justify-center shadow-lg">
               <span className="text-xs font-bold text-white">3</span>
             </div>
