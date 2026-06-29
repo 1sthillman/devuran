@@ -65,10 +65,12 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
   function playNotificationSound(soundUrl: string) {
     try {
       const audio = new Audio(soundUrl);
-      audio.volume = 0.7;
-      audio.play().catch(err => console.log('Ses çalınamadı:', err));
+      audio.volume = 0.7; // %70 ses seviyesi
+      audio.play().catch(err => {
+        console.warn('Ses çalınamadı:', err);
+      });
     } catch (error) {
-      console.log('Ses çalınamadı:', error);
+      console.warn('Ses hatası:', error);
     }
   }
 
@@ -167,7 +169,7 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
       gradient: 'from-blue-500 to-cyan-500',
       message: `Masa ${tableName} - Garson çağırıyor`,
       mediaUrl: '/asset/garson.gif', // GIF
-      soundUrl: '/asset/garson.mp3',
+      soundUrl: '/asset/garsonses.mp3',
       isVideo: false,
     },
     {
@@ -332,27 +334,32 @@ export function NotificationButtons({ restaurantId, tableId, tableName }: Notifi
                           {/* Video or GIF Background */}
                           {button.isVideo ? (
                             <video
+                              key={clickedButton === button.type ? 'playing' : 'paused'}
                               src={button.mediaUrl}
                               className="absolute inset-0 w-full h-full object-cover scale-110"
                               loop
                               muted
                               playsInline
-                              ref={(el) => {
-                                if (el && clickedButton === button.type) {
-                                  el.currentTime = 0;
-                                  el.play();
-                                } else if (el) {
-                                  el.pause();
-                                  el.currentTime = 0;
-                                }
-                              }}
+                              autoPlay={clickedButton === button.type}
                             />
                           ) : (
-                            <img 
-                              src={button.mediaUrl}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover scale-110"
-                            />
+                            // GIF - Tıklayınca animate, yoksa static
+                            <div className="absolute inset-0 w-full h-full">
+                              {clickedButton === button.type ? (
+                                <img 
+                                  src={button.mediaUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover scale-110"
+                                />
+                              ) : (
+                                <img 
+                                  src={button.mediaUrl + '?static=true'}
+                                  alt=""
+                                  className="w-full h-full object-cover scale-110"
+                                  style={{ imageRendering: 'auto' }}
+                                />
+                              )}
+                            </div>
                           )}
                           
                           {/* Subtle gradient overlay for depth */}
