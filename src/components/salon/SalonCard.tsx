@@ -31,7 +31,7 @@ export const SalonCard = memo(function SalonCard({ salon, index = 0 }: SalonCard
       className="relative overflow-hidden obsidian-card obsidian-card-hover cursor-pointer group"
     >
       {/* Animated Background */}
-      <div className="absolute inset-0 opacity-[0.12] pointer-events-none">
+      <div className="absolute inset-0 opacity-[0.20] pointer-events-none">
         <img
           src={backgroundGif}
           alt=""
