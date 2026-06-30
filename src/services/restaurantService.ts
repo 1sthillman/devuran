@@ -164,7 +164,7 @@ class RestaurantService {
 
   // ==================== TABLES ====================
   
-  async createTable(restaurantId: string, table: Omit<Table, 'id' | 'restaurantId' | 'qrCode'>): Promise<string> {
+  async createTable(restaurantId: string, table: Omit<Table, 'id' | 'restaurantId' | 'qrCode'>, reservationPrice: number = 0, reservationDuration: number = 60): Promise<string> {
     const qrCode = nanoid(10);
     
     // Masa oluştur
@@ -202,13 +202,13 @@ class RestaurantService {
             name: `Masa ${table.tableNumber}`,
             description: `${table.capacity} kişilik masa rezervasyonu`,
             category: 'restaurant', // Restoran kategorisi
-            duration: 120, // 2 saat varsayılan süre
-            price: 0, // Masa rezervasyonu ücretsiz (isteğe göre değiştirilebilir)
+            duration: reservationDuration, // 🔥 Parametre olarak gelen duration
+            price: reservationPrice, // 🔥 Parametre olarak gelen fiyat
             gender: 'all' as const,
             staffIds: [], // Masa için personel ataması yok
             isActive: true,
             pricingRules: {
-              basePrice: 0,
+              basePrice: reservationPrice, // 🔥 Fiyatı da güncelle
               minGuests: 1,
               maxGuests: table.capacity,
             }
@@ -219,7 +219,7 @@ class RestaurantService {
             services: [...currentServices, newService]
           });
           
-          console.log(`✅ Masa ${table.tableNumber} için hizmet oluşturuldu`);
+          console.log(`✅ Masa ${table.tableNumber} için hizmet oluşturuldu (${reservationDuration}dk, ${reservationPrice}₺)`);
         }
       }
     } catch (error) {

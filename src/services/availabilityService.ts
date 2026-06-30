@@ -25,6 +25,7 @@ class AvailabilityService {
     date: Date;
     duration: number;
     staffId?: string;
+    serviceId?: string; // 🆕 Masa rezervasyonu için service ID (tableId içerir)
     workingHours?: Record<string, { open: string; close: string; isOpen?: boolean }>;
     staff?: Staff[];
   }): Promise<TimeSlot[]> {
@@ -40,6 +41,18 @@ class AvailabilityService {
     
     if (workingHours.isOpen === false) {
       return [];
+    }
+
+    // 🍽️ RESTORAN MASA REZERVASYONU - ServiceId bazlı kontrol
+    if (params.serviceId) {
+      const slots = await this.getServiceAvailableSlots(
+        params.businessId,
+        params.serviceId,
+        params.date,
+        params.duration,
+        workingHours
+      );
+      return slots;
     }
 
     // Personel bazlı mı genel mi?
@@ -89,7 +102,7 @@ class AvailabilityService {
     let currentTime = this.timeToMinutes(workingHours.open);
     const endTime = this.timeToMinutes(workingHours.close);
 
-    // Bugünse ve şu anki saatten önceyse, şu anki saatten başla
+    // 🔥 BUGÜN İÇİN ÖZEL KONTROL
     const now = new Date();
     const isToday = this.isSameDay(date, now);
     
@@ -97,9 +110,16 @@ class AvailabilityService {
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       // En az 30 dakika sonrası için slot göster
       const minStartTime = currentMinutes + 30;
-      if (currentTime < minStartTime) {
+      
+      // 🔥 DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan
+      if (minStartTime > currentTime) {
         currentTime = Math.ceil(minStartTime / 15) * 15; // 15'in katına yuvarla
       }
+    }
+
+    // 🔥 KONTROL: currentTime endTime'dan büyükse boş array döndür
+    if (currentTime >= endTime) {
+      return [];
     }
 
     while (currentTime + duration <= endTime) {
@@ -127,6 +147,73 @@ class AvailabilityService {
       currentTime += 15; // 15 dakika aralıklarla
     }
 
+    return slots;
+  }
+
+  // 🍽️ YENİ: Masa bazlı rezervasyon kontrolü
+  private async getServiceAvailableSlots(
+    businessId: string,
+    serviceId: string,
+    date: Date,
+    duration: number,
+    workingHours: { open: string; close: string }
+  ): Promise<TimeSlot[]> {
+    
+    // O gün bu masa için olan rezervasyonları al
+    const existingReservations = await this.getServiceReservations(businessId, serviceId, date);
+
+    console.log(`🍽️ Masa ${serviceId} için ${existingReservations.length} rezervasyon bulundu`);
+
+    const slots: TimeSlot[] = [];
+    let currentTime = this.timeToMinutes(workingHours.open);
+    const endTime = this.timeToMinutes(workingHours.close);
+
+    // 🔥 BUGÜN İÇİN ÖZEL KONTROL
+    const now = new Date();
+    const isToday = this.isSameDay(date, now);
+    
+    if (isToday) {
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      // En az 30 dakika sonrası için slot göster
+      const minStartTime = currentMinutes + 30;
+      
+      // 🔥 DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan
+      if (minStartTime > currentTime) {
+        currentTime = Math.ceil(minStartTime / 15) * 15; // 15'in katına yuvarla
+      }
+      
+      console.log(`🕐 BUGÜN SLOT BAŞLANGIÇ: ${this.minutesToTime(currentTime)} (şimdi: ${this.minutesToTime(currentMinutes)}, çalışma başlangıcı: ${workingHours.open})`);
+    }
+
+    // 🔥 KONTROL: currentTime endTime'dan büyükse boş array döndür
+    if (currentTime >= endTime) {
+      console.log(`⚠️ Bugün için tüm slotlar geçmiş (${this.minutesToTime(currentTime)} >= ${this.minutesToTime(endTime)})`);
+      return [];
+    }
+
+    while (currentTime + duration <= endTime) {
+      const slotEnd = currentTime + duration;
+
+      // Çakışma kontrolü - sadece bu masa için
+      const hasConflict = existingReservations.some(res => 
+        this.timesOverlap(
+          currentTime,
+          slotEnd,
+          this.timeToMinutes(res.startTime),
+          this.timeToMinutes(res.endTime)
+        )
+      );
+
+      slots.push({
+        startTime: this.minutesToTime(currentTime),
+        endTime: this.minutesToTime(slotEnd),
+        available: !hasConflict
+      });
+
+      currentTime += 15; // 15 dakika aralıklarla
+    }
+
+    console.log(`✅ ${slots.length} slot oluşturuldu (available: ${slots.filter(s => s.available).length})`);
     return slots;
   }
 
@@ -248,7 +335,7 @@ class AvailabilityService {
     let currentTime = this.timeToMinutes(workingHours.open);
     const endTime = this.timeToMinutes(workingHours.close);
 
-    // Bugünse ve şu anki saatten önceyse, şu anki saatten başla
+    // 🔥 BUGÜN İÇİN ÖZEL KONTROL
     const now = new Date();
     const isToday = this.isSameDay(date, now);
     
@@ -256,9 +343,20 @@ class AvailabilityService {
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       // En az 30 dakika sonrası için slot göster
       const minStartTime = currentMinutes + 30;
-      if (currentTime < minStartTime) {
+      
+      // 🔥 DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan,
+      // yoksa çalışma saatinden başla (gece yarısı sorunu için)
+      if (minStartTime > currentTime) {
         currentTime = Math.ceil(minStartTime / 15) * 15; // 15'in katına yuvarla
       }
+      // Eğer minStartTime çalışma saatinden küçükse (örn: gece 01:00 < 07:00)
+      // currentTime zaten workingHours.open'dan başlıyor, değiştirme
+    }
+
+    // 🔥 KONTROL: currentTime endTime'dan büyükse (tüm gün geçmişse) boş array döndür
+    if (currentTime >= endTime) {
+      console.log(`⚠️ Bugün için tüm slotlar geçmiş (${this.minutesToTime(currentTime)} >= ${this.minutesToTime(endTime)})`);
+      return [];
     }
 
     while (currentTime + duration <= endTime) {
@@ -271,6 +369,7 @@ class AvailabilityService {
       currentTime += 15; // 15 dakika aralıklarla
     }
 
+    console.log(`✅ ${slots.length} slot oluşturuldu (${slots[0]?.startTime || 'N/A'} - ${slots[slots.length - 1]?.endTime || 'N/A'})`);
     return slots;
   }
 
@@ -291,6 +390,61 @@ class AvailabilityService {
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data() as SlotReservation);
+  }
+
+  // 🍽️ YENİ: Masa bazlı rezervasyon getir
+  private async getServiceReservations(
+    businessId: string,
+    serviceId: string,
+    date: Date
+  ): Promise<SlotReservation[]> {
+    
+    const dateStr = date.toISOString().split('T')[0];
+    
+    console.log('🔍 getServiceReservations çağrıldı:', {
+      businessId,
+      serviceId,
+      dateStr
+    });
+    
+    // 🔥 KRİTİK FIX: salonId yerine businessId field'ı kullan
+    const q = query(
+      collection(db, 'reservations'),
+      where('type', '==', 'slot'),
+      where('businessId', '==', businessId),
+      where('date', '==', dateStr),
+      where('status', 'in', ['confirmed', 'deposit_paid', 'fully_paid', 'in_progress'])
+    );
+
+    const snapshot = await getDocs(q);
+    
+    console.log(`📊 Toplam ${snapshot.size} rezervasyon bulundu (tüm masalar)`);
+    
+    // Sadece bu service (masa) için olan rezervasyonları filtrele
+    const allReservations = snapshot.docs.map(doc => {
+      const data = doc.data() as SlotReservation;
+      console.log('📋 Rezervasyon:', {
+        id: doc.id,
+        services: data.services?.map(s => ({ id: s.id, name: s.name }))
+      });
+      return data;
+    });
+    
+    const serviceReservations = allReservations.filter(res => {
+      // services array'inde bu serviceId var mı kontrol et
+      const hasThisService = res.services?.some(s => {
+        const match = s.id === serviceId;
+        if (match) {
+          console.log(`✅ Service ${serviceId} rezervasyonda bulundu:`, s.name);
+        }
+        return match;
+      });
+      return hasThisService;
+    });
+    
+    console.log(`🎯 Service ${serviceId} için ${serviceReservations.length}/${allReservations.length} rezervasyon bulundu`);
+    
+    return serviceReservations;
   }
 
   private async getSalon(salonId: string): Promise<Salon | null> {

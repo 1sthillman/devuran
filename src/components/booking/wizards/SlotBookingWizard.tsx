@@ -456,7 +456,12 @@ export function SlotBookingWizard() {
                                     const dateStr = formatDateToString(date);
                                     selectDateTime(dateStr, selectedTime || '');
                                   }}
-                                  minDate={new Date()}
+                                  minDate={(() => {
+                                    // 🔥 KRİTİK: minDate bugünün başlangıcı olmalı
+                                    const today = new Date();
+                                    today.setHours(0, 0, 0, 0);
+                                    return today;
+                                  })()}
                                   workingHours={salon.workingHours}
                                 />
                               </div>
@@ -490,6 +495,14 @@ export function SlotBookingWizard() {
                                   }
                                   intervalMinutes={30}
                                   label="Randevu saati seçin"
+                                  businessId={salon.id}
+                                  selectedDate={selectedDate || undefined}
+                                  duration={totalDuration}
+                                  staffId={selectedStaffId || undefined}
+                                  serviceId={selectedServices.length > 0 
+                                    ? ((selectedServices[0] as any)?.tableId || selectedServices[0].id)
+                                    : undefined}
+                                  businessCategory={salon.category}
                                 />
                               </div>
                               {selectedDate && selectedTime && (

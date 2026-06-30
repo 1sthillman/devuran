@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Bell, CheckCircle2, Phone, Flame, Receipt, Clock, Filter, ChevronUp, Check, X } from 'lucide-react';
+import { Bell, CheckCircle2, Phone, Flame, Receipt, Clock, Filter, ChevronUp, Check, X, Calendar, Users as UsersIcon } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
 import { soundService } from '@/services/soundService';
 import { toast } from 'sonner';
@@ -11,6 +11,9 @@ import { TableGrid } from './TableGrid';
 import { TableActionMenu } from './TableActionMenu';
 import { TableTransferDialog } from './TableTransferDialog';
 import { WaiterOrderScreen } from './WaiterOrderScreen';
+import { db } from '@/lib/firebase';
+import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
+import type { Reservation } from '@/types';
 
 interface WaiterPanelProps {
   restaurantId: string;
@@ -34,6 +37,7 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]); // 🆕 Rezervasyonlar
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<string | null>(null);
   const [selectedArea, setSelectedArea] = useState<string>('all');
@@ -100,6 +104,43 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
       setTables
     );
 
+    // 🆕 Rezervasyonları dinle
+    const unsubscribeReservations = onSnapshot(
+      query(
+        collection(db, 'reservations'),
+        where('salonId', '==', restaurantId),
+        where('type', '==', 'slot') // Restoran rezervasyonları 'slot' type
+        // ✅ status ve orderBy kaldırıldı - index gereksinimi yok
+      ),
+      (snapshot) => {
+        const reservationsList = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Reservation))
+          // ✅ Client-side filtering - sadece aktif rezervasyonlar
+          .filter(res => {
+            const status = (res as any).status;
+            return ['confirmed', 'deposit_paid', 'fully_paid', 'in_progress'].includes(status);
+          });
+        
+        // Client-side sorting (date alanına göre)
+        reservationsList.sort((a, b) => {
+          const dateA = (a as any).date || '';
+          const dateB = (b as any).date || '';
+          return dateA.localeCompare(dateB);
+        });
+        
+        setReservations(reservationsList);
+        console.log('📅 Rezervasyonlar güncellendi:', reservationsList.length);
+      },
+      (error) => {
+        console.error('❌ Rezervasyon dinleme hatası:', error);
+        // Hata olursa boş array set et, uygulama çökmez
+        setReservations([]);
+      }
+    );
+
     // Scroll listener for scroll to top button
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 400);
@@ -111,6 +152,7 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
       unsubscribeNotifications();
       unsubscribeOrders();
       unsubscribeTables();
+      unsubscribeReservations(); // 🆕
       window.removeEventListener('scroll', handleScroll);
     };
   }, [restaurantId]);
@@ -274,7 +316,7 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
         <div className="grid grid-cols-4 gap-3 sm:gap-4">
           {[
             { icon: Flame, label: 'Köz', count: unreadCoalRequests.length, gradient: 'from-orange-500 to-red-500' },
-            { icon: Bell, label: 'Acil', count: unreadOtherNotifications.length, gradient: 'from-red-500 to-pink-500' },
+            { icon: Calendar, label: 'Rezervasyon', count: reservations.length, gradient: 'from-purple-500 to-pink-500' },
             { icon: CheckCircle2, label: 'Hazır', count: readyOrders.length, gradient: 'from-green-500 to-emerald-500' },
             { icon: Receipt, label: 'Aktif', count: tables.filter(t => t.status !== 'empty').length, gradient: 'from-blue-500 to-cyan-500' },
           ].map((stat) => (
@@ -498,6 +540,143 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* MASA REZERVASYONLARI - YENİ BÖLÜM */}
+        {reservations.length > 0 && (
+          <div>
+            <motion.h2
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-white"
+            >
+              <Calendar size={24} className="text-purple-600 dark:text-purple-400" />
+              Masa Rezervasyonları ({reservations.length})
+            </motion.h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+              {reservations.map((reservation, idx) => {
+                // SlotReservation olarak cast et
+                const slotRes = reservation as any;
+                
+                // Masa bilgisini bul
+                const tableService = slotRes.services?.[0];
+                const tableName = tableService?.name?.replace('Masa ', '') || '?';
+                const tableCapacity = tableService?.pricingRules?.maxGuests || 4;
+                
+                // Tarih bilgisi
+                const reservationDate = new Date(slotRes.date);
+                const isToday = reservationDate.toDateString() === new Date().toDateString();
+                const dateStr = isToday ? 'Bugün' : reservationDate.toLocaleDateString('tr-TR', { 
+                  day: 'numeric', 
+                  month: 'short' 
+                });
+
+                return (
+                  <motion.div
+                    key={reservation.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.05 }}
+                    whileHover={{ scale: 1.01, y: -2 }}
+                    className="relative group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    
+                    <div className="relative backdrop-blur-xl backdrop-saturate-150 bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-3xl p-6 transition-all duration-300 shadow-2xl">
+                      {/* Header - Masa ve Durum */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-xl">
+                            <UsersIcon className="h-7 w-7 text-white" strokeWidth={2.5} />
+                          </div>
+                          <div>
+                            <div className="text-2xl font-heading font-bold text-gray-900 dark:text-white">
+                              Masa {tableName}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                              <UsersIcon className="w-4 h-4" />
+                              {tableCapacity} kişilik
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Durum Badge */}
+                        <Badge 
+                          variant={slotRes.status === 'confirmed' ? 'default' : 'secondary'}
+                          className={cn(
+                            "rounded-full px-3 py-1 text-xs font-bold",
+                            slotRes.status === 'confirmed' && "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30"
+                          )}
+                        >
+                          {slotRes.status === 'confirmed' && '✓ Onaylandı'}
+                          {slotRes.status === 'deposit_paid' && '💰 Depozito'}
+                          {slotRes.status === 'fully_paid' && '✓ Ödendi'}
+                          {slotRes.status === 'in_progress' && '🔄 Devam Ediyor'}
+                        </Badge>
+                      </div>
+
+                      {/* Müşteri Bilgisi */}
+                      <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 mb-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">
+                            {slotRes.userName?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">
+                              {slotRes.userName}
+                            </p>
+                            {slotRes.userPhone && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                {slotRes.userPhone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tarih ve Saat */}
+                      <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-3 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-purple-400" />
+                            <span className="text-sm font-bold text-purple-600 dark:text-purple-300">
+                              {dateStr}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-5 h-5 text-pink-400" />
+                            <span className="text-sm font-bold text-pink-600 dark:text-pink-300">
+                              {slotRes.startTime} - {slotRes.endTime}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Fiyat */}
+                      {slotRes.totalAmount > 0 && (
+                        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Toplam</span>
+                          <span className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+                            {slotRes.totalAmount}₺
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Notlar */}
+                      {slotRes.notes && (
+                        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-xl">
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            💬 {slotRes.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Clock, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Sunrise, Sun, Sunset, Moon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { availabilityService } from '@/services/availabilityService';
 
 interface ModernTimePickerProps {
   value: string; // "HH:MM" format
@@ -14,6 +15,13 @@ interface ModernTimePickerProps {
   };
   intervalMinutes?: number; // Time slot interval (default: 30)
   label?: string;
+  // 🆕 Slot çakışması kontrolü için
+  businessId?: string;
+  selectedDate?: string; // ISO date string
+  duration?: number; // dakika
+  staffId?: string;
+  serviceId?: string; // 🍽️ Masa rezervasyonu için
+  businessCategory?: string; // 🆕 İşletme kategorisi
 }
 
 export function ModernTimePicker({ 
@@ -24,9 +32,95 @@ export function ModernTimePicker({
   maxTime,
   workingHours,
   intervalMinutes = 30,
-  label = 'Saat Seçin'
+  label = 'Saat Seçin',
+  // 🆕 Slot çakışması kontrolü için
+  businessId,
+  selectedDate,
+  duration = 30,
+  staffId,
+  serviceId, // 🍽️ Masa ID
+  businessCategory // 🆕 İşletme kategorisi
 }: ModernTimePickerProps) {
   const [showPicker, setShowPicker] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+
+  // 🔥 Dolu slotları çek - selectedDate değiştiğinde
+  useEffect(() => {
+    if (businessId && selectedDate && workingHours) {
+      console.log('🎯 useEffect tetiklendi - fetchBookedSlots çağrılacak:', {
+        businessId,
+        selectedDate,
+        serviceId,
+        staffId,
+        duration
+      });
+      fetchBookedSlots();
+    } else {
+      console.log('⚠️ Slot kontrolü YAPILMAYACAK:', {
+        businessId: !!businessId,
+        selectedDate: !!selectedDate,
+        workingHours: !!workingHours
+      });
+      setBookedSlots(new Set());
+    }
+  }, [businessId, selectedDate, staffId, serviceId, duration]); // 🔥 duration da eklendi
+
+  const fetchBookedSlots = async () => {
+    if (!businessId || !selectedDate || !workingHours) return;
+    
+    console.log('🎯 fetchBookedSlots çağrıldı:', {
+      businessId,
+      selectedDate,
+      serviceId, // 🔥 Hangi masa için kontrol ediyoruz?
+      duration
+    });
+    
+    setLoading(true);
+    try {
+      const date = new Date(selectedDate);
+      
+      // availabilityService kullanarak dolu slotları al
+      const availableSlots = await availabilityService.getAvailableSlots({
+        businessId,
+        date,
+        duration,
+        staffId,
+        serviceId, // 🍽️ Masa ID
+        workingHours: {
+          [getDayName(date)]: {
+            open: workingHours.start,
+            close: workingHours.end
+          }
+        }
+      });
+      
+      console.log(`📊 availabilityService'den ${availableSlots.length} slot döndü`);
+      
+      // 🔥 KRİTİK DÜZELTME: availabilityService'den dönen slotlardaki 
+      // available:false olanları direkt booked olarak işaretle
+      const booked = new Set<string>();
+      
+      availableSlots.forEach(slot => {
+        if (!slot.available) {
+          booked.add(slot.startTime);
+        }
+      });
+      
+      setBookedSlots(booked);
+      console.log(`🔴 ${booked.size} dolu slot bulundu:`, Array.from(booked));
+    } catch (error) {
+      console.error('❌ Dolu slotlar alınamadı:', error);
+      setBookedSlots(new Set());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDayName = (date: Date): string => {
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return days[date.getDay()];
+  };
 
   // Calculate available time slots based on working hours
   const getAvailableTimeSlots = () => {
@@ -35,14 +129,34 @@ export function ModernTimePicker({
     let endHour = 23;
     let endMinute = 59;
 
-    // Use working hours if provided
+    // 🍽️ RESTORAN/KAFE için makul saat aralığı (07:00-24:00)
+    const isRestaurantCategory = businessCategory === 'restoran' || businessCategory === 'kafe';
+    
+    if (isRestaurantCategory) {
+      startHour = 7;  // 07:00
+      startMinute = 0;
+      endHour = 23;   // 23:59
+      endMinute = 59;
+    }
+
+    // Use working hours if provided (override defaults)
     if (workingHours) {
       const [startH, startM] = workingHours.start.split(':').map(Number);
       const [endH, endM] = workingHours.end.split(':').map(Number);
-      startHour = startH;
-      startMinute = startM;
-      endHour = endH;
-      endMinute = endM;
+      
+      // 🍽️ Restoran için çalışma saatlerini uygula ama makul aralıkta tut
+      if (isRestaurantCategory) {
+        startHour = Math.max(7, startH);  // En erken 07:00
+        startMinute = startM;
+        endHour = Math.min(23, endH);     // En geç 23:59
+        endMinute = endM;
+      } else {
+        // Diğer kategoriler için direkt çalışma saatlerini kullan
+        startHour = startH;
+        startMinute = startM;
+        endHour = endH;
+        endMinute = endM;
+      }
     } else if (minTime || maxTime) {
       if (minTime) {
         const [h, m] = minTime.split(':').map(Number);
@@ -165,22 +279,29 @@ export function ModernTimePicker({
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
             {group.slots.map((time) => {
               const isSelected = value === time;
+              const isBooked = bookedSlots.has(time); // 🔥 Dolu mu kontrol et
+              const isDisabled = isBooked;
+              
               return (
                 <button
                   key={time}
                   type="button"
-                  onClick={() => handleTimeSelect(time)}
+                  onClick={() => !isDisabled && handleTimeSelect(time)}
+                  disabled={isDisabled}
                   className={cn(
                     "relative h-14 rounded-full font-bold text-base transition-all duration-200",
                     "flex items-center justify-center overflow-hidden",
                     "border-2",
-                    isSelected
+                    isDisabled
+                      ? "bg-red-500/10 border-red-500/30 text-red-400/50 cursor-not-allowed line-through"
+                      : isSelected
                       ? `bg-gradient-to-br ${group.gradient} border-transparent text-white shadow-xl scale-105`
                       : "bg-[var(--slate-surface)] hover:bg-white/[0.08] text-[var(--chrome-white)] border-white/[0.08] hover:border-white/20 hover:scale-105 active:scale-95"
                   )}
+                  title={isBooked ? 'Bu saat dolu' : ''}
                 >
                   {/* Seçili durum için glow efekti */}
-                  {isSelected && (
+                  {isSelected && !isDisabled && (
                     <>
                       <div className={cn(
                         "absolute inset-0 bg-gradient-to-br opacity-30 blur-xl",
@@ -191,6 +312,11 @@ export function ModernTimePicker({
                   )}
                   
                   <span className="relative z-10">{time}</span>
+                  
+                  {/* Dolu göstergesi */}
+                  {isBooked && (
+                    <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+                  )}
                 </button>
               );
             })}
@@ -260,11 +386,23 @@ export function ModernTimePicker({
                 </div>
               )}
 
+              {/* Loading State */}
+              {loading && (
+                <div className="mb-5 p-6 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 flex flex-col items-center justify-center gap-3">
+                  <Loader2 size={32} className="text-purple-400 animate-spin" />
+                  <p className="text-sm text-purple-300 font-semibold">Müsait saatler kontrol ediliyor...</p>
+                </div>
+              )}
+
             {/* Time Groups - Her zaman tüm grupları göster */}
-            {renderTimeGroup(groupedSlots.morning)}
-            {renderTimeGroup(groupedSlots.afternoon)}
-            {renderTimeGroup(groupedSlots.evening)}
-            {renderTimeGroup(groupedSlots.night)}
+            {!loading && (
+              <>
+                {renderTimeGroup(groupedSlots.morning)}
+                {renderTimeGroup(groupedSlots.afternoon)}
+                {renderTimeGroup(groupedSlots.evening)}
+                {renderTimeGroup(groupedSlots.night)}
+              </>
+            )}
           </div>
 
           {/* Done Button */}

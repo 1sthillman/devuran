@@ -60,6 +60,7 @@ import { appointmentsService, salonsService, servicesService, staffService } fro
 import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
 import { subscriptionService } from '@/services/subscriptionService';
+import { nanoid } from 'nanoid';
 import type { Appointment, Salon, Service, Staff, BusinessSubscription } from '@/types';
 
 const sidebarItems = [
@@ -721,9 +722,41 @@ export function OwnerDashboard() {
   const handleSaveService = async (serviceData: Omit<Service, 'id'>) => {
     try {
       if (selectedService) {
-        await servicesService.update(selectedService.id, serviceData);
+        // 🍽️ Eğer masa hizmeti ise (tableId varsa), salon.services array'ini güncelle
+        if ((serviceData as any).tableId || (selectedService as any).tableId) {
+          console.log('🍽️ Masa hizmeti güncelleniyor (array içinde)');
+          
+          const currentServices = salon?.services || [];
+          const updatedServices = currentServices.map(s => 
+            s.id === selectedService.id ? { ...s, ...serviceData, id: selectedService.id } : s
+          );
+          
+          await salonsService.update(salon!.id, {
+            services: updatedServices
+          });
+        } else {
+          // Normal hizmet - collection'dan güncelle
+          await servicesService.update(selectedService.id, serviceData);
+        }
       } else {
-        await servicesService.create(serviceData);
+        // Yeni hizmet - tableId varsa array'e, yoksa collection'a ekle
+        if ((serviceData as any).tableId) {
+          console.log('🍽️ Yeni masa hizmeti ekleniyor (array içinde)');
+          
+          const currentServices = salon?.services || [];
+          const newService = {
+            ...serviceData,
+            id: nanoid(12),
+            salonId: salon!.id
+          };
+          
+          await salonsService.update(salon!.id, {
+            services: [...currentServices, newService]
+          });
+        } else {
+          // Normal hizmet - collection'a ekle
+          await servicesService.create(serviceData);
+        }
       }
       await loadData();
       addToast('Hizmet başarıyla kaydedildi', 'success');
@@ -736,7 +769,23 @@ export function OwnerDashboard() {
 
   const handleDeleteService = async (serviceId: string) => {
     try {
-      await servicesService.delete(serviceId);
+      // 🍽️ Eğer masa hizmeti ise (tableId varsa), salon.services array'inden sil
+      const serviceToDelete = salon?.services?.find(s => s.id === serviceId);
+      
+      if (serviceToDelete && (serviceToDelete as any).tableId) {
+        console.log('🍽️ Masa hizmeti siliniyor (array içinden)');
+        
+        const currentServices = salon?.services || [];
+        const updatedServices = currentServices.filter(s => s.id !== serviceId);
+        
+        await salonsService.update(salon!.id, {
+          services: updatedServices
+        });
+      } else {
+        // Normal hizmet - collection'dan sil
+        await servicesService.delete(serviceId);
+      }
+      
       await loadData();
       addToast('Hizmet başarıyla silindi', 'success');
     } catch (error: any) {

@@ -20,6 +20,8 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
   const [tableNumber, setTableNumber] = useState('');
   const [capacity, setCapacity] = useState('4');
   const [area, setArea] = useState('');
+  const [reservationPrice, setReservationPrice] = useState('0'); // 🆕 Rezervasyon ücreti
+  const [reservationDuration, setReservationDuration] = useState('60'); // 🆕 Rezervasyon süresi (dakika)
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
   const [migrating, setMigrating] = useState(false);
@@ -66,22 +68,58 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     }
 
     try {
+      const priceValue = parseFloat(reservationPrice) || 0;
+      const durationValue = parseInt(reservationDuration) || 60;
+      
       if (editingTable) {
         await restaurantService.updateTable(editingTable.id, {
           tableNumber,
           capacity: parseInt(capacity),
           area: area || undefined,
         });
+        
+        // 🍽️ Rezervasyon fiyatı ve duration'ı güncelle (service'de)
+        if (reservationEnabled) {
+          const { salonsService } = await import('@/services/firebaseService');
+          const salon = await salonsService.getById(restaurantId);
+          
+          if (salon) {
+            const updatedServices = (salon.services || []).map((s: any) => {
+              if (s.tableId === editingTable.id) {
+                return {
+                  ...s,
+                  price: priceValue,
+                  duration: durationValue, // 🔥 Duration güncelle
+                  name: `Masa ${tableNumber}`, // İsim de güncelle
+                  description: `${capacity} kişilik masa rezervasyonu`,
+                  pricingRules: {
+                    ...s.pricingRules,
+                    basePrice: priceValue,
+                    maxGuests: parseInt(capacity)
+                  }
+                };
+              }
+              return s;
+            });
+            
+            await salonsService.update(restaurantId, {
+              services: updatedServices
+            });
+          }
+        }
+        
         toast.success('Masa güncellendi!', {
           icon: <Check className="w-5 h-5" />,
         });
       } else {
-        await restaurantService.createTable(restaurantId, {
+        // 🔥 YENİ MASA: Önce masayı oluştur, sonra service'i güncelle
+        const newTableId = await restaurantService.createTable(restaurantId, {
           tableNumber,
           capacity: parseInt(capacity),
           area: area || undefined,
           status: 'empty',
-        });
+        }, priceValue, durationValue); // 🔥 Fiyat ve duration'ı geçir
+        
         toast.success('Masa oluşturuldu!', {
           description: `Masa ${tableNumber} başarıyla eklendi`,
           icon: <Check className="w-5 h-5" />,
@@ -91,6 +129,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
       setShowDialog(false);
       resetForm();
       loadTables();
+      checkReservationStatus(); // Rezervasyon durumunu güncelle
     } catch (error) {
       console.error('Masa kaydetme hatası:', error);
       toast.error('Masa kaydedilemedi', {
@@ -117,6 +156,8 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     setTableNumber('');
     setCapacity('4');
     setArea('');
+    setReservationPrice('0'); // 🆕 Reset fiyat
+    setReservationDuration('60'); // 🆕 Reset duration
     setEditingTable(null);
   }
 
@@ -125,6 +166,28 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     setTableNumber(table.tableNumber);
     setCapacity(table.capacity.toString());
     setArea(table.area || '');
+    
+    // 🍽️ Rezervasyon fiyatı ve duration'ı al (service'den)
+    if (reservationEnabled) {
+      const fetchServiceData = async () => {
+        try {
+          const { salonsService } = await import('@/services/firebaseService');
+          const salon = await salonsService.getById(restaurantId);
+          
+          if (salon) {
+            const tableService = (salon.services || []).find((s: any) => s.tableId === table.id);
+            if (tableService) {
+              setReservationPrice(tableService.price?.toString() || '0');
+              setReservationDuration(tableService.duration?.toString() || '60');
+            }
+          }
+        } catch (error) {
+          console.error('Service data alma hatası:', error);
+        }
+      };
+      fetchServiceData();
+    }
+    
     setShowDialog(true);
   }
 
@@ -697,6 +760,82 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                     </div>
                   )}
                 </div>
+
+                {/* 🍽️ Rezervasyon Ücreti - Sadece rezervasyon aktifse göster */}
+                {reservationEnabled && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                        Rezervasyon Ücreti (₺)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={reservationPrice}
+                        onChange={(e) => setReservationPrice(e.target.value)}
+                        placeholder="0"
+                        className={cn(
+                          'w-full px-4 py-3 rounded-2xl font-mono font-bold text-lg transition-all',
+                          'bg-gray-50 dark:bg-white/5',
+                          'border-2 border-gray-200 dark:border-white/10',
+                          'focus:border-orange-500 dark:focus:border-orange-500 focus:ring-0',
+                          'text-gray-900 dark:text-white',
+                          'placeholder-gray-500 dark:placeholder-gray-500'
+                        )}
+                      />
+                      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        Ücretsiz rezervasyon için 0 yazın
+                      </p>
+                    </div>
+                    
+                    {/* 🆕 Rezervasyon Süresi */}
+                    <div>
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                        Rezervasyon Süresi (Dakika)
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="15"
+                          max="300"
+                          step="15"
+                          value={reservationDuration}
+                          onChange={(e) => setReservationDuration(e.target.value)}
+                          placeholder="60"
+                          className={cn(
+                            'flex-1 px-4 py-3 rounded-2xl font-mono font-bold text-lg transition-all',
+                            'bg-gray-50 dark:bg-white/5',
+                            'border-2 border-gray-200 dark:border-white/10',
+                            'focus:border-orange-500 dark:focus:border-orange-500 focus:ring-0',
+                            'text-gray-900 dark:text-white',
+                            'placeholder-gray-500 dark:placeholder-gray-500'
+                          )}
+                        />
+                        <div className="flex gap-2">
+                          {[60, 90, 120].map((mins) => (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() => setReservationDuration(mins.toString())}
+                              className={cn(
+                                'px-4 py-3 rounded-2xl font-bold text-sm transition-all',
+                                reservationDuration === mins.toString()
+                                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                                  : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
+                              )}
+                            >
+                              {mins}dk
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                        Müşteri bu kadar süre için rezervasyon yapabilecek (60dk: 1 saat, 90dk: 1.5 saat, 120dk: 2 saat)
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">

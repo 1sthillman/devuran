@@ -353,12 +353,24 @@ export const useBookingStore = create<BookingState>()(
           endTime: endTime.toTimeString().slice(0, 5),
           duration: state.totalDuration,
           staffId: state.selectedStaffId,
-          services: state.selectedServices.map(s => ({
-            id: s.id,
-            name: s.name,
-            duration: s.duration,
-            price: s.price
-          })),
+          services: state.selectedServices.map(s => {
+            // 🔥 KRİTİK: Restoran için tableId kullan, diğerleri için service id
+            const serviceId = (s as any)?.tableId || s.id;
+            
+            console.log('📋 Service kaydediliyor:', {
+              originalId: s.id,
+              tableId: (s as any)?.tableId,
+              finalId: serviceId,
+              name: s.name
+            });
+            
+            return {
+              id: serviceId, // 🔥 Masa için tableId, normal hizmet için service.id
+              name: s.name,
+              duration: s.duration,
+              price: s.price
+            };
+          }),
           businessCategory: state.salon?.category,
           totalPrice: state.totalPrice,
           _requiresPriceValidation: true,
@@ -375,6 +387,13 @@ export const useBookingStore = create<BookingState>()(
           reservationData.tableId = tableId;
           reservationData.tableName = selectedTable.name;
           reservationData.capacity = capacity;
+          
+          console.log('🍽️ RESTORAN REZERVASYON DETAYLARI:', {
+            tableId,
+            tableName: selectedTable.name,
+            serviceIdInArray: reservationData.services[0].id,
+            match: tableId === reservationData.services[0].id
+          });
         }
       } else if (state.bookingType === 'nightly') {
         const roomPrice = state.selectedPackage?.price || 0;

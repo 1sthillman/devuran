@@ -34,8 +34,14 @@ export function ModernCalendar({
   staffId,
   staff
 }: ModernCalendarProps) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // 🔥 KRİTİK: Her render'da fresh today objesi oluştur
+  const getTodayStart = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  };
+  
+  const today = getTodayStart();
   
   const [currentMonth, setCurrentMonth] = useState(selectedDate?.getMonth() ?? today.getMonth());
   const [currentYear, setCurrentYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear());
@@ -45,9 +51,18 @@ export function ModernCalendar({
   // Availability kontrolü - sadece businessId varsa çalışır
   useEffect(() => {
     if (businessId && workingHours) {
+      console.log('📅 Availability kontrolü başlatılıyor:', {
+        currentMonth,
+        currentYear,
+        businessId
+      });
       checkMonthAvailability();
     } else {
       // BusinessId yoksa availability kontrolü yapma
+      console.log('⚠️ Availability kontrolü YAPILMAYACAK:', {
+        businessId: !!businessId,
+        workingHours: !!workingHours
+      });
       setAvailabilityMap(new Map());
     }
   }, [currentMonth, currentYear, businessId, serviceDuration, workingHours, staff]);
@@ -62,14 +77,21 @@ export function ModernCalendar({
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
     
+    // 🔥 BUGÜN KONTROLÜ: Sistem saati ile bugünün başlangıcını al
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
     const promises: Promise<void>[] = [];
     
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const dateObj = new Date(currentYear, currentMonth, d);
       dateObj.setHours(0, 0, 0, 0);
       
-      // Geçmiş tarihler için kontrol yapma
-      if (dateObj < today) continue;
+      // 🔥 Geçmiş tarihler için kontrol yapma (bugün dahil DEĞİL - bugün kontrol edilmeli)
+      if (dateObj.getTime() < todayStart.getTime()) {
+        console.log(`⏭️ ${d} Haziran - geçmiş, atlanıyor`);
+        continue;
+      }
       
       // Timezone-safe date key
       const dateKey = formatDateToString(dateObj);
@@ -83,7 +105,9 @@ export function ModernCalendar({
           workingHours,
           staff
         }).then(slots => {
-          newMap.set(dateKey, slots.length > 0);
+          const hasSlots = slots.length > 0;
+          newMap.set(dateKey, hasSlots);
+          console.log(`📅 ${dateKey}: ${hasSlots ? '✅ Slotlar var' : '❌ Slot yok'} (${slots.length} slot)`);
         }).catch(error => {
           console.warn(`❌ ${dateKey}: Error checking availability`, error);
           newMap.set(dateKey, false);
@@ -115,6 +139,8 @@ export function ModernCalendar({
   };
 
   const calendarDays = useMemo(() => {
+    const todayStart = getTodayStart(); // Fresh today
+    
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
     const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Pazartesi başlangıç (0 = Pazartesi)
@@ -150,23 +176,43 @@ export function ModernCalendar({
       const dateObj = new Date(currentYear, currentMonth, d);
       dateObj.setHours(0, 0, 0, 0);
       
+      // 🔥 KRİTİK: Her gün için fresh kontrol
+      const now = new Date();
+      const todayDate = now.getDate();
+      const todayMonth = now.getMonth();
+      const todayYear = now.getFullYear();
+      
+      const isToday = (d === todayDate && currentMonth === todayMonth && currentYear === todayYear);
+      
       const isClosed = isDayClosed(dateObj);
-      // Bugün dahil ve sonrası seçilebilir - geçmiş günler disabled
-      const isPast = dateObj < today;
+      
+      // 🔥 BUGÜN ASLA PAST OLAMAZ
+      const isPast = isToday ? false : dateObj.getTime() < todayStart.getTime();
+      
       const isBeforeMin = minDate ? dateObj < minDate : false;
       const isAfterMax = maxDate ? dateObj > maxDate : false;
-      const isToday = dateObj.getTime() === today.getTime();
+      
+      // Debug log - sadece bugün için
+      if (isToday) {
+        console.log('📅 BUGÜN (30 HAZİRAN) KONTROLÜ:', {
+          date: d,
+          isToday,
+          isPast,
+          isClosed,
+          isBeforeMin,
+          isAfterMax,
+          dateObjTime: dateObj.getTime(),
+          todayStartTime: todayStart.getTime(),
+          systemTime: new Date().toISOString()
+        });
+      }
       
       // Timezone-safe date key
       const dateKey = formatDateToString(dateObj);
       const hasAvailability = availabilityMap.get(dateKey) ?? true; // Default true if not checked yet
       
-      // Disabled logic: 
-      // - Geçmiş günler disabled (bugün dahil değil - bugün seçilebilir)
-      // - MinDate/MaxDate kontrolü
-      // - Kapalı günler disabled
-      // - Availability kontrolü SADECE businessId varsa yapılır
-      const isDisabled = isPast || isBeforeMin || isAfterMax || isClosed;
+      // 🔥 BUGÜN İÇİN ÖZEL: isPast kontrolünü atla
+      const isDisabled = isToday ? (isClosed || isBeforeMin || isAfterMax) : (isPast || isBeforeMin || isAfterMax || isClosed);
       
       days.push({
         date: d,
