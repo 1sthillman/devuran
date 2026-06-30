@@ -1180,9 +1180,7 @@ export function OwnerDashboard() {
                 { label: "Bu Ay Gelir", value: `${monthlyRevenue.toLocaleString()}₺`, icon: DollarSign, color: '#c8c8d4', tab: 'analytics' },
               ].map((stat, i) => {
                 const Icon = stat.icon;
-                const backgroundGif = actualTheme === 'light'
-                  ? '/asset/Loop_ancak_tasarmn_formunu_bozmadan_ok_gz.gif'
-                  : '/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif';
+                const backgroundGif = '/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif'; // HER ZAMAN KARANLIK GIF
                 
                 return (
                   <motion.button
