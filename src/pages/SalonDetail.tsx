@@ -200,7 +200,7 @@ export function SalonDetail() {
   return (
     <div className="w-full pb-8 pt-6 relative">
       {/* 🎨 Animated Background - HER ZAMAN KARANLIK (SİYAH) GIF */}
-      <div className="fixed inset-0 opacity-[0.12] pointer-events-none z-0">
+      <div className="fixed inset-0 opacity-[0.06] pointer-events-none z-0">
         <img
           src="/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif"
           alt=""
