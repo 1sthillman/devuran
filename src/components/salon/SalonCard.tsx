@@ -22,10 +22,8 @@ export const SalonCard = memo(function SalonCard({ salon, index = 0 }: SalonCard
     navigate(`/booking/${salon.id}`);
   };
 
-  // Choose GIF based on theme
-  const backgroundGif = actualTheme === 'light'
-    ? '/asset/Loop_ancak_tasarmn_formunu_bozmadan_ok_gz.gif'
-    : '/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif';
+  // Choose GIF based on theme - HER ZAMAN KARANLIK (SİYAH) GIF KULLAN
+  const backgroundGif = '/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif';
 
   return (
     <div
