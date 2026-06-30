@@ -23,7 +23,7 @@ export function AnimatedCard({ children, className = '', hover = true, delay = 0
       className={`relative overflow-hidden rounded-2xl ${className}`}
     >
       {/* Animated Background */}
-      <div className="absolute inset-0 opacity-[0.15] pointer-events-none">
+      <div className="absolute inset-0 opacity-[0.25] pointer-events-none">
         <img
           src={backgroundGif}
           alt=""

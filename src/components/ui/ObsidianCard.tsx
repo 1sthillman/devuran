@@ -29,7 +29,7 @@ export function ObsidianCard({ children, className, hover = true, onClick, anima
       {animated && (
         <>
           {/* Animated Background */}
-          <div className="absolute inset-0 opacity-[0.15] pointer-events-none">
+          <div className="absolute inset-0 opacity-[0.25] pointer-events-none">
             <img
               src={backgroundGif}
               alt=""

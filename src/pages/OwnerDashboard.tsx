@@ -1192,7 +1192,7 @@ export function OwnerDashboard() {
                     className="relative overflow-hidden obsidian-card p-5 text-left hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer group"
                   >
                     {/* Animated Background */}
-                    <div className="absolute inset-0 opacity-[0.15] group-hover:opacity-[0.25] transition-opacity pointer-events-none">
+                    <div className="absolute inset-0 opacity-[0.25] group-hover:opacity-[0.35] transition-opacity pointer-events-none">
                       <img
                         src={backgroundGif}
                         alt=""
