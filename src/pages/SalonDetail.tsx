@@ -200,16 +200,18 @@ export function SalonDetail() {
   return (
     <div className="w-full pb-8 pt-6 relative">
       {/* 🎨 Animated Background - HER ZAMAN KARANLIK (SİYAH) GIF */}
-      <div className="fixed inset-0 opacity-[0.25] pointer-events-none z-0">
+      <div className="fixed inset-0 opacity-[0.25] pointer-events-none z-0 overflow-hidden">
         <img
           src="/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif"
           alt=""
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover scale-110 blur-[2px]"
           loading="lazy"
           decoding="async"
           style={{
             imageRendering: 'auto',
             willChange: 'auto',
+            transform: 'scale(1.1)',
+            filter: 'blur(2px)',
           }}
         />
       </div>
