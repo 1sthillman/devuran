@@ -60,6 +60,7 @@ import { appointmentsService, salonsService, servicesService, staffService } fro
 import { reservationService } from '@/services/reservationService';
 import { authService } from '@/services/authService';
 import { subscriptionService } from '@/services/subscriptionService';
+import { storageService } from '@/services/storageService';
 import { nanoid } from 'nanoid';
 import type { Appointment, Salon, Service, Staff, BusinessSubscription } from '@/types';
 
@@ -772,6 +773,19 @@ export function OwnerDashboard() {
       // 🍽️ Eğer masa hizmeti ise (tableId varsa), salon.services array'inden sil
       const serviceToDelete = salon?.services?.find(s => s.id === serviceId);
       
+      // 🗑️ R2'den görseli sil (eğer varsa)
+      if (serviceToDelete?.image && !serviceToDelete.image.startsWith('data:')) {
+        try {
+          const urlObj = new URL(serviceToDelete.image);
+          const r2Path = urlObj.pathname.substring(1);
+          console.log(`🗑️ R2'den hizmet görseli siliniyor: ${r2Path}`);
+          await storageService.deleteFile(r2Path, 'r2');
+          console.log('✅ R2 hizmet görseli silindi');
+        } catch (deleteError) {
+          console.warn('⚠️ R2 görseli silinemedi:', deleteError);
+        }
+      }
+      
       if (serviceToDelete && (serviceToDelete as any).tableId) {
         console.log('🍽️ Masa hizmeti siliniyor (array içinden)');
         
@@ -812,7 +826,44 @@ export function OwnerDashboard() {
   };
 
   const handleDeleteStaff = async (staffId: string) => {
+    const staffMember = staff.find(s => s.id === staffId);
+    
+    if (!confirm(`"${staffMember?.name || 'Bu personel'}" personelini silmek istediğinize emin misiniz?`)) {
+      return;
+    }
+    
     try {
+      // 🗑️ R2'den görselleri sil
+      if (staffMember) {
+        // Ana fotoğrafı sil
+        if (staffMember.photo && !staffMember.photo.startsWith('data:') && !staffMember.photo.includes('ui-avatars.com')) {
+          try {
+            const urlObj = new URL(staffMember.photo);
+            const r2Path = urlObj.pathname.substring(1);
+            console.log(`🗑️ R2'den personel fotoğrafı siliniyor: ${r2Path}`);
+            await storageService.deleteFile(r2Path, 'r2');
+          } catch (deleteError) {
+            console.warn('⚠️ R2 fotoğrafı silinemedi:', deleteError);
+          }
+        }
+        
+        // Media array'deki görselleri sil
+        if (staffMember.media && staffMember.media.length > 0) {
+          for (const mediaItem of staffMember.media) {
+            if (mediaItem.url && !mediaItem.url.startsWith('data:')) {
+              try {
+                const urlObj = new URL(mediaItem.url);
+                const r2Path = urlObj.pathname.substring(1);
+                console.log(`🗑️ R2'den personel medyası siliniyor: ${r2Path}`);
+                await storageService.deleteFile(r2Path, 'r2');
+              } catch (deleteError) {
+                console.warn('⚠️ R2 medyası silinemedi:', deleteError);
+              }
+            }
+          }
+        }
+      }
+      
       await staffService.delete(staffId);
       await loadData();
       addToast('Personel başarıyla silindi', 'success');

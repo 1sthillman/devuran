@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Search, Building2, CheckCircle, XCircle, Eye, Edit, Trash2, MapPin, Star, Plus, X } from 'lucide-react';
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { storageService } from '@/services/storageService';
 import type { Salon } from '@/types';
 
 export function BusinessManagement() {
@@ -83,6 +84,44 @@ export function BusinessManagement() {
     if (!confirm('Bu işletmeyi kalıcı olarak silmek istediğinizden emin misiniz?')) return;
     
     try {
+      // 🗑️ R2'den işletme görsellerini sil
+      const businessToDelete = businesses.find(b => b.id === businessId);
+      if (businessToDelete) {
+        const imagesToDelete: string[] = [];
+        
+        // Logo
+        if (businessToDelete.logo && !businessToDelete.logo.startsWith('data:')) {
+          imagesToDelete.push(businessToDelete.logo);
+        }
+        
+        // Cover image
+        if (businessToDelete.coverImage && !businessToDelete.coverImage.startsWith('data:')) {
+          imagesToDelete.push(businessToDelete.coverImage);
+        }
+        
+        // Gallery images
+        if (businessToDelete.galleryImages && businessToDelete.galleryImages.length > 0) {
+          imagesToDelete.push(...businessToDelete.galleryImages.filter(img => !img.startsWith('data:')));
+        }
+        
+        // Media array
+        if (businessToDelete.media && businessToDelete.media.length > 0) {
+          imagesToDelete.push(...businessToDelete.media.map(m => m.url).filter(url => !url.startsWith('data:')));
+        }
+        
+        // Delete all images from R2
+        for (const imageUrl of imagesToDelete) {
+          try {
+            const urlObj = new URL(imageUrl);
+            const r2Path = urlObj.pathname.substring(1);
+            console.log(`🗑️ R2'den işletme görseli siliniyor: ${r2Path}`);
+            await storageService.deleteFile(r2Path, 'r2');
+          } catch (deleteError) {
+            console.warn('⚠️ R2 görseli silinemedi:', deleteError);
+          }
+        }
+      }
+      
       await deleteDoc(doc(db, 'salons', businessId));
       await loadBusinesses();
       alert('İşletme başarıyla silindi!');

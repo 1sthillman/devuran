@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, Trash2, Image as ImageIcon, X, Save, Package, TrendingUp, DollarSign, Clock, Eye, EyeOff, ChefHat, Sparkles, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, Image as ImageIcon, X, Save, Package, TrendingUp, DollarSign, Clock, Eye, EyeOff, ChefHat, Sparkles, Check, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRestaurantStore } from '@/store/restaurantStore';
 import { restaurantService } from '@/services/restaurantService';
-import { mediaCompressionService } from '@/services/mediaCompressionService';
+import { storageService } from '@/services/storageService';
 import { soundService } from '@/services/soundService';
 import type { MenuItem, MenuCategory, ProductIngredient, ProductExtra } from '@/types/restaurant';
 import { cn } from '@/lib/utils';
@@ -69,23 +69,53 @@ export function MenuManagement({ restaurantId }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // File type validation
+    if (!file.type.startsWith('image/')) {
+      toast.error('Sadece görsel dosyaları yükleyebilirsiniz!', {
+        description: 'JPG, PNG veya WebP formatında dosya seçin.'
+      });
+      return;
+    }
+
+    // File size validation (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Dosya boyutu çok büyük!', {
+        description: 'Maksimum 5MB boyutunda dosya yükleyebilirsiniz.'
+      });
+      return;
+    }
+
     try {
-      toast.loading('Görsel yükleniyor...', { id: 'image-upload' });
-      const compressed = await mediaCompressionService.compressImage(file, {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 800,
+      const toastId = toast.loading('Görsel Cloudflare R2\'ye yükleniyor...', {
+        description: 'Lütfen bekleyin, görsel optimize ediliyor...'
       });
-      setItemImage(compressed.base64);
+      
+      // R2'ye yükle (otomatik aggressive compression ile)
+      const result = await storageService.uploadFile(file, {
+        folder: 'menu-items',
+        compress: true,
+        maxWidth: 1280,  // R2-optimized
+        maxHeight: 720,  // R2-optimized
+        quality: 0.70    // Aggressive compression
+      });
+      
+      setItemImage(result.url); // ✅ R2 PUBLIC URL
       soundService.play('success');
-      toast.success('Görsel yüklendi!', { 
-        id: 'image-upload',
-        icon: <Check className="w-5 h-5" />
+      
+      const provider = storageService.getProvider();
+      const providerName = provider === 'r2' ? 'Cloudflare R2' : 'Firebase Storage';
+      const savedSize = ((1 - result.size / file.size) * 100).toFixed(0);
+      
+      toast.success(`Görsel ${providerName}'a yüklendi!`, { 
+        id: toastId,
+        icon: <Cloud className="w-5 h-5" />,
+        description: `${savedSize}% daha küçük (${(result.size / 1024).toFixed(0)}KB)`
       });
-    } catch (error) {
-      console.error('Görsel yükleme hatası:', error);
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      soundService.play('error');
       toast.error('Görsel yüklenemedi!', { 
-        id: 'image-upload',
-        description: 'Lütfen daha küçük bir görsel deneyin.'
+        description: error.message || 'Bir hata oluştu, lütfen tekrar deneyin.'
       });
     }
   };
@@ -194,7 +224,29 @@ export function MenuManagement({ restaurantId }: Props) {
 
   const handleDeleteItem = async (itemId: string) => {
     const item = menuItems.find(i => i.id === itemId);
+    
+    if (!confirm(`"${item?.name || 'Bu ürün'}" ürününü silmek istediğinize emin misiniz?`)) {
+      return;
+    }
+    
     try {
+      // 🗑️ R2'den görseli sil (eğer varsa)
+      if (item?.image && !item.image.startsWith('data:')) {
+        try {
+          // URL'den path'i çıkar (örn: https://pub-xxx.r2.dev/menu-items/123.jpg → menu-items/123.jpg)
+          const urlObj = new URL(item.image);
+          const r2Path = urlObj.pathname.substring(1); // Remove leading slash
+          
+          console.log(`🗑️ R2'den görsel siliniyor: ${r2Path}`);
+          await storageService.deleteFile(r2Path, 'r2');
+          console.log('✅ R2 görseli silindi');
+        } catch (deleteError) {
+          console.warn('⚠️ R2 görseli silinemedi (devam ediliyor):', deleteError);
+          // Don't block deletion if R2 cleanup fails
+        }
+      }
+      
+      // Firestore'dan ürünü sil
       await restaurantService.deleteMenuItem(itemId);
       soundService.play('success');
       toast.success('Ürün silindi!', {

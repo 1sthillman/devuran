@@ -19,6 +19,7 @@ const OwnerDashboard = lazy(() => import('@/pages/OwnerDashboard').then(m => ({ 
 const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
 const SuperAdminDashboard = lazy(() => import('@/pages/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 const RestaurantMenu = lazy(() => import('@/pages/RestaurantMenu'));
+const Migration = lazy(() => import('@/pages/Migration').then(m => ({ default: m.Migration })));
 
 // Loading component
 function PageLoader() {
@@ -147,6 +148,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <Profile />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/migration"
+              element={
+                <AnimatedRoute>
+                  <Migration />
                 </AnimatedRoute>
               }
             />

@@ -86,7 +86,8 @@ export interface Review {
 export interface MediaItem {
   id: string;
   type: 'image' | 'video';
-  base64: string;
+  url: string; // R2 URL (base64 artık kullanılmıyor)
+  base64?: string; // Legacy - migration için
   thumbnail?: string;
   size: number;
   width: number;

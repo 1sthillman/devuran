@@ -254,6 +254,7 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
                   value={formData.photo}
                   onChange={(url) => setFormData({ ...formData, photo: url })}
                   folder="staff"
+                  useCloudStorage={true}
                 />
               </div>
 

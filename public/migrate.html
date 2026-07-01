@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firestore → R2 Migration</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status {
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        .button:hover {
+            opacity: 0.9;
+        }
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #000;
+            padding: 20px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .info { color: #60a5fa; }
+        .warning { color: #fbbf24; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Firestore → Cloudflare R2 Migration</h1>
+        <p>Tüm base64 görselleri R2'ye taşıyın</p>
+    </div>
+
+    <div class="status">
+        <h3>📊 Migration Durumu</h3>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Toplam</div>
+                <div class="stat-value" id="totalCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Taşındı</div>
+                <div class="stat-value success" id="migratedCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Atlandı</div>
+                <div class="stat-value warning" id="skippedCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Hata</div>
+                <div class="stat-value error" id="errorCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Tasarruf</div>
+                <div class="stat-value info" id="savedSize">0 MB</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status">
+        <button class="button" id="startBtn" onclick="startMigration()">▶️ Migration Başlat</button>
+        <button class="button" id="stopBtn" onclick="stopMigration()" disabled>⏹️ Durdur</button>
+        <button class="button" onclick="clearLog()">🗑️ Log Temizle</button>
+    </div>
+
+    <div class="log" id="log">
+        <div class="log-entry info">Migration hazır. Başlatmak için butona tıklayın.</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsX4JDds6Jj38TGO06J2DBPYr8ud2hQT8",
+            authDomain: "ruloposs.firebaseapp.com",
+            projectId: "ruloposs",
+            storageBucket: "ruloposs.firebasestorage.app",
+            messagingSenderId: "1035590394749",
+            appId: "1:1035590394749:web:5a5e603e069749eee56214"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // R2 Config
+        const R2_PUBLIC_URL = 'https://pub-a9f0d52d7a694ba9b04224441c00e8ba.r2.dev';
+
+        let isRunning = false;
+        let stats = { total: 0, migrated: 0, skipped: 0, errors: 0, savedBytes: 0 };
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('totalCount').textContent = stats.total;
+            document.getElementById('migratedCount').textContent = stats.migrated;
+            document.getElementById('skippedCount').textContent = stats.skipped;
+            document.getElementById('errorCount').textContent = stats.errors;
+            document.getElementById('savedSize').textContent = (stats.savedBytes / 1024 / 1024).toFixed(2) + ' MB';
+        }
+
+        function isBase64(str) {
+            return typeof str === 'string' && str.startsWith('data:image/');
+        }
+
+        async function uploadToR2(base64, path) {
+            // Base64'ü blob'a çevir
+            const response = await fetch(base64);
+            const blob = await response.blob();
+            
+            // Blob'u compress et (canvas ile)
+            const compressedBlob = await compressImage(blob);
+            
+            // Note: Bu web-based migration için R2'ye direkt upload yapamıyoruz
+            // Bunun yerine, görsellerin URL'lerini güncelleyeceğiz
+            // Gerçek migration backend'den yapılmalı
+            
+            return {
+                url: `${R2_PUBLIC_URL}/${path}`,
+                size: compressedBlob.size,
+                originalSize: blob.size
+            };
+        }
+
+        async function compressImage(blob) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+
+                    // R2-optimized dimensions
+                    const maxWidth = 1280;
+                    const maxHeight = 720;
+
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+                    if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(resolve, 'image/jpeg', 0.70);
+                };
+                img.src = URL.createObjectURL(blob);
+            });
+        }
+
+        async function migrateSalons() {
+            log('📦 SALON GÖRSELLERİ TARANIY OR...', 'info');
+            const snapshot = await getDocs(collection(db, 'salons'));
+            
+            for (const salonDoc of snapshot.docs) {
+                if (!isRunning) break;
+                
+                const salon = salonDoc.data();
+                const salonId = salonDoc.id;
+                let hasUpdates = false;
+                const updates = {};
+
+                log(`🏢 ${salon.name || salonId}`, 'info');
+                stats.total++;
+
+                // Check logo
+                if (salon.logo && isBase64(salon.logo)) {
+                    log(`  📸 Logo: base64 tespit edildi (${(salon.logo.length / 1024).toFixed(0)}KB)`, 'warning');
+                    stats.skipped++;
+                } else if (salon.logo) {
+                    log(`  ✅ Logo: Zaten URL format`, 'success');
+                    stats.skipped++;
+                }
+
+                // Check cover
+                if (salon.coverImage && isBase64(salon.coverImage)) {
+                    log(`  📸 Cover: base64 tespit edildi (${(salon.coverImage.length / 1024).toFixed(0)}KB)`, 'warning');
+                    stats.skipped++;
+                } else if (salon.coverImage) {
+                    log(`  ✅ Cover: Zaten URL format`, 'success');
+                    stats.skipped++;
+                }
+
+                // Check gallery
+                if (salon.galleryImages && Array.isArray(salon.galleryImages)) {
+                    for (let i = 0; i < salon.galleryImages.length; i++) {
+                        if (isBase64(salon.galleryImages[i])) {
+                            log(`  📸 Galeri ${i + 1}: base64 tespit edildi`, 'warning');
+                            stats.skipped++;
+                        }
+                    }
+                }
+
+                updateStats();
+            }
+        }
+
+        async function migrateMenuItems() {
+            log('\n🍔 MENÜ ÜRÜN GÖRSELLERİ TARANIYOR...', 'info');
+            const snapshot = await getDocs(collection(db, 'menuItems'));
+            
+            for (const itemDoc of snapshot.docs) {
+                if (!isRunning) break;
+                
+                const item = itemDoc.data();
+                const itemId = itemDoc.id;
+
+                if (item.image && isBase64(item.image)) {
+                    log(`🍽️ ${item.name || itemId}: base64 tespit edildi`, 'warning');
+                    stats.skipped++;
+                    stats.total++;
+                } else if (item.image) {
+                    log(`✅ ${item.name || itemId}: Zaten URL format`, 'success');
+                    stats.skipped++;
+                    stats.total++;
+                }
+
+                updateStats();
+            }
+        }
+
+        async function migrateStaff() {
+            log('\n👤 PERSONEL FOTOĞRAFLARI TARANIYOR...', 'info');
+            const snapshot = await getDocs(collection(db, 'staff'));
+            
+            for (const staffDoc of snapshot.docs) {
+                if (!isRunning) break;
+                
+                const staff = staffDoc.data();
+                const staffId = staffDoc.id;
+
+                if (staff.photo && isBase64(staff.photo)) {
+                    log(`👨‍💼 ${staff.name || staffId}: base64 tespit edildi`, 'warning');
+                    stats.skipped++;
+                    stats.total++;
+                } else if (staff.photo) {
+                    log(`✅ ${staff.name || staffId}: Zaten URL format`, 'success');
+                    stats.skipped++;
+                    stats.total++;
+                }
+
+                updateStats();
+            }
+        }
+
+        async function migrateServices() {
+            log('\n✂️ HİZMET GÖRSELLERİ TARANIYOR...', 'info');
+            const snapshot = await getDocs(collection(db, 'services'));
+            
+            for (const serviceDoc of snapshot.docs) {
+                if (!isRunning) break;
+                
+                const service = serviceDoc.data();
+                const serviceId = serviceDoc.id;
+
+                if (service.image && isBase64(service.image)) {
+                    log(`✂️ ${service.name || serviceId}: base64 tespit edildi`, 'warning');
+                    stats.skipped++;
+                    stats.total++;
+                } else if (service.image) {
+                    log(`✅ ${service.name || serviceId}: Zaten URL format`, 'success');
+                    stats.skipped++;
+                    stats.total++;
+                }
+
+                updateStats();
+            }
+        }
+
+        window.startMigration = async function() {
+            isRunning = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            stats = { total: 0, migrated: 0, skipped: 0, errors: 0, savedBytes: 0 };
+            updateStats();
+
+            log('🚀 FIRESTORE GÖRSEL TARAMA BAŞLIYOR...', 'info');
+            log('⚠️ NOT: Bu web-based tarama modu. Gerçek migration için backend gereklidir.', 'warning');
+            log('=' .repeat(60), 'info');
+
+            try {
+                await migrateSalons();
+                await migrateMenuItems();
+                await migrateStaff();
+                await migrateServices();
+
+                log('=' .repeat(60), 'info');
+                log('✅ TARAMA TAMAMLANDI!', 'success');
+                log(`\n📊 SONUÇLAR:`, 'info');
+                log(`  • Toplam: ${stats.total}`, 'info');
+                log(`  • Migrated: ${stats.migrated}`, 'success');
+                log(`  • Atlandı: ${stats.skipped}`, 'warning');
+                log(`  • Hata: ${stats.errors}`, 'error');
+            } catch (error) {
+                log(`❌ HATA: ${error.message}`, 'error');
+                console.error(error);
+            }
+
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        };
+
+        window.stopMigration = function() {
+            isRunning = false;
+            log('⏹️ Migration durduruldu', 'warning');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        };
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+            log('Log temizlendi', 'info');
+        };
+    </script>
+</body>
+</html>

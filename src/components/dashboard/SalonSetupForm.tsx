@@ -394,6 +394,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                   value={formData.logo}
                   onChange={(url) => setFormData({ ...formData, logo: url })}
                   folder="logos"
+                  useCloudStorage={true}
                 />
 
                 <ImageUploader
@@ -401,6 +402,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                   value={formData.coverImage}
                   onChange={(url) => setFormData({ ...formData, coverImage: url })}
                   folder="covers"
+                  useCloudStorage={true}
                 />
 
                 <MultiImageUploader
@@ -409,6 +411,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
                   onChange={(urls) => setFormData({ ...formData, galleryImages: urls })}
                   maxImages={10}
                   folder="gallery"
+                  useCloudStorage={true}
                 />
               </div>
             </Suspense>

@@ -32,7 +32,7 @@ export function TableGrid({ tables, orders, notifications = [], restaurantId, on
   const [transferDialog, setTransferDialog] = useState<{ table: Table; order: Order } | null>(null);
   const [notificationDialog, setNotificationDialog] = useState<{ table: Table; notification: RestaurantNotification } | null>(null);
   const [responding, setResponding] = useState(false);
-  const [longPressTimer, setLongPressTimer] = useState<number | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [reservations, setReservations] = useState<Reservation[]>([]); // 🆕 Rezervasyonlar
 
   // 🆕 Rezervasyonları dinle

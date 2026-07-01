@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
-import { X, Loader2, Plus } from 'lucide-react';
+import { X, Loader2, Plus, Cloud } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { compressMultipleImages, isValidImageType } from '@/services/mediaCompressionService';
+import { storageService } from '@/services/storageService';
 import { useUIStore } from '@/store/uiStore';
 
 interface MultiImageUploaderProps {
@@ -10,6 +11,7 @@ interface MultiImageUploaderProps {
   label?: string;
   maxImages?: number;
   folder?: string;
+  useCloudStorage?: boolean;
 }
 
 export function MultiImageUploader({ 
@@ -17,7 +19,8 @@ export function MultiImageUploader({
   onChange, 
   label, 
   maxImages = 10,
-  folder = 'gallery' 
+  folder = 'gallery',
+  useCloudStorage = true
 }: MultiImageUploaderProps) {
   const { addToast } = useUIStore();
   const [uploading, setUploading] = useState(false);
@@ -27,7 +30,6 @@ export function MultiImageUploader({
   const handleFilesSelect = async (files: FileList) => {
     const fileArray = Array.from(files);
     
-    // Validate files
     const validFiles = fileArray.filter(file => {
       if (!isValidImageType(file)) {
         addToast(`${file.name} geçersiz format`, 'error');
@@ -47,15 +49,33 @@ export function MultiImageUploader({
     setProgress(0);
 
     try {
-      // Compress images
       const compressed = await compressMultipleImages(validFiles, setProgress);
       
-      // Direkt base64'leri kullan
-      const base64URLs = compressed.map(img => img.base64);
-      onChange([...value, ...base64URLs]);
-    } catch (error) {
+      if (useCloudStorage) {
+        const uploadPromises = compressed.map(async (img, index) => {
+          const blob = await (await fetch(img.base64)).blob();
+          const file = new File([blob], `image-${Date.now()}-${index}.webp`, { type: 'image/webp' });
+          // Zaten compress edildi, tekrar compress etme
+          const result = await storageService.uploadFile(file, { 
+            folder,
+            compress: false // Manuel compress edildi
+          });
+          return result.url;
+        });
+        
+        const urls = await Promise.all(uploadPromises);
+        onChange([...value, ...urls]);
+        
+        const provider = storageService.getProvider();
+        addToast(`✅ ${urls.length} görsel ${provider === 'r2' ? 'R2' : 'Firebase'}'ya yüklendi`, 'success');
+      } else {
+        const base64URLs = compressed.map(img => img.base64);
+        onChange([...value, ...base64URLs]);
+        addToast('✅ Görseller yüklendi', 'success');
+      }
+    } catch (error: any) {
       console.error('Upload error:', error);
-      addToast('Görsel yükleme başarısız oldu', 'error');
+      addToast('❌ Yükleme başarısız', 'error');
     }
 
     setUploading(false);
@@ -102,10 +122,16 @@ export function MultiImageUploader({
             className="aspect-square rounded-full border-2 border-dashed border-[var(--obsidian-rim)] bg-[var(--void)] hover:border-[var(--liquid-chrome)] transition-colors flex flex-col items-center justify-center gap-2"
           >
             {uploading ? (
-              <>
+              <div className="flex flex-col items-center gap-2">
                 <Loader2 size={24} className="text-[var(--liquid-chrome)] animate-spin" />
                 <span className="font-body text-xs text-[var(--muted-lead)]">{Math.round(progress)}%</span>
-              </>
+                {useCloudStorage && (
+                  <div className="flex items-center gap-1 text-[10px] text-white/40">
+                    <Cloud className="w-3 h-3" />
+                    <span>{storageService.getProvider() === 'r2' ? 'R2' : 'FB'}</span>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <Plus size={24} className="text-[var(--muted-lead)]" />

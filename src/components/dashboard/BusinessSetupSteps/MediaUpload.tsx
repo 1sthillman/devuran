@@ -45,6 +45,7 @@ export function MediaUpload({ data, onChange }: MediaUploadProps) {
               value={data.logo}
               onChange={(url) => onChange({ ...data, logo: url })}
               folder="logos"
+              useCloudStorage={true}
             />
             <p className="text-xs text-[var(--muted-lead)] mt-2 ml-1">
               Opsiyonel - İşletmenizin logosu
@@ -62,6 +63,7 @@ export function MediaUpload({ data, onChange }: MediaUploadProps) {
               value={data.coverImage}
               onChange={(url) => onChange({ ...data, coverImage: url })}
               folder="covers"
+              useCloudStorage={true}
             />
             <p className="text-xs text-[var(--muted-lead)] mt-2 ml-1">
               Zorunlu - Ana sayfa görseli (en az 1200x600px önerilir)
@@ -80,6 +82,7 @@ export function MediaUpload({ data, onChange }: MediaUploadProps) {
               onChange={(urls) => onChange({ ...data, galleryImages: urls })}
               maxImages={10}
               folder="gallery"
+              useCloudStorage={true}
             />
             <p className="text-xs text-[var(--muted-lead)] mt-2 ml-1">
               Opsiyonel - İşletmenizden fotoğraflar (maksimum 10 görsel)
