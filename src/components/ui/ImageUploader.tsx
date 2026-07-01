@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, Camera, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { compressImage, isValidImageType } from '@/services/mediaCompressionService';
+import { r2Service } from '@/services/cloudflareR2Service';
 import { useUIStore } from '@/store/uiStore';
 
 interface ImageUploaderProps {
@@ -12,7 +12,7 @@ interface ImageUploaderProps {
   folder?: string;
 }
 
-export function ImageUploader({ value, onChange, label, maxSizeMB = 5 }: ImageUploaderProps) {
+export function ImageUploader({ value, onChange, label, maxSizeMB = 5, folder = 'images' }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
   const [showOptions, setShowOptions] = useState(false);
@@ -21,30 +21,24 @@ export function ImageUploader({ value, onChange, label, maxSizeMB = 5 }: ImageUp
   const { addToast } = useUIStore();
 
   const handleFileSelect = async (file: File) => {
-    if (!isValidImageType(file)) {
-      addToast('Sadece JPG, PNG veya WebP formatında görsel yükleyebilirsiniz', 'warning');
-      return;
-    }
-
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      addToast(`Dosya boyutu maksimum ${maxSizeMB}MB olmalıdır`, 'warning');
-      return;
-    }
-
     setUploading(true);
     setShowOptions(false);
 
     try {
-      // Görseli sıkıştır
-      const compressed = await compressImage(file);
+      // Upload to Cloudflare R2
+      const result = await r2Service.uploadImage(file, {
+        folder,
+        compress: true,
+        maxSizeMB,
+        generateThumbnail: false
+      });
       
-      // Direkt base64'ü kullan (Firebase Storage yerine)
-      setPreview(compressed.base64);
-      onChange(compressed.base64);
+      setPreview(result.url);
+      onChange(result.url);
       addToast('Görsel başarıyla yüklendi', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      addToast('Görsel yükleme başarısız oldu', 'error');
+      addToast(error.message || 'Görsel yükleme başarısız oldu', 'error');
     }
 
     setUploading(false);

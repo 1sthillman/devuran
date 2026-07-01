@@ -12,8 +12,8 @@ import {
   serverTimestamp,
   getDoc
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { r2Service } from './cloudflareR2Service';
 import type { Announcement, AnnouncementTargetType } from '@/types/announcement';
 
 const COLLECTION = 'announcements';
@@ -23,9 +23,12 @@ class AnnouncementService {
    * Görsel yükle
    */
   async uploadImage(file: File): Promise<string> {
-    const fileRef = ref(storage, `announcements/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    return await getDownloadURL(fileRef);
+    const result = await r2Service.uploadImage(file, {
+      folder: 'announcements',
+      compress: true,
+      maxSizeMB: 5
+    });
+    return result.url;
   }
 
   /**

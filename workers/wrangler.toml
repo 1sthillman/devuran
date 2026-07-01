@@ -1,0 +1,17 @@
+name = "devuran-r2-upload"
+main = "r2-upload.ts"
+compatibility_date = "2024-01-01"
+
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "devuran-images"
+
+# Environment Variables
+[vars]
+ALLOWED_ORIGINS = "https://devuran.com,https://www.devuran.com,http://localhost:5173"
+
+# Routes
+routes = [
+  { pattern = "api.devuran.com/r2/*", zone_name = "devuran.com" }
+]

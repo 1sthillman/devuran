@@ -11,8 +11,8 @@ import {
   Timestamp,
   serverTimestamp 
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { r2Service } from './cloudflareR2Service';
 import type { SupportTicket, SupportMessage, SupportAttachment } from '@/types/support';
 
 const COLLECTIONS = {
@@ -22,38 +22,22 @@ const COLLECTIONS = {
 
 class SupportService {
   /**
-   * Dosya sıkıştırma ve yükleme
+   * Dosya yükleme
    */
   async uploadAttachment(file: File, ticketId: string): Promise<SupportAttachment> {
-    // Dosya boyutu kontrolü (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      throw new Error('Dosya boyutu 10MB\'dan küçük olmalıdır');
-    }
-
-    let processedFile = file;
-
-    // Görsel ise sıkıştır
-    if (file.type.startsWith('image/')) {
-      processedFile = await this.compressImage(file);
-    }
-
-    // PDF ise sıkıştır (temel optimizasyon)
-    if (file.type === 'application/pdf') {
-      // PDF sıkıştırma için external library gerekir, şimdilik orijinali kullan
-      processedFile = file;
-    }
-
-    // Storage'a yükle
-    const fileRef = ref(storage, `support/${ticketId}/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, processedFile);
-    const url = await getDownloadURL(fileRef);
+    // Upload to R2
+    const result = await r2Service.uploadImage(file, {
+      folder: `support/${ticketId}`,
+      compress: file.type.startsWith('image/'),
+      maxSizeMB: 10
+    });
 
     return {
       id: `${Date.now()}_${file.name}`,
       name: file.name,
       type: file.type,
-      size: processedFile.size,
-      url,
+      size: result.size,
+      url: result.url,
       uploadedAt: new Date().toISOString(),
     };
   }
