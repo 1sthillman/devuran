@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Receipt, Clock, CheckCircle2, TrendingUp, ChevronUp } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
+import { fcmService } from '@/services/fcmService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Order } from '@/types/restaurant';
 import { TableGrid } from './TableGrid';
 import { PaymentDialog } from './PaymentDialog';
+import { NotificationPermissionDialog } from './NotificationPermissionDialog';
 
 interface CashierPanelProps {
   restaurantId: string;
@@ -147,6 +149,9 @@ export function CashierPanel({ restaurantId }: CashierPanelProps) {
 
   return (
     <>
+      {/* Push Notification İzin Dialogu */}
+      <NotificationPermissionDialog role="cashier" restaurantId={restaurantId} />
+      
       <div className="space-y-5 sm:space-y-6">
         {/* Modern Stats - Proper Theme Support */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
@@ -197,7 +202,8 @@ export function CashierPanel({ restaurantId }: CashierPanelProps) {
                 </div>
                 <TableGrid 
                   tables={billRequestedTables} 
-                  orders={orders} 
+                  orders={orders}
+                  restaurantId={restaurantId}
                   onTableClick={handleTableClick}
                 />
               </div>
@@ -207,7 +213,8 @@ export function CashierPanel({ restaurantId }: CashierPanelProps) {
             {otherTables.length > 0 && (
               <TableGrid 
                 tables={otherTables} 
-                orders={orders} 
+                orders={orders}
+                restaurantId={restaurantId}
                 onTableClick={handleTableClick}
               />
             )}

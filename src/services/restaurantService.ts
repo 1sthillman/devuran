@@ -395,6 +395,10 @@ class RestaurantService {
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
+    // Önce siparişi getir
+    const orderDoc = await getDoc(doc(db, ORDERS, orderId));
+    const order = orderDoc.data() as Order;
+    
     const updates: any = {
       status,
       updatedAt: serverTimestamp(),
@@ -406,7 +410,37 @@ class RestaurantService {
     if (status === 'delivered') updates.deliveredAt = serverTimestamp();
     if (status === 'completed') updates.completedAt = serverTimestamp();
     
+    // Siparişi güncelle
     await updateDoc(doc(db, ORDERS, orderId), updates);
+    
+    // ✅ Masa durumunu otomatik güncelle
+    if (order.tableId) {
+      const tableStatus = this.getTableStatusFromOrderStatus(status);
+      if (tableStatus) {
+        await this.updateTable(order.tableId, { status: tableStatus });
+        console.log(`✅ Masa ${order.tableName} durumu güncellendi:`, tableStatus);
+      }
+    }
+  }
+
+  // Sipariş durumundan masa durumu belirle
+  private getTableStatusFromOrderStatus(orderStatus: OrderStatus): TableStatus | null {
+    switch (orderStatus) {
+      case 'pending':
+      case 'confirmed':
+        return 'order_placed';
+      case 'preparing':
+        return 'preparing';
+      case 'ready':
+        return 'ready';
+      case 'picked_up':
+        return 'waiter_picking';
+      case 'delivered':
+        return 'delivered';
+      // completed durumunda masayı temizleme - completePayment'te yapılacak
+      default:
+        return null;
+    }
   }
 
   async updateOrder(orderId: string, updates: Partial<Order>): Promise<void> {

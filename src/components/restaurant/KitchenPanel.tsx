@@ -4,10 +4,12 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, ChefHat, CheckCircle2, AlertCircle, ChevronUp } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
 import { soundService } from '@/services/soundService';
+import { fcmService } from '@/services/fcmService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Order, OrderStatus } from '@/types/restaurant';
+import { NotificationPermissionDialog } from './NotificationPermissionDialog';
 
 interface KitchenPanelProps {
   restaurantId: string;
@@ -100,6 +102,9 @@ export function KitchenPanel({ restaurantId }: KitchenPanelProps) {
 
   return (
     <>
+      {/* Push Notification İzin Dialogu */}
+      <NotificationPermissionDialog role="kitchen" restaurantId={restaurantId} />
+      
       <div className="space-y-5 sm:space-y-6">
         {/* Modern Stats Cards - Minimal & Clean */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">

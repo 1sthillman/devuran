@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,27 +8,94 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, MoveHorizontal, Users, Clock, Flame, Phone, Receipt, CheckCircle2, X } from 'lucide-react';
+import { MoreVertical, MoveHorizontal, Users, Clock, Flame, Phone, Receipt, CheckCircle2, X, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { restaurantService } from '@/services/restaurantService';
 import { toast } from 'sonner';
 import type { Table, Order, RestaurantNotification } from '@/types/restaurant';
+import type { Reservation } from '@/types';
 import { TableTransferDialog } from './TableTransferDialog';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface TableGridProps {
   tables: Table[];
   orders: Order[];
   notifications?: RestaurantNotification[]; // Yeni: Bildirimler
+  restaurantId: string; // 🆕 Rezervasyonları dinlemek için
   onTableClick?: (table: Table) => void;
   onTableLongPress?: (table: Table) => void;
 }
 
-export function TableGrid({ tables, orders, notifications = [], onTableClick, onTableLongPress }: TableGridProps) {
+export function TableGrid({ tables, orders, notifications = [], restaurantId, onTableClick, onTableLongPress }: TableGridProps) {
   const [transferDialog, setTransferDialog] = useState<{ table: Table; order: Order } | null>(null);
   const [notificationDialog, setNotificationDialog] = useState<{ table: Table; notification: RestaurantNotification } | null>(null);
   const [responding, setResponding] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<number | null>(null);
+  const [reservations, setReservations] = useState<Reservation[]>([]); // 🆕 Rezervasyonlar
+
+  // 🆕 Rezervasyonları dinle
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, 'reservations'),
+        where('salonId', '==', restaurantId),
+        where('type', '==', 'slot')
+      ),
+      (snapshot) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const reservationsList = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as Reservation))
+          .filter(res => {
+            const slotRes = res as any;
+            const resDate = new Date(slotRes.date);
+            resDate.setHours(0, 0, 0, 0);
+            
+            // Sadece bugünkü ve aktif rezervasyonlar
+            return resDate.getTime() === today.getTime() && 
+                   ['confirmed', 'deposit_paid', 'fully_paid', 'in_progress'].includes(slotRes.status);
+          });
+        
+        setReservations(reservationsList);
+      },
+      (error) => {
+        console.error('❌ Rezervasyon dinleme hatası:', error);
+        setReservations([]);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [restaurantId]);
+
+  // 🆕 Masanın bugünkü rezervasyonunu bul
+  function getTableReservation(tableName: string): { reservation: Reservation; minutesUntil: number; isNear: boolean } | null {
+    const now = new Date();
+    
+    for (const res of reservations) {
+      const slotRes = res as any;
+      const tableService = slotRes.services?.[0];
+      const resTableName = tableService?.name?.replace('Masa ', '');
+      
+      if (resTableName === tableName) {
+        // Rezervasyon saatini parse et
+        const [hours, minutes] = slotRes.time.split(':').map(Number);
+        const reservationTime = new Date();
+        reservationTime.setHours(hours, minutes, 0, 0);
+        
+        const minutesUntil = Math.floor((reservationTime.getTime() - now.getTime()) / 60000);
+        
+        // 1 saat = 60 dakika
+        const isNear = minutesUntil > 0 && minutesUntil <= 60;
+        
+        return { reservation: res, minutesUntil, isNear };
+      }
+    }
+    
+    return null;
+  }
 
   function getTableStatusColor(status: string): string {
     switch (status) {
@@ -193,19 +260,31 @@ export function TableGrid({ tables, orders, notifications = [], onTableClick, on
         {tables.map((table) => {
           const order = getTableOrder(table.id);
           const isEmpty = table.status === 'empty';
+          const reservationInfo = getTableReservation(table.tableNumber); // 🆕 Rezervasyon kontrolü
 
           return (
             <Card
               key={table.id}
               className={cn(
                 'relative p-4 border-2 cursor-pointer transition-all select-none',
-                getTableStatusColor(table.status)
+                getTableStatusColor(table.status),
+                reservationInfo?.isNear && 'border-purple-500 dark:border-purple-400'
               )}
               onClick={() => handleTableClickWithNotification(table)}
               onPointerDown={() => handlePointerDown(table)}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
             >
+              {/* Rezervasyon Badge - En Üstte */}
+              {reservationInfo?.isNear && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+                  <Badge className="bg-purple-600 dark:bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                    <Calendar className="w-3 h-3 mr-1 inline" />
+                    {reservationInfo.minutesUntil} dk
+                  </Badge>
+                </div>
+              )}
+
               {/* Masa Numarası */}
               <div className="text-center mb-3">
                 <div className="flex items-center justify-center gap-2">
@@ -237,6 +316,27 @@ export function TableGrid({ tables, orders, notifications = [], onTableClick, on
                   {getTableStatusText(table.status)}
                 </Badge>
               </div>
+
+              {/* Rezervasyon Bilgisi - Masa boşsa ve rezervasyon yakınsa göster */}
+              {isEmpty && reservationInfo?.isNear && (() => {
+                const slotRes = reservationInfo.reservation as any;
+                return (
+                  <div className="mt-3 pt-3 border-t border-purple-500/30 bg-purple-50 dark:bg-purple-500/10 rounded p-2">
+                    <div className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center justify-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      Rezervasyon
+                    </div>
+                    <div className="text-center mt-1">
+                      <div className="text-xs font-semibold text-gray-900 dark:text-white">
+                        {slotRes.userName}
+                      </div>
+                      <div className="text-xs text-purple-600 dark:text-purple-400">
+                        {slotRes.time}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Sipariş Bilgisi - TÜM SİPARİŞLERİN TOPLAMI */}
               {!isEmpty && (

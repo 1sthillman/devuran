@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, CheckCircle2, Phone, Flame, Receipt, Clock, Filter, ChevronUp, Check, X, Calendar, Users as UsersIcon } from 'lucide-react';
 import { restaurantService } from '@/services/restaurantService';
 import { soundService } from '@/services/soundService';
+import { fcmService } from '@/services/fcmService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +12,7 @@ import { TableGrid } from './TableGrid';
 import { TableActionMenu } from './TableActionMenu';
 import { TableTransferDialog } from './TableTransferDialog';
 import { WaiterOrderScreen } from './WaiterOrderScreen';
+import { NotificationPermissionDialog } from './NotificationPermissionDialog';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import type { Reservation } from '@/types';
@@ -311,6 +313,9 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
 
   return (
     <>
+      {/* Push Notification İzin Dialogu */}
+      <NotificationPermissionDialog role="waiter" restaurantId={restaurantId} />
+      
       <div className="space-y-5 sm:space-y-6 relative">
         {/* Modern Stats - Minimal & Clean */}
         <div className="grid grid-cols-4 gap-3 sm:gap-4">
@@ -838,6 +843,7 @@ export function WaiterPanel({ restaurantId }: WaiterPanelProps) {
             tables={filteredTables} 
             orders={orders}
             notifications={notifications}
+            restaurantId={restaurantId}
             onTableLongPress={handleTableLongPress}
           />
         </div>

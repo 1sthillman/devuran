@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom';
 import { blockingService } from '@/services/blockingService';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
+import { useThemeStore } from '@/store/themeStore';
 import { cn } from '@/lib/utils';
 
 const categoryLabels: Record<string, string> = {
@@ -31,6 +32,7 @@ export function SalonDetail() {
   const init = useBookingStore((s) => s.init);
   const { user } = useAuthStore();
   const { addToast } = useUIStore();
+  const { actualTheme } = useThemeStore();
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [salon, setSalon] = useState<Salon | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -198,26 +200,31 @@ export function SalonDetail() {
   };
 
   return (
-    <div className="w-full pb-8 pt-6 relative">
-      {/* 🎨 Animated Background - HER ZAMAN KARANLIK (SİYAH) GIF */}
-      <div className="fixed inset-0 opacity-[0.25] pointer-events-none z-0 overflow-hidden">
+    <div 
+      className="w-full pb-8 pt-6 relative"
+      style={actualTheme === 'light' ? {
+        ['--chrome-white' as any]: '#ffffff',
+        ['--silver-frost' as any]: '#f0f0f0',
+        ['--muted-lead' as any]: '#d0d0d0',
+      } : undefined}
+    >
+      {/* 🎨 Animated Background - Bokeh Effect (Sadece Aydınlık Mod) */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden dark:hidden">
         <img
           src="/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif"
           alt=""
-          className="w-full h-full object-cover scale-110 blur-[2px]"
+          className="w-full h-full object-cover blur-[40px] scale-110 opacity-30"
           loading="lazy"
           decoding="async"
           style={{
             imageRendering: 'auto',
             willChange: 'auto',
-            transform: 'scale(1.1)',
-            filter: 'blur(2px)',
           }}
         />
       </div>
       
-      {/* Gradient Overlay */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[var(--slate-surface)]/98 via-[var(--slate-surface)]/95 to-[var(--slate-surface)]/98 pointer-events-none z-0" />
+      {/* Contrast Overlay - Aydınlık modda hafif overlay */}
+      <div className="fixed inset-0 bg-black/20 dark:hidden pointer-events-none z-0" />
       
       {/* Content */}
       <div className="relative z-10">
