@@ -184,6 +184,14 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
     return t;
   };
 
+  // Debug modal states
+  console.log('ReservationManager render - Modal states:', {
+    selectedReservation: !!selectedReservation,
+    editingReservation: !!editingReservation,
+    cancellingReservation: !!cancellingReservation,
+    showOperations
+  });
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -205,7 +213,8 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
               e.preventDefault(); 
               e.stopPropagation(); 
               console.log('Operasyon button clicked, current state:', showOperations);
-              setShowOperations(true); 
+              setShowOperations(true);
+              console.log('After setShowOperations(true), new state:', true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all"
           >
@@ -306,8 +315,9 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                     onClick={(e) => { 
                       e.preventDefault(); 
                       e.stopPropagation(); 
-                      console.log('Detay clicked for:', r.id);
-                      setSelectedReservation(r); 
+                      console.log('Detay clicked for:', r.id, 'Selected reservation:', r);
+                      setSelectedReservation(r);
+                      console.log('State should be updated to:', r); 
                     }}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg text-xs font-semibold transition-colors border border-blue-500/20"
                   >
@@ -368,141 +378,138 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
       </div>
 
       {/* Detail Modal - Bottom Sheet */}
-      <AnimatePresence>
-        {selectedReservation && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Backdrop clicked - closing modal');
-                setSelectedReservation(null);
-              }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-3xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}>
-              <div className="overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                <div className="p-6 md:p-8">
-                  <div className="flex items-start justify-between mb-6">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <h3 className="text-2xl font-heading font-bold text-white">Detaylar</h3>
-                        {getStatusBadge(selectedReservation.status)}
-                      </div>
-                      <div className="flex items-center gap-2 text-white/50 text-sm">
-                        <span>#{selectedReservation.id.slice(0, 8).toUpperCase()}</span><span>•</span>
-                        <div className="flex items-center gap-1">{getTypeIcon(selectedReservation.type)}<span>{getTypeLabel(selectedReservation.type)}</span></div>
-                      </div>
+      {selectedReservation && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Backdrop clicked - closing modal');
+              setSelectedReservation(null);
+            }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="relative w-full max-w-3xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+              <div className="p-6 md:p-8">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <h3 className="text-2xl font-heading font-bold text-white">Detaylar</h3>
+                      {getStatusBadge(selectedReservation.status)}
                     </div>
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Close detail modal clicked');
-                        setSelectedReservation(null);
-                      }} 
-                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
-                      <X className="w-5 h-5 text-white/60" />
-                    </button>
+                    <div className="flex items-center gap-2 text-white/50 text-sm">
+                      <span>#{selectedReservation.id.slice(0, 8).toUpperCase()}</span><span>•</span>
+                      <div className="flex items-center gap-1">{getTypeIcon(selectedReservation.type)}<span>{getTypeLabel(selectedReservation.type)}</span></div>
+                    </div>
                   </div>
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-sm font-semibold text-white/40 mb-3">MÜŞTERİ</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3"><User className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{selectedReservation.userName}</span></div>
-                        <div className="flex items-center gap-3"><Phone className="w-5 h-5 text-white/40 flex-shrink-0" /><a href={`tel:${selectedReservation.userPhone}`} className="text-white hover:text-purple-300 transition-colors">{selectedReservation.userPhone}</a></div>
-                        {selectedReservation.userEmail && <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-white/40 flex-shrink-0" /><a href={`mailto:${selectedReservation.userEmail}`} className="text-white hover:text-purple-300 transition-colors break-all">{selectedReservation.userEmail}</a></div>}
-                      </div>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Close detail modal clicked');
+                      setSelectedReservation(null);
+                    }} 
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
+                    <X className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white/40 mb-3">MÜŞTERİ</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3"><User className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{selectedReservation.userName}</span></div>
+                      <div className="flex items-center gap-3"><Phone className="w-5 h-5 text-white/40 flex-shrink-0" /><a href={`tel:${selectedReservation.userPhone}`} className="text-white hover:text-purple-300 transition-colors">{selectedReservation.userPhone}</a></div>
+                      {selectedReservation.userEmail && <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-white/40 flex-shrink-0" /><a href={`mailto:${selectedReservation.userEmail}`} className="text-white hover:text-purple-300 transition-colors break-all">{selectedReservation.userEmail}</a></div>}
                     </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-white/40 mb-3">REZERVASYON</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{selectedReservation.businessName}</span></div>
-                        {getEventDate(selectedReservation) && <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{getEventDate(selectedReservation)}</span></div>}
-                        {getEventTime(selectedReservation) && <div className="flex items-center gap-3"><Clock className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{getEventTime(selectedReservation)}</span></div>}
-                        {selectedReservation.type === 'slot' && (selectedReservation as SlotReservation).staffName && (
-                          <div className="flex items-start gap-3"><Users className="w-5 h-5 text-white/40 flex-shrink-0 mt-0.5" /><div><span className="text-white/40 text-sm block">Personel:</span><span className="text-white">{(selectedReservation as SlotReservation).staffName}</span></div></div>
-                        )}
-                        {selectedReservation.type === 'slot' && (selectedReservation as SlotReservation).services && (
-                          <div className="flex items-start gap-3"><ShoppingBag className="w-5 h-5 text-white/40 flex-shrink-0 mt-0.5" /><div><span className="text-white/40 text-sm block">Hizmetler:</span><span className="text-white">{(selectedReservation as SlotReservation).services.map(s => s.name).join(', ')}</span></div></div>
-                        )}
-                        {selectedReservation.notes && <div className="flex items-start gap-3"><span className="text-white/40 text-sm flex-shrink-0 mt-0.5">Not:</span><span className="text-white text-sm">{selectedReservation.notes}</span></div>}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-white/40 mb-3">ÖDEME</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between"><span className="text-white/70">Toplam:</span><span className="text-white font-semibold">{selectedReservation.pricing.totalAmount.toLocaleString('tr-TR')} ₺</span></div>
-                        {selectedReservation.pricing.depositRequired && (
-                          <>
-                            <div className="flex items-center justify-between"><span className="text-white/70">Kapora ({selectedReservation.pricing.depositPercentage}%):</span><span className="text-amber-400 font-semibold">{selectedReservation.pricing.depositAmount.toLocaleString('tr-TR')} ₺</span></div>
-                            <div className="flex items-center justify-between"><span className="text-white/70">Kalan:</span><span className="text-white font-semibold">{selectedReservation.pricing.finalAmount.toLocaleString('tr-TR')} ₺</span></div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-white/10">
-                      {selectedReservation.status === 'pending' && (
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleApprove(selectedReservation.id);
-                          }} 
-                          disabled={loading}
-                          className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50">
-                          <Check className="w-5 h-5" />{loading ? 'Onaylanıyor...' : 'Onayla'}
-                        </button>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white/40 mb-3">REZERVASYON</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{selectedReservation.businessName}</span></div>
+                      {getEventDate(selectedReservation) && <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{getEventDate(selectedReservation)}</span></div>}
+                      {getEventTime(selectedReservation) && <div className="flex items-center gap-3"><Clock className="w-5 h-5 text-white/40 flex-shrink-0" /><span className="text-white">{getEventTime(selectedReservation)}</span></div>}
+                      {selectedReservation.type === 'slot' && (selectedReservation as SlotReservation).staffName && (
+                        <div className="flex items-start gap-3"><Users className="w-5 h-5 text-white/40 flex-shrink-0 mt-0.5" /><div><span className="text-white/40 text-sm block">Personel:</span><span className="text-white">{(selectedReservation as SlotReservation).staffName}</span></div></div>
                       )}
+                      {selectedReservation.type === 'slot' && (selectedReservation as SlotReservation).services && (
+                        <div className="flex items-start gap-3"><ShoppingBag className="w-5 h-5 text-white/40 flex-shrink-0 mt-0.5" /><div><span className="text-white/40 text-sm block">Hizmetler:</span><span className="text-white">{(selectedReservation as SlotReservation).services.map(s => s.name).join(', ')}</span></div></div>
+                      )}
+                      {selectedReservation.notes && <div className="flex items-start gap-3"><span className="text-white/40 text-sm flex-shrink-0 mt-0.5">Not:</span><span className="text-white text-sm">{selectedReservation.notes}</span></div>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white/40 mb-3">ÖDEME</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between"><span className="text-white/70">Toplam:</span><span className="text-white font-semibold">{selectedReservation.pricing.totalAmount.toLocaleString('tr-TR')} ₺</span></div>
+                      {selectedReservation.pricing.depositRequired && (
+                        <>
+                          <div className="flex items-center justify-between"><span className="text-white/70">Kapora ({selectedReservation.pricing.depositPercentage}%):</span><span className="text-amber-400 font-semibold">{selectedReservation.pricing.depositAmount.toLocaleString('tr-TR')} ₺</span></div>
+                          <div className="flex items-center justify-between"><span className="text-white/70">Kalan:</span><span className="text-white font-semibold">{selectedReservation.pricing.finalAmount.toLocaleString('tr-TR')} ₺</span></div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-white/10">
+                    {selectedReservation.status === 'pending' && (
                       <button 
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setEditingReservation(selectedReservation);
-                          setSelectedReservation(null);
-                        }}
-                        className="flex-1 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl font-semibold transition-colors border border-blue-500/20">
-                        <Edit className="w-5 h-5 inline mr-2" />Düzenle
+                          handleApprove(selectedReservation.id);
+                        }} 
+                        disabled={loading}
+                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50">
+                        <Check className="w-5 h-5" />{loading ? 'Onaylanıyor...' : 'Onayla'}
                       </button>
-                      {!['cancelled_by_user', 'cancelled_by_business'].includes(selectedReservation.status) && (
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setCancellingReservation(selectedReservation);
-                            setSelectedReservation(null);
-                          }} 
-                          disabled={loading}
-                          className="flex-1 px-6 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl font-semibold transition-colors border border-rose-500/20 disabled:opacity-50">
-                          <X className="w-5 h-5 inline mr-2" />İptal
-                        </button>
-                      )}
-                    </div>
+                    )}
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditingReservation(selectedReservation);
+                        setSelectedReservation(null);
+                      }}
+                      className="flex-1 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl font-semibold transition-colors border border-blue-500/20">
+                      <Edit className="w-5 h-5 inline mr-2" />Düzenle
+                    </button>
+                    {!['cancelled_by_user', 'cancelled_by_business'].includes(selectedReservation.status) && (
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCancellingReservation(selectedReservation);
+                          setSelectedReservation(null);
+                        }} 
+                        disabled={loading}
+                        className="flex-1 px-6 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl font-semibold transition-colors border border-rose-500/20 disabled:opacity-50">
+                        <X className="w-5 h-5 inline mr-2" />İptal
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </div>,
-          document.body
-        )}
-      </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
 
       {/* Edit Modal */}
-      <AnimatePresence>
-        {editingReservation && createPortal(
+      {editingReservation && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }} 
@@ -649,11 +656,9 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           </div>,
           document.body
         )}
-      </AnimatePresence>
 
       {/* Operations Modal */}
-      <AnimatePresence>
-        {showOperations && createPortal(
+      {showOperations && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }} 
@@ -733,11 +738,9 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           </div>,
           document.body
         )}
-      </AnimatePresence>
 
       {/* Cancel Modal */}
-      <AnimatePresence>
-        {cancellingReservation && createPortal(
+      {cancellingReservation && createPortal(
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }} 
@@ -814,7 +817,6 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           </div>,
           document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }
