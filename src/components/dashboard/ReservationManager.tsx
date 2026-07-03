@@ -675,7 +675,7 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                           onDateChange={(newDate) => setEditingReservation({ ...editingReservation, checkOut: newDate } as any)}
                           label="Çıkış Tarihi"
                           showTime={false}
-                          minDate={new Date((editingReservation as NightlyBookingReservation).checkIn + 'T00:00:00')}
+                          minDate={(editingReservation as NightlyBookingReservation).checkIn}
                         />
                       </div>
                     )}

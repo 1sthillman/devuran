@@ -389,22 +389,24 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
                   </div>
                 </div>
 
-                {/* Hizmet Görseli - Modern Card */}
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
-                  <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
-                    Hizmet Görseli
-                  </label>
-                  <ImageUploader
-                    value={formData.image}
-                    onChange={(url) => setFormData({ ...formData, image: url })}
-                    folder="services"
-                    useCloudStorage={true}
-                    maxSizeMB={5}
-                  />
-                  <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
-                    Hizmetinizi temsil eden bir görsel ekleyin (opsiyonel)
-                  </p>
-                </div>
+                {/* Hizmet Görseli - Modern Card - Restoran haricindekiler için */}
+                {!['restoran', 'kafe', 'pastane'].includes(category) && (
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                    <label className="block font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                      Hizmet Görseli
+                    </label>
+                    <ImageUploader
+                      value={formData.image}
+                      onChange={(url) => setFormData({ ...formData, image: url })}
+                      folder="services"
+                      useCloudStorage={true}
+                      maxSizeMB={5}
+                    />
+                    <p className="font-body text-xs text-[var(--muted-lead)] mt-2">
+                      Hizmetinizi temsil eden bir görsel ekleyin (opsiyonel)
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Aktif Durum - Modern Card */}
