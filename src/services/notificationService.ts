@@ -213,6 +213,45 @@ Yeni bir rezervasyon oluşturabilirsiniz.
   }
 
   /**
+   * Send reservation updated notification
+   */
+  async sendReservationUpdated(data: {
+    userId: string;
+    userName: string;
+    userEmail: string;
+    userPhone: string;
+    businessName: string;
+    reservationId: string;
+  }): Promise<void> {
+    const message = `Merhaba ${data.userName},
+
+${data.businessName} rezervasyonunuz güncellendi.
+
+Rezervasyon No: ${data.reservationId}
+
+Güncel bilgilerinizi rezervasyonlarım sayfasından kontrol edebilirsiniz.
+
+İyi günler dileriz.`;
+
+    await this.createNotification({
+      userId: data.userId,
+      type: 'reservation_confirmed',
+      channel: 'both',
+      recipient: {
+        email: data.userEmail,
+        phone: data.userPhone,
+        name: data.userName,
+      },
+      subject: 'Rezervasyonunuz Güncellendi',
+      message,
+      metadata: {
+        reservationId: data.reservationId,
+        businessName: data.businessName,
+      },
+    });
+  }
+
+  /**
    * Send payment received notification
    */
   async sendPaymentReceived(data: {

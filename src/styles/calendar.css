@@ -1,0 +1,131 @@
+/* Modern Calendar Styles */
+.modern-calendar {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #a855f7;
+  --rdp-background-color: #7c3aed;
+  font-family: inherit;
+}
+
+.modern-calendar .rdp-months {
+  display: flex;
+  gap: 1rem;
+}
+
+.modern-calendar .rdp-month {
+  background: transparent;
+}
+
+.modern-calendar .rdp-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.modern-calendar .rdp-caption_label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  text-transform: capitalize;
+}
+
+.modern-calendar .rdp-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.modern-calendar .rdp-nav_button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.modern-calendar .rdp-nav_button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: white;
+}
+
+.modern-calendar .rdp-nav_button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.modern-calendar .rdp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.modern-calendar .rdp-head_cell {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.modern-calendar .rdp-cell {
+  padding: 2px;
+}
+
+.modern-calendar .rdp-day {
+  width: var(--rdp-cell-size);
+  height: var(--rdp-cell-size);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: white;
+  background: transparent;
+  border: none;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modern-calendar .rdp-day:hover:not(.rdp-day_disabled):not(.rdp-day_selected) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modern-calendar .rdp-day_selected {
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%) !important;
+  color: white !important;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+.modern-calendar .rdp-day_today:not(.rdp-day_selected) {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  font-weight: 600;
+  border: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.modern-calendar .rdp-day_disabled {
+  color: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+}
+
+.modern-calendar .rdp-day_outside {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .modern-calendar {
+    --rdp-cell-size: 36px;
+  }
+  
+  .modern-calendar .rdp-caption_label {
+    font-size: 0.875rem;
+  }
+}

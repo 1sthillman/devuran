@@ -12,7 +12,9 @@ import { fcmService } from '@/services/fcmService';
 import { useUIStore } from '@/store/uiStore';
 import { db } from '@/lib/firebase';
 import { getDoc, doc } from 'firebase/firestore';
+import { ModernDateTimePicker } from './ModernDateTimePicker';
 import type { Reservation, SlotReservation, DailyRentalReservation, NightlyBookingReservation, ProjectReservation, OrderReservation } from '@/types';
+import '@/styles/calendar.css';
 
 interface ReservationManagerProps {
   reservations: Reservation[];
@@ -108,15 +110,82 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
 
   const handleEdit = async () => {
     if (!editingReservation) return;
-    setLoading(true);
+    
+    // Validation
     try {
+      // Tarih kontrolü
+      if (editingReservation.type === 'slot') {
+        const res = editingReservation as SlotReservation;
+        if (!res.date || !res.startTime || !res.endTime) {
+          addToast('Tarih ve saat bilgileri eksik', 'error');
+          return;
+        }
+        // Start < End kontrolü
+        if (res.startTime >= res.endTime) {
+          addToast('Başlangıç saati bitiş saatinden önce olmalı', 'error');
+          return;
+        }
+      }
+      
+      if (editingReservation.type === 'daily') {
+        const res = editingReservation as DailyRentalReservation;
+        if (!res.eventDate || !res.startTime || !res.endTime) {
+          addToast('Tarih ve saat bilgileri eksik', 'error');
+          return;
+        }
+        if (res.startTime >= res.endTime) {
+          addToast('Başlangıç saati bitiş saatinden önce olmalı', 'error');
+          return;
+        }
+      }
+      
+      if (editingReservation.type === 'nightly') {
+        const res = editingReservation as NightlyBookingReservation;
+        if (!res.checkIn || !res.checkOut) {
+          addToast('Giriş ve çıkış tarihleri eksik', 'error');
+          return;
+        }
+        if (res.checkIn >= res.checkOut) {
+          addToast('Giriş tarihi çıkış tarihinden önce olmalı', 'error');
+          return;
+        }
+      }
+      
+      if (editingReservation.type === 'order') {
+        const res = editingReservation as OrderReservation;
+        if (!res.deliveryDate || !res.deliveryTime) {
+          addToast('Teslimat tarihi ve saati eksik', 'error');
+          return;
+        }
+      }
+      
+      if (editingReservation.type === 'project') {
+        const res = editingReservation as ProjectReservation;
+        if (!res.eventDate) {
+          addToast('Etkinlik tarihi eksik', 'error');
+          return;
+        }
+      }
+      
+      setLoading(true);
       await reservationService.updateReservation(editingReservation.id, editingReservation);
-      addToast('Güncellendi', 'success');
+      
+      // Müşteriye bildirim gönder
+      await notificationService.sendReservationUpdated({
+        userId: editingReservation.userId,
+        userName: editingReservation.userName,
+        userEmail: editingReservation.userEmail,
+        userPhone: editingReservation.userPhone,
+        businessName: editingReservation.businessName,
+        reservationId: editingReservation.id
+      });
+      
+      addToast('Rezervasyon güncellendi ve müşteri bilgilendirildi', 'success');
       setEditingReservation(null);
       setSelectedReservation(null);
       onRefresh();
     } catch (e: any) {
-      addToast(e.message || 'Hata', 'error');
+      addToast(e.message || 'Güncelleme başarısız', 'error');
     }
     setLoading(false);
   };
@@ -547,84 +616,92 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                   <div className="space-y-4">
                     {editingReservation.type === 'slot' && (
                       <>
-                        <div><label className="text-sm font-semibold text-white/70 mb-2 block">Tarih</label>
-                          <input type="date" value={(editingReservation as SlotReservation).date}
-                            onChange={(e) => setEditingReservation({ ...editingReservation, date: e.target.value } as any)}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div><label className="text-sm font-semibold text-white/70 mb-2 block">Başlangıç</label>
-                            <input type="time" value={(editingReservation as SlotReservation).startTime}
-                              onChange={(e) => setEditingReservation({ ...editingReservation, startTime: e.target.value } as any)}
-                              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                          </div>
-                          <div><label className="text-sm font-semibold text-white/70 mb-2 block">Bitiş</label>
-                            <input type="time" value={(editingReservation as SlotReservation).endTime}
-                              onChange={(e) => setEditingReservation({ ...editingReservation, endTime: e.target.value } as any)}
-                              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                          </div>
+                        <ModernDateTimePicker
+                          date={(editingReservation as SlotReservation).date}
+                          time={(editingReservation as SlotReservation).startTime}
+                          onDateChange={(newDate) => setEditingReservation({ ...editingReservation, date: newDate } as any)}
+                          onTimeChange={(newTime) => setEditingReservation({ ...editingReservation, startTime: newTime } as any)}
+                          label="Randevu Tarihi"
+                          timeLabel="Başlangıç Saati"
+                        />
+                        <div>
+                          <label className="text-sm font-semibold text-white/70 mb-2 block">Bitiş Saati</label>
+                          <ModernDateTimePicker
+                            date={(editingReservation as SlotReservation).date}
+                            time={(editingReservation as SlotReservation).endTime}
+                            onDateChange={() => {}}
+                            onTimeChange={(newTime) => setEditingReservation({ ...editingReservation, endTime: newTime } as any)}
+                            label=""
+                            showTime={true}
+                            timeLabel="Bitiş Saati"
+                          />
                         </div>
                       </>
                     )}
                     {editingReservation.type === 'daily' && (
                       <>
-                        <div><label className="text-sm font-semibold text-white/70 mb-2 block">Tarih</label>
-                          <input type="date" value={(editingReservation as DailyRentalReservation).eventDate}
-                            onChange={(e) => setEditingReservation({ ...editingReservation, eventDate: e.target.value } as any)}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div><label className="text-sm font-semibold text-white/70 mb-2 block">Başlangıç</label>
-                            <input type="time" value={(editingReservation as DailyRentalReservation).startTime}
-                              onChange={(e) => setEditingReservation({ ...editingReservation, startTime: e.target.value } as any)}
-                              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                          </div>
-                          <div><label className="text-sm font-semibold text-white/70 mb-2 block">Bitiş</label>
-                            <input type="time" value={(editingReservation as DailyRentalReservation).endTime}
-                              onChange={(e) => setEditingReservation({ ...editingReservation, endTime: e.target.value } as any)}
-                              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                          </div>
+                        <ModernDateTimePicker
+                          date={(editingReservation as DailyRentalReservation).eventDate}
+                          time={(editingReservation as DailyRentalReservation).startTime}
+                          onDateChange={(newDate) => setEditingReservation({ ...editingReservation, eventDate: newDate } as any)}
+                          onTimeChange={(newTime) => setEditingReservation({ ...editingReservation, startTime: newTime } as any)}
+                          label="Etkinlik Tarihi"
+                          timeLabel="Başlangıç Saati"
+                        />
+                        <div>
+                          <label className="text-sm font-semibold text-white/70 mb-2 block">Bitiş Saati</label>
+                          <ModernDateTimePicker
+                            date={(editingReservation as DailyRentalReservation).eventDate}
+                            time={(editingReservation as DailyRentalReservation).endTime}
+                            onDateChange={() => {}}
+                            onTimeChange={(newTime) => setEditingReservation({ ...editingReservation, endTime: newTime } as any)}
+                            label=""
+                            showTime={true}
+                            timeLabel="Bitiş Saati"
+                          />
                         </div>
                       </>
                     )}
                     {editingReservation.type === 'nightly' && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-sm font-semibold text-white/70 mb-2 block">Giriş</label>
-                          <input type="date" value={(editingReservation as NightlyBookingReservation).checkIn}
-                            onChange={(e) => setEditingReservation({ ...editingReservation, checkIn: e.target.value } as any)}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                        </div>
-                        <div><label className="text-sm font-semibold text-white/70 mb-2 block">Çıkış</label>
-                          <input type="date" value={(editingReservation as NightlyBookingReservation).checkOut}
-                            onChange={(e) => setEditingReservation({ ...editingReservation, checkOut: e.target.value } as any)}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ModernDateTimePicker
+                          date={(editingReservation as NightlyBookingReservation).checkIn}
+                          onDateChange={(newDate) => setEditingReservation({ ...editingReservation, checkIn: newDate } as any)}
+                          label="Giriş Tarihi"
+                          showTime={false}
+                        />
+                        <ModernDateTimePicker
+                          date={(editingReservation as NightlyBookingReservation).checkOut}
+                          onDateChange={(newDate) => setEditingReservation({ ...editingReservation, checkOut: newDate } as any)}
+                          label="Çıkış Tarihi"
+                          showTime={false}
+                          minDate={new Date((editingReservation as NightlyBookingReservation).checkIn + 'T00:00:00')}
+                        />
                       </div>
                     )}
                     {editingReservation.type === 'order' && (
                       <>
-                        <div><label className="text-sm font-semibold text-white/70 mb-2 block">Teslimat Tarihi</label>
-                          <input type="date" value={(editingReservation as OrderReservation).deliveryDate}
-                            onChange={(e) => setEditingReservation({ ...editingReservation, deliveryDate: e.target.value } as any)}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                        </div>
-                        <div><label className="text-sm font-semibold text-white/70 mb-2 block">Teslimat Saati</label>
-                          <input type="time" value={(editingReservation as OrderReservation).deliveryTime}
-                            onChange={(e) => setEditingReservation({ ...editingReservation, deliveryTime: e.target.value } as any)}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                        </div>
+                        <ModernDateTimePicker
+                          date={(editingReservation as OrderReservation).deliveryDate}
+                          time={(editingReservation as OrderReservation).deliveryTime}
+                          onDateChange={(newDate) => setEditingReservation({ ...editingReservation, deliveryDate: newDate } as any)}
+                          onTimeChange={(newTime) => setEditingReservation({ ...editingReservation, deliveryTime: newTime } as any)}
+                          label="Teslimat Tarihi"
+                          timeLabel="Teslimat Saati"
+                        />
                       </>
                     )}
                     {editingReservation.type === 'project' && (
-                      <div><label className="text-sm font-semibold text-white/70 mb-2 block">Tarih</label>
-                        <input type="date" value={(editingReservation as ProjectReservation).eventDate}
-                          onChange={(e) => setEditingReservation({ ...editingReservation, eventDate: e.target.value } as any)}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/20 transition-colors" />
-                      </div>
+                      <ModernDateTimePicker
+                        date={(editingReservation as ProjectReservation).eventDate}
+                        onDateChange={(newDate) => setEditingReservation({ ...editingReservation, eventDate: newDate } as any)}
+                        label="Proje Tarihi"
+                        showTime={false}
+                      />
                     )}
                     <div><label className="text-sm font-semibold text-white/70 mb-2 block">Dahili Notlar</label>
                       <textarea value={editingReservation.internalNotes || ''} onChange={(e) => setEditingReservation({ ...editingReservation, internalNotes: e.target.value })}
-                        rows={3} placeholder="İşletme notu..." className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 transition-colors resize-none" />
+                        rows={3} placeholder="İşletme notu (müşteri görmez)..." className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 transition-colors resize-none" />
                     </div>
                     <div className="flex gap-3 pt-4">
                       <button 
