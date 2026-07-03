@@ -335,7 +335,9 @@ class AvailabilityService {
     let currentTime = this.timeToMinutes(workingHours.open);
     const endTime = this.timeToMinutes(workingHours.close);
 
-    // 🔥 BUGÜN İÇİN ÖZEL KONTROL
+    // ✅ CRITICAL FIX #5: Today slot generation with midnight overflow protection
+    // Issue: Midnight overflow causing invalid slots (24:15, 25:00, etc.)
+    // Date: 2026-07-03
     const now = new Date();
     const isToday = this.isSameDay(date, now);
     
@@ -344,7 +346,14 @@ class AvailabilityService {
       // En az 30 dakika sonrası için slot göster
       const minStartTime = currentMinutes + 30;
       
-      // 🔥 DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan,
+      // ✅ CRITICAL: 24-hour boundary check (1440 minutes = 24:00)
+      if (minStartTime >= 1440) {
+        // Gece yarısını geçti - bugün için slot yok
+        console.log(`⚠️ No slots today: min start time ${minStartTime} >= 1440 (midnight)`);
+        return [];
+      }
+      
+      // ✅ DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan,
       // yoksa çalışma saatinden başla (gece yarısı sorunu için)
       if (minStartTime > currentTime) {
         currentTime = Math.ceil(minStartTime / 15) * 15; // 15'in katına yuvarla
@@ -353,7 +362,7 @@ class AvailabilityService {
       // currentTime zaten workingHours.open'dan başlıyor, değiştirme
     }
 
-    // 🔥 KONTROL: currentTime endTime'dan büyükse (tüm gün geçmişse) boş array döndür
+    // ✅ CRITICAL: Final check - tüm gün geçmişse boş array döndür
     if (currentTime >= endTime) {
       console.log(`⚠️ Bugün için tüm slotlar geçmiş (${this.minutesToTime(currentTime)} >= ${this.minutesToTime(endTime)})`);
       return [];

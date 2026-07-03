@@ -25,6 +25,8 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
   const [typeFilter, setTypeFilter] = useState<'all' | 'slot' | 'daily' | 'nightly' | 'project' | 'order'>('all');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [showOperations, setShowOperations] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -74,20 +76,28 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
     setLoading(false);
   };
 
-  const handleCancel = async (id: string) => {
-    const reason = prompt('İptal sebebi:') || 'İşletme tarafından iptal';
+  const handleCancel = async () => {
+    if (!cancellingReservation || !cancelReason.trim()) {
+      addToast('İptal sebebi giriniz', 'error');
+      return;
+    }
     setLoading(true);
     try {
-      await reservationService.cancelReservation(id, 'business', reason);
-      const r = reservations.find(x => x.id === id);
-      if (r) {
-        await notificationService.sendReservationCancelled({
-          userId: r.userId, userName: r.userName, userEmail: r.userEmail, userPhone: r.userPhone,
-          businessName: r.businessName, reservationId: r.id, cancelledBy: 'business', reason
-        });
-        await sendPush(r.userId, 'Rezervasyon İptal Edildi', `${r.businessName} rezervasyonunuz iptal edildi`);
-      }
+      await reservationService.cancelReservation(cancellingReservation.id, 'business', cancelReason);
+      await notificationService.sendReservationCancelled({
+        userId: cancellingReservation.userId, 
+        userName: cancellingReservation.userName, 
+        userEmail: cancellingReservation.userEmail, 
+        userPhone: cancellingReservation.userPhone,
+        businessName: cancellingReservation.businessName, 
+        reservationId: cancellingReservation.id, 
+        cancelledBy: 'business', 
+        reason: cancelReason
+      });
+      await sendPush(cancellingReservation.userId, 'Rezervasyon İptal Edildi', `${cancellingReservation.businessName} rezervasyonunuz iptal edildi`);
       addToast('Rezervasyon iptal edildi', 'success');
+      setCancellingReservation(null);
+      setCancelReason('');
       setSelectedReservation(null);
       onRefresh();
     } catch (e: any) {
@@ -190,8 +200,13 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
         
         <div className="flex gap-2">
           <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOperations(true); }}
             type="button"
+            onClick={(e) => { 
+              e.preventDefault(); 
+              e.stopPropagation(); 
+              console.log('Operasyon button clicked, current state:', showOperations);
+              setShowOperations(true); 
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all"
           >
             <Plus className="w-4 h-4" />
@@ -199,8 +214,8 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           </button>
           
           <button
-            onClick={() => setShowFilters(!showFilters)}
             type="button"
+            onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm transition-colors"
           >
             <Filter className="w-4 h-4" />
@@ -263,8 +278,7 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           <AnimatePresence mode="popLayout">
             {filteredReservations.map((r, i) => (
               <motion.div key={r.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.02 }}
-                onClick={() => setSelectedReservation(r)}
-                className="group bg-white/5 border border-white/10 hover:border-purple-500/30 rounded-2xl p-5 transition-all cursor-pointer hover:bg-white/[0.07]">
+                className="group bg-white/5 border border-white/10 hover:border-purple-500/30 rounded-2xl p-5 transition-all">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
@@ -277,12 +291,75 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">{getStatusBadge(r.status)}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm mb-4">
                   <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 truncate text-xs">{r.businessName}</span></div>
                   <div className="flex items-center gap-2">{getTypeIcon(r.type)}<span className="text-white/70 text-xs">{getTypeLabel(r.type)}</span></div>
                   {getEventDate(r) && <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 text-xs">{getEventDate(r)}</span></div>}
                   {getEventTime(r) && <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 text-xs">{getEventTime(r)}</span></div>}
                   <div className="flex items-center gap-2 col-span-2"><DollarSign className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 font-semibold text-xs">{r.pricing.totalAmount.toLocaleString('tr-TR')} ₺</span></div>
+                </div>
+                
+                {/* Butonlar */}
+                <div className="flex gap-2 pt-3 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={(e) => { 
+                      e.preventDefault(); 
+                      e.stopPropagation(); 
+                      console.log('Detay clicked for:', r.id);
+                      setSelectedReservation(r); 
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg text-xs font-semibold transition-colors border border-blue-500/20"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Detay
+                  </button>
+                  
+                  {r.status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        console.log('Approve clicked for:', r.id);
+                        handleApprove(r.id); 
+                      }}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 rounded-lg text-xs font-semibold transition-colors border border-emerald-500/20 disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Onayla
+                    </button>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={(e) => { 
+                      e.preventDefault(); 
+                      e.stopPropagation(); 
+                      console.log('Edit clicked for:', r.id);
+                      setEditingReservation(r); 
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-lg text-xs font-semibold transition-colors border border-purple-500/20"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  
+                  {!['cancelled_by_user', 'cancelled_by_business'].includes(r.status) && (
+                    <button
+                      type="button"
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        console.log('Cancel clicked for:', r.id);
+                        setCancellingReservation(r); 
+                      }}
+                      disabled={loading}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg text-xs font-semibold transition-colors border border-rose-500/20 disabled:opacity-50"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -290,13 +367,26 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail Modal - Bottom Sheet */}
       <AnimatePresence>
         {selectedReservation && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setSelectedReservation(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Backdrop clicked - closing modal');
+                setSelectedReservation(null);
+              }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="relative w-full max-w-3xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}>
@@ -313,7 +403,15 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                         <div className="flex items-center gap-1">{getTypeIcon(selectedReservation.type)}<span>{getTypeLabel(selectedReservation.type)}</span></div>
                       </div>
                     </div>
-                    <button onClick={() => setSelectedReservation(null)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Close detail modal clicked');
+                        setSelectedReservation(null);
+                      }} 
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
                       <X className="w-5 h-5 text-white/60" />
                     </button>
                   </div>
@@ -355,17 +453,39 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-white/10">
                       {selectedReservation.status === 'pending' && (
-                        <button onClick={() => handleApprove(selectedReservation.id)} disabled={loading}
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleApprove(selectedReservation.id);
+                          }} 
+                          disabled={loading}
                           className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50">
                           <Check className="w-5 h-5" />{loading ? 'Onaylanıyor...' : 'Onayla'}
                         </button>
                       )}
-                      <button onClick={() => { setEditingReservation(selectedReservation); setSelectedReservation(null); }}
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingReservation(selectedReservation);
+                          setSelectedReservation(null);
+                        }}
                         className="flex-1 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl font-semibold transition-colors border border-blue-500/20">
                         <Edit className="w-5 h-5 inline mr-2" />Düzenle
                       </button>
                       {!['cancelled_by_user', 'cancelled_by_business'].includes(selectedReservation.status) && (
-                        <button onClick={() => handleCancel(selectedReservation.id)} disabled={loading}
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setCancellingReservation(selectedReservation);
+                            setSelectedReservation(null);
+                          }} 
+                          disabled={loading}
                           className="flex-1 px-6 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl font-semibold transition-colors border border-rose-500/20 disabled:opacity-50">
                           <X className="w-5 h-5 inline mr-2" />İptal
                         </button>
@@ -384,17 +504,36 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
       <AnimatePresence>
         {editingReservation && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setEditingReservation(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setEditingReservation(null);
+              }} 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden z-10"
               onClick={(e) => e.stopPropagation()}>
               <div className="overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 <div className="p-6 md:p-8">
                   <div className="flex items-start justify-between mb-6">
                     <div><h3 className="text-2xl font-heading font-bold text-white mb-2">Düzenle</h3><p className="text-white/50">#{editingReservation.id.slice(0, 8).toUpperCase()}</p></div>
-                    <button onClick={() => setEditingReservation(null)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditingReservation(null);
+                      }} 
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
                       <X className="w-5 h-5 text-white/60" />
                     </button>
                   </div>
@@ -481,11 +620,27 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                         rows={3} placeholder="İşletme notu..." className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 transition-colors resize-none" />
                     </div>
                     <div className="flex gap-3 pt-4">
-                      <button onClick={handleEdit} disabled={loading}
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleEdit();
+                        }} 
+                        disabled={loading}
                         className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50">
                         <Check className="w-5 h-5" />{loading ? 'Kaydediliyor...' : 'Kaydet'}
                       </button>
-                      <button onClick={() => setEditingReservation(null)} className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">İptal</button>
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingReservation(null);
+                        }} 
+                        className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">
+                        İptal
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -500,17 +655,38 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
       <AnimatePresence>
         {showOperations && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowOperations(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Operations backdrop clicked');
+                setShowOperations(false);
+              }} 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-lg max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-lg max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden z-10"
               onClick={(e) => e.stopPropagation()}>
               <div className="overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 <div className="p-6 md:p-8">
                   <div className="flex items-start justify-between mb-6">
                     <div><h3 className="text-2xl font-heading font-bold text-white mb-2">Rezervasyon Operasyonu</h3><p className="text-white/50">Manuel işlemler ve yönlendirmeler</p></div>
-                    <button onClick={() => setShowOperations(false)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Close operations modal clicked');
+                        setShowOperations(false);
+                      }} 
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
                       <X className="w-5 h-5 text-white/60" />
                     </button>
                   </div>
@@ -539,7 +715,98 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
                         <div><h4 className="font-semibold text-emerald-300 mb-1">Onaylama</h4><p className="text-sm text-emerald-200/70">Bekleyen rezervasyonları detay sayfasından onaylayın. Push notification otomatik gönderilir.</p></div>
                       </div>
                     </div>
-                    <button onClick={() => setShowOperations(false)} className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">Anladım</button>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Anladım button clicked');
+                        setShowOperations(false);
+                      }} 
+                      className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">
+                      Anladım
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>,
+          document.body
+        )}
+      </AnimatePresence>
+
+      {/* Cancel Modal */}
+      <AnimatePresence>
+        {cancellingReservation && createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => { setCancellingReservation(null); setCancelReason(''); }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}>
+              <div className="p-6 md:p-8">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h3 className="text-2xl font-heading font-bold text-white mb-2">Rezervasyon İptali</h3>
+                    <p className="text-white/50">İptal sebebini belirtin</p>
+                  </div>
+                  <button 
+                    onClick={() => { setCancellingReservation(null); setCancelReason(''); }} 
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
+                    <X className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <User className="w-5 h-5 text-rose-300" />
+                      <span className="text-white font-semibold">{cancellingReservation.userName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-white/50">
+                      <span>{cancellingReservation.businessName}</span>
+                      {getEventDate(cancellingReservation) && (
+                        <><span>•</span><span>{getEventDate(cancellingReservation)}</span></>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold text-white/70 mb-2 block">İptal Sebebi</label>
+                    <textarea 
+                      value={cancelReason} 
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      rows={4} 
+                      placeholder="Müşteriye bildirilecek iptal sebebini yazın..."
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-rose-500/30 transition-colors resize-none"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={handleCancel} 
+                      disabled={loading || !cancelReason.trim()}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <X className="w-5 h-5" />
+                      {loading ? 'İptal Ediliyor...' : 'Rezervasyonu İptal Et'}
+                    </button>
+                    <button 
+                      onClick={() => { setCancellingReservation(null); setCancelReason(''); }} 
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10"
+                    >
+                      Vazgeç
+                    </button>
                   </div>
                 </div>
               </div>

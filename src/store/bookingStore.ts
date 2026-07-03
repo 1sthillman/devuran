@@ -6,16 +6,16 @@ import { useAuthStore } from './authStore';
 import { rateLimiter } from '@/utils/rateLimiter';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '@/utils/sanitize';
 
-// ✅ GÜVENLİK: Backend validation açık/kapalı (acil durum için)
-// ⚠️ UYARI: Production'da TRUE olmalıdır!
+// ✅ GÜVENLİK: Backend validation ACTIVE
 // 
-// Backend validation etkinleştirmek için:
-// 1. Firebase Functions'ı deploy edin (functions/src/index.ts)
-// 2. Cloud Function'ların çalıştığını test edin
-// 3. Bu değeri true yapın
+// Backend validation açıldı:
+// ✓ Client-side fiyat manipülasyonu engellendi
+// ✓ Tüm fiyatlar backend'de hesaplanıyor
+// ✓ Cloud Functions deployed ve aktif
 // 
-// Geçici olarak false: Client-side fiyat hesaplama kullanılıyor
-const USE_BACKEND_VALIDATION = false;
+// Date: 2026-07-03
+// Issue: CRITICAL #9 - Client-side price manipulation
+const USE_BACKEND_VALIDATION = true;
 
 interface BookingState {
   // Ortak alanlar

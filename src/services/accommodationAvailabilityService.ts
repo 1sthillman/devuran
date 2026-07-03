@@ -14,6 +14,10 @@ class AccommodationAvailabilityService {
   
   /**
    * Belirli bir tarih aralığında odaların müsaitliğini kontrol eder
+   * 
+   * ✅ CRITICAL FIX #2: Same-day check-out/check-in logic
+   * Issue: Same-day checkout + checkin incorrectly blocked
+   * Date: 2026-07-03
    */
   async checkRoomAvailability(
     businessId: string,
@@ -36,16 +40,27 @@ class AccommodationAvailabilityService {
 
       const snapshot = await getDocs(q);
       
+      // ✅ Helper: Same day check
+      const isSameDay = (d1: Date, d2: Date) => 
+        d1.toDateString() === d2.toDateString();
+      
       // Tarih çakışması kontrolü
       for (const doc of snapshot.docs) {
         const reservation = doc.data();
         const resCheckIn = new Date(reservation.checkIn);
         const resCheckOut = new Date(reservation.checkOut);
 
-        // Tarihler çakışıyor mu?
+        // ✅ CRITICAL FIX: Aynı gün check-out ve check-in izin ver
+        // Örnek: Eski müşteri 17 Mayıs check-out, yeni müşteri 17 Mayıs check-in
+        if (isSameDay(checkIn, resCheckOut)) {
+          // Aynı gün check-out sonrası check-in - izin ver
+          continue;
+        }
+
+        // Tarihler çakışıyor mu? (strict overlap check)
         if (
-          (checkIn >= resCheckIn && checkIn < resCheckOut) ||
-          (checkOut > resCheckIn && checkOut <= resCheckOut) ||
+          (checkIn > resCheckIn && checkIn < resCheckOut) ||
+          (checkOut > resCheckIn && checkOut < resCheckOut) ||
           (checkIn <= resCheckIn && checkOut >= resCheckOut)
         ) {
           return false; // Çakışma var, müsait değil

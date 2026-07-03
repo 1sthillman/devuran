@@ -115,8 +115,13 @@ export interface BusinessSubscription {
     serviceCount: number;
     monthlyBookings: number;
     lastUpdated: string;
-    lastResetDate?: string; // Son sayaç sıfırlama tarihi
+    lastResetDate?: string; // ✅ Son sayaç sıfırlama tarihi (CRITICAL FIX #7)
   };
+  
+  // ✅ CRITICAL FIX #12: Trial bypass prevention
+  // Date: 2026-07-03
+  // Permanent flag: Once set to true, never changes
+  trialUsed?: boolean;
   
   // Bekleyen Plan Değişikliği (Admin onayı için)
   pendingPlanChange?: {

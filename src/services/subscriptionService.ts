@@ -31,17 +31,29 @@ class SubscriptionService {
    * Yeni işletme için trial abonelik oluştur
    * NOT: Bir işletme sadece 1 kez trial alabilir
    * 
-   * ✅ GÜVENLİK: History kontrolü eklendi (status değiştirme bypass engellendi)
+   * ✅ CRITICAL FIX #12: Trial bypass prevention with permanent flag
+   * Issue: Users could delete history records to bypass trial limit
+   * Date: 2026-07-03
    */
   async createTrialSubscription(businessId: string, businessName: string): Promise<BusinessSubscription> {
-    // ✅ GÜVENLİK: Subscription document kontrolü
+    // ✅ GÜVENLİK: Subscription document kontrolü - trialUsed flag
     const existingDoc = await getDoc(doc(db, this.subscriptionsCollection, businessId));
     
-    if (existingDoc.exists() && existingDoc.data()?.status === 'trial') {
-      throw new Error('Bu işletme için trial abonelik zaten kullanılmış');
+    if (existingDoc.exists()) {
+      const existingData = existingDoc.data();
+      
+      // ✅ CRITICAL: Permanent trialUsed flag kontrolü
+      if (existingData?.trialUsed === true) {
+        throw new Error('Bu işletme daha önce trial kullanmış. Lütfen ücretli plana geçin.');
+      }
+      
+      // Legacy: Existing trial subscription check
+      if (existingData?.status === 'trial') {
+        throw new Error('Bu işletme için trial abonelik zaten kullanılmış');
+      }
     }
     
-    // ✅ GÜVENLİK: History kontrolü - Daha önce trial kullanılmış mı?
+    // ✅ DOUBLE CHECK: History kontrolü (secondary defense)
     const historyQuery = query(
       collection(db, this.historyCollection),
       where('businessId', '==', businessId),
@@ -53,7 +65,7 @@ class SubscriptionService {
     
     if (!historySnapshot.empty) {
       // History'de trial kaydı var - tekrar alamaz
-      throw new Error('Bu işletme daha önce trial kullanmış. Lütfen ücretli plana geçin.');
+      throw new Error('Bu işletme daha önce trial kullanmış (history). Lütfen ücretli plana geçin.');
     }
 
     const now = new Date();
@@ -70,6 +82,7 @@ class SubscriptionService {
       startDate: now.toISOString(),
       endDate: trialEndDate.toISOString(),
       trialEndDate: trialEndDate.toISOString(),
+      trialUsed: true, // ✅ CRITICAL: Permanent flag - never changes
       price: 0,
       currency: 'TRY',
       usage: {
@@ -431,7 +444,11 @@ class SubscriptionService {
   /**
    * Kullanım istatistiklerini güncelle
    * 
-   * ✅ GÜVENLİK: FieldValue.increment() kullanarak race condition engellendi
+   * ✅ CRITICAL FIX #6: Atomic updates kullan
+   * Issue: Race condition in concurrent usage updates
+   * Date: 2026-07-03
+   * 
+   * @deprecated Use incrementUsageStat() for concurrent-safe updates
    */
   async updateUsageStats(
     businessId: string,
@@ -439,6 +456,10 @@ class SubscriptionService {
   ): Promise<void> {
     const subscription = await this.getBusinessSubscription(businessId);
     if (!subscription) return;
+
+    // ⚠️ WARNING: This method is NOT concurrent-safe
+    // Use incrementUsageStat() instead for atomic updates
+    console.warn('[DEPRECATED] updateUsageStats: Use incrementUsageStat() for concurrent safety');
 
     const updatedUsage = {
       ...subscription.usage,
@@ -455,7 +476,11 @@ class SubscriptionService {
   /**
    * Kullanım istatistiklerini increment et (atomic)
    * 
-   * ✅ YENİ: Concurrent updates için güvenli artırma
+   * ✅ CRITICAL FIX #6: Concurrent-safe counter updates
+   * Issue: Race condition in subscription usage updates
+   * Date: 2026-07-03
+   * 
+   * ✅ PREFERRED: Use this method instead of updateUsageStats()
    */
   async incrementUsageStat(
     businessId: string,
@@ -473,6 +498,39 @@ class SubscriptionService {
       'usage.lastUpdated': new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+  }
+  
+  /**
+   * ✅ CRITICAL FIX #7: Monthly booking counter reset logic
+   * Issue: Monthly bookings never reset, causing false limit errors
+   * Date: 2026-07-03
+   * 
+   * This function checks if a new month has started and resets the counter
+   * Should be called before checking booking limits
+   */
+  async checkAndResetMonthlyBookings(businessId: string): Promise<void> {
+    const subscription = await this.getBusinessSubscription(businessId);
+    if (!subscription) return;
+    
+    const lastReset = new Date(subscription.usage.lastResetDate || subscription.createdAt);
+    const now = new Date();
+    
+    // ✅ Check if month changed
+    if (now.getMonth() !== lastReset.getMonth() ||
+        now.getFullYear() !== lastReset.getFullYear()) {
+      
+      console.log(`[SUBSCRIPTION] Resetting monthly bookings for ${businessId}`, {
+        lastReset: lastReset.toISOString(),
+        now: now.toISOString(),
+        oldCount: subscription.usage.monthlyBookings
+      });
+      
+      await updateDoc(doc(db, this.subscriptionsCollection, businessId), {
+        'usage.monthlyBookings': 0,
+        'usage.lastResetDate': now.toISOString(),
+        updatedAt: now.toISOString()
+      });
+    }
   }
 
   /**

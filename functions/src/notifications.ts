@@ -128,10 +128,9 @@ export const sendPushNotificationOnCreate = functions
 
         // Geçersiz token'ları Firestore'dan temizle
         for (let i = 0; i < failedTokens.length; i++) {
-          const token = failedTokens[i];
           const staffId = staffIds[i];
           
-          if (staffDoc) {
+          if (staffId) {
             await admin.firestore()
               .collection('users')
               .doc(staffId)

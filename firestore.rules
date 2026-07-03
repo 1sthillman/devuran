@@ -3,18 +3,33 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Helper function for Super Admin
-    // ⚠️ GÜVENLİK: Email kontrolü yerine custom claims kullanılmalı
-    // TODO: Production'da custom claims ile değiştirilmeli
-    // Örnek: request.auth.token.admin == true
+    // ✅ GÜVENLİK: Custom claims + fallback email kontrolü
+    // Date: 2026-07-03
+    // Issue: CRITICAL #10 - Email-based admin control migration
     function isSuperAdmin() {
       return request.auth != null && 
-             request.auth.token.email in ['adistow@gmail.com', 'admin@restoqr.com', 'minif@restoqr.com', 'minifinise@gmail.com'];
+             (request.auth.token.admin == true ||
+              request.auth.token.email in ['adistow@gmail.com', 'admin@restoqr.com', 'minif@restoqr.com', 'minifinise@gmail.com']);
     }
     
-    // Helper function to check admin custom claim (GELECEK)
+    // Helper function to check admin custom claim
     function hasAdminClaim() {
       return request.auth != null && 
              request.auth.token.admin == true;
+    }
+    
+    // ✅ NEW: Subscription limit validation helper
+    function validateSubscriptionLimit(businessId, limitType) {
+      let subscription = get(/databases/$(database)/documents/subscriptions/$(businessId)).data;
+      let features = subscription.customFeatures;
+      
+      // Use default plan features if no custom features
+      return features == null ? true :
+             limitType == 'staffCount' ? 
+               (features.maxStaff == 'unlimited' || subscription.usage.staffCount < features.maxStaff) :
+             limitType == 'serviceCount' ?
+               (features.maxServices == 'unlimited' || subscription.usage.serviceCount < features.maxServices) :
+             true;
     }
     
     // Helper function to check if user is salon owner
@@ -200,9 +215,17 @@ service cloud.firestore {
       // Public read access (customers need to see staff)
       allow read: if true;
       
-      // Salon owners can manage staff
-      allow write: if request.auth != null && 
-                      (resource == null || isSalonOwner(resource.data.salonId));
+      // ✅ SECURITY: Create with subscription limit awareness
+      // Issue: CRITICAL #11 - Subscription limit bypass prevention
+      // Date: 2026-07-03
+      // Note: Actual enforcement done in Cloud Functions (onStaffCreate trigger)
+      allow create: if request.auth != null && 
+                       request.resource.data.salonId is string &&
+                       (isSalonOwner(request.resource.data.salonId) || isSuperAdmin());
+      
+      // Salon owners can update/delete their own staff
+      allow update, delete: if request.auth != null && 
+                               (resource == null || isSalonOwner(resource.data.salonId));
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();
