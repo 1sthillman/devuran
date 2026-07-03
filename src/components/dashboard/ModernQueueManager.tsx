@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Clock, Phone, Calendar, ArrowRight, X, CheckCircle2, User as UserIcon, ChevronRight, Bell } from 'lucide-react';
+import { Users, Clock, Phone, Calendar, ArrowRight, X, CheckCircle2, User as UserIcon, ChevronRight, Bell, ChevronUp, ChevronDown, ArrowUpDown, Trash2, CheckCheck, TrendingUp } from 'lucide-react';
 import { appointmentsService, salonsService, staffService } from '@/services/firebaseService';
 import { useUIStore } from '@/store/uiStore';
 import { availabilityService } from '@/services/availabilityService';
 import { RemoveFromQueueDialog } from './RemoveFromQueueDialog';
 import type { QueueEntry, Salon, Staff } from '@/types';
 import { cn } from '@/lib/utils';
-import { format, addDays } from 'date-fns';
+import { format, addDays, differenceInMinutes } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface ModernQueueManagerProps {
   salonId: string;
@@ -26,6 +28,8 @@ export function ModernQueueManager({ salonId, staffId, onRefresh }: ModernQueueM
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [entryToRemove, setEntryToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
+  const [showStats, setShowStats] = useState(true);
   const { addToast } = useUIStore();
 
   useEffect(() => {
@@ -67,6 +71,179 @@ export function ModernQueueManager({ salonId, staffId, onRefresh }: ModernQueueM
     }
   };
 
+  const handleMoveUp = async (entry: QueueEntry) => {
+    if (entry.queuePosition <= 1) return;
+    
+    try {
+      const prevEntry = queue.find(q => q.queuePosition === entry.queuePosition - 1);
+      if (!prevEntry) return;
+
+      // Pozisyonları değiştir
+      await updateDoc(doc(db, 'queue', entry.id), { queuePosition: entry.queuePosition - 1 });
+      await updateDoc(doc(db, 'queue', prevEntry.id), { queuePosition: entry.queuePosition });
+      
+      addToast('Sıra yukarı taşındı', 'success');
+      loadData();
+    } catch (error) {
+      console.error('Sıra taşıma hatası:', error);
+      addToast('Sıra taşınamadı', 'error');
+    }
+  };
+
+  const handleMoveDown = async (entry: QueueEntry) => {
+    if (entry.queuePosition >= queue.length) return;
+    
+    try {
+      const nextEntry = queue.find(q => q.queuePosition === entry.queuePosition + 1);
+      if (!nextEntry) return;
+
+      // Pozisyonları değiştir
+      await updateDoc(doc(db, 'queue', entry.id), { queuePosition: entry.queuePosition + 1 });
+      await updateDoc(doc(db, 'queue', nextEntry.id), { queuePosition: entry.queuePosition });
+      
+      addToast('Sıra aşağı taşındı', 'success');
+      loadData();
+    } catch (error) {
+      console.error('Sıra taşıma hatası:', error);
+      addToast('Sıra taşınamadı', 'error');
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    if (selectedEntries.size === 0) {
+      addToast('Lütfen en az bir kişi seçin', 'warning');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${selectedEntries.size} kişi için toplu randevu oluşturmak istiyor musunuz?\n\n` +
+      `• Her kişi için uygun saat aranacak\n` +
+      `• Müşterilere bildirim gönderilecek`
+    );
+
+    if (!confirmed) return;
+
+    setLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const entryId of selectedEntries) {
+        const entry = queue.find(q => q.id === entryId);
+        if (!entry) continue;
+
+        try {
+          // İlk uygun saati bul
+          const tomorrow = addDays(new Date(), 1);
+          const slots = await availabilityService.getAvailableSlots({
+            businessId: salon!.id,
+            date: tomorrow,
+            duration: entry.totalDuration,
+            staffId: entry.staffId,
+            workingHours: salon!.workingHours,
+          });
+
+          if (slots.length > 0) {
+            await appointmentsService.assignQueueToSlot(
+              entry.id,
+              format(tomorrow, 'yyyy-MM-dd'),
+              slots[0].startTime,
+              entry.staffId
+            );
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          console.error(`Atama hatası (${entry.id}):`, error);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        addToast(`✅ ${successCount} kişi randevuya atandı`, 'success');
+      }
+      if (failCount > 0) {
+        addToast(`⚠️ ${failCount} kişi atanamadı (uygun saat yok)`, 'warning');
+      }
+
+      setSelectedEntries(new Set());
+      loadData();
+      onRefresh?.();
+    } catch (error) {
+      console.error('Toplu atama hatası:', error);
+      addToast('Toplu atama başarısız', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleBulkRemove = async () => {
+    if (selectedEntries.size === 0) {
+      addToast('Lütfen en az bir kişi seçin', 'warning');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${selectedEntries.size} kişiyi sıradan çıkarmak istediğinizden emin misiniz?`
+    );
+
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      for (const entryId of selectedEntries) {
+        await appointmentsService.removeFromQueue(entryId);
+      }
+      addToast(`${selectedEntries.size} kişi sıradan çıkarıldı`, 'success');
+      setSelectedEntries(new Set());
+      loadData();
+      onRefresh?.();
+    } catch (error) {
+      console.error('Toplu silme hatası:', error);
+      addToast('Toplu silme başarısız', 'error');
+    }
+    setLoading(false);
+  };
+
+  const toggleSelection = (entryId: string) => {
+    const newSelection = new Set(selectedEntries);
+    if (newSelection.has(entryId)) {
+      newSelection.delete(entryId);
+    } else {
+      newSelection.add(entryId);
+    }
+    setSelectedEntries(newSelection);
+  };
+
+  const selectAll = () => {
+    if (selectedEntries.size === queue.length) {
+      setSelectedEntries(new Set());
+    } else {
+      setSelectedEntries(new Set(queue.map(q => q.id)));
+    }
+  };
+
+  const calculateEstimatedWaitTime = (position: number): string => {
+    // Her kişi için ortalama 45 dakika hesapla
+    const avgTimePerPerson = 45;
+    const waitTimeMinutes = (position - 1) * avgTimePerPerson;
+    
+    if (waitTimeMinutes < 60) {
+      return `~${waitTimeMinutes} dk`;
+    } else {
+      const hours = Math.floor(waitTimeMinutes / 60);
+      const minutes = waitTimeMinutes % 60;
+      return minutes > 0 ? `~${hours}s ${minutes}dk` : `~${hours} saat`;
+    }
+  };
+
+  const stats = {
+    totalInQueue: queue.length,
+    totalRevenue: queue.reduce((sum, q) => sum + q.totalPrice, 0),
+    avgDuration: queue.length > 0 ? Math.round(queue.reduce((sum, q) => sum + q.totalDuration, 0) / queue.length) : 0,
+    withPreferredTime: queue.filter(q => q.preferredTime).length,
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -92,93 +269,243 @@ export function ModernQueueManager({ salonId, staffId, onRefresh }: ModernQueueM
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Stats Dashboard */}
+      <div className="obsidian-card p-5 rounded-3xl">
+        <button
+          onClick={() => setShowStats(!showStats)}
+          className="w-full flex items-center justify-between mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+              <TrendingUp size={20} className="text-purple-400" />
+            </div>
+            <h3 className="font-heading font-bold text-base text-[var(--chrome-white)]">
+              Sıra İstatistikleri
+            </h3>
+          </div>
+          <ChevronDown className={cn("w-5 h-5 text-[var(--muted-lead)] transition-transform", showStats && "rotate-180")} />
+        </button>
+
+        <AnimatePresence>
+          {showStats && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-3 overflow-hidden"
+            >
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+                <div className="text-xs text-[var(--muted-lead)] mb-1">Toplam Kişi</div>
+                <div className="text-2xl font-heading font-bold text-[var(--chrome-white)]">{stats.totalInQueue}</div>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+                <div className="text-xs text-[var(--muted-lead)] mb-1">Ort. Süre</div>
+                <div className="text-2xl font-heading font-bold text-cyan-400">{stats.avgDuration} dk</div>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+                <div className="text-xs text-[var(--muted-lead)] mb-1">Tercihli Saat</div>
+                <div className="text-2xl font-heading font-bold text-amber-400">{stats.withPreferredTime}</div>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+                <div className="text-xs text-[var(--muted-lead)] mb-1">Toplam Tutar</div>
+                <div className="text-2xl font-heading font-bold text-emerald-400">{stats.totalRevenue}₺</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedEntries.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="obsidian-card p-4 rounded-2xl border-purple-500/30"
+        >
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 size={20} className="text-purple-400" />
+              <span className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                {selectedEntries.size} kişi seçildi
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleBulkAssign}
+                disabled={loading}
+                className="px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <CheckCheck size={16} />
+                Toplu Ata
+              </button>
+              <button
+                onClick={handleBulkRemove}
+                disabled={loading}
+                className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <Trash2 size={16} />
+                Toplu Sil
+              </button>
+              <button
+                onClick={() => setSelectedEntries(new Set())}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[var(--muted-lead)] text-sm font-semibold transition-all"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Select All */}
+      <button
+        onClick={selectAll}
+        className="w-full px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[var(--muted-lead)] text-sm font-semibold transition-all flex items-center justify-center gap-2"
+      >
+        <CheckCircle2 size={16} />
+        {selectedEntries.size === queue.length ? 'Hiçbirini Seçme' : 'Tümünü Seç'}
+      </button>
+
+      {/* Queue List */}
+      <div className="space-y-3">
       {queue.map((entry, index) => (
         <motion.div
           key={entry.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.05 }}
-          className="obsidian-card p-5 rounded-3xl hover:border-purple-500/30 transition-all duration-300"
+          className={cn(
+            "obsidian-card p-5 rounded-3xl hover:border-purple-500/30 transition-all duration-300",
+            selectedEntries.has(entry.id) && "border-purple-500/50 bg-purple-500/5"
+          )}
         >
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                <span className="font-bold text-white text-xl">
-                  {entry.queuePosition}
+          {/* Checkbox */}
+          <div className="flex items-start gap-3 mb-4">
+            <button
+              onClick={() => toggleSelection(entry.id)}
+              className={cn(
+                "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all mt-4",
+                selectedEntries.has(entry.id)
+                  ? "bg-purple-500 border-purple-500"
+                  : "border-white/20 hover:border-white/40"
+              )}
+            >
+              {selectedEntries.has(entry.id) && <CheckCircle2 size={16} className="text-white" />}
+            </button>
+
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <span className="font-bold text-white text-xl">
+                      {entry.queuePosition}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
+                      {entry.customerName}
+                    </h4>
+                    <div className="flex items-center gap-2 text-xs text-[var(--muted-lead)]">
+                      <Phone size={12} />
+                      <span>{entry.customerPhone}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Position Controls */}
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => handleMoveUp(entry)}
+                    disabled={entry.queuePosition === 1 || loading}
+                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[var(--muted-lead)] hover:text-cyan-400 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Yukarı Taşı"
+                  >
+                    <ChevronUp size={16} strokeWidth={2.5} />
+                  </button>
+                  <button
+                    onClick={() => handleMoveDown(entry)}
+                    disabled={entry.queuePosition === queue.length || loading}
+                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[var(--muted-lead)] hover:text-cyan-400 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Aşağı Taşı"
+                  >
+                    <ChevronDown size={16} strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Wait Time Indicator */}
+              <div className="mb-3 p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                <div className="flex items-center gap-2 text-xs text-cyan-300">
+                  <Clock size={12} />
+                  <span className="font-semibold">Tahmini Bekleme: {calculateEstimatedWaitTime(entry.queuePosition)}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {entry.services.map((service) => (
+                  <span
+                    key={service.id}
+                    className="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-xs font-semibold text-purple-300"
+                  >
+                    {service.name}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between mb-4 text-sm">
+                <div className="flex items-center gap-3 text-[var(--muted-lead)]">
+                  <div className="flex items-center gap-1">
+                    <Clock size={14} />
+                    <span>{entry.totalDuration} dk</span>
+                  </div>
+                  {entry.preferredDate && entry.preferredTime && (
+                    <div className="flex items-center gap-1 text-amber-400 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <Calendar size={14} />
+                      <span className="font-semibold">{entry.preferredTime}</span>
+                    </div>
+                  )}
+                </div>
+                <span className="font-bold text-lg text-emerald-400">
+                  {entry.totalPrice}₺
                 </span>
               </div>
-              <div>
-                <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] mb-1">
-                  {entry.customerName}
-                </h4>
-                <div className="flex items-center gap-2 text-xs text-[var(--muted-lead)]">
-                  <Phone size={12} />
-                  <span>{entry.customerPhone}</span>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setEntryToRemove({ id: entry.id, name: entry.customerName });
-                setShowRemoveDialog(true);
-              }}
-              className="w-10 h-10 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-all duration-200 flex items-center justify-center"
-              title="Sıradan Çıkar"
-            >
-              <X size={16} strokeWidth={2.5} />
-            </button>
-          </div>
 
-          <div className="flex flex-wrap gap-2 mb-3">
-            {entry.services.map((service) => (
-              <span
-                key={service.id}
-                className="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-xs font-semibold text-purple-300"
-              >
-                {service.name}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between mb-4 text-sm">
-            <div className="flex items-center gap-3 text-[var(--muted-lead)]">
-              <div className="flex items-center gap-1">
-                <Clock size={14} />
-                <span>{entry.totalDuration} dk</span>
-              </div>
-              {entry.preferredDate && entry.preferredTime && (
-                <div className="flex items-center gap-1 text-cyan-400">
-                  <Calendar size={14} />
-                  <span>{entry.preferredTime}</span>
+              {entry.notes && (
+                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] mb-4">
+                  <p className="text-xs text-[var(--muted-lead)] italic">
+                    {entry.notes}
+                  </p>
                 </div>
               )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedEntry(entry);
+                    setShowAssignModal(true);
+                  }}
+                  className="flex-1 h-11 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30 text-white font-heading font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
+                >
+                  <ArrowRight size={16} strokeWidth={2.5} />
+                  Randevuya Ata
+                </button>
+                <button
+                  onClick={() => {
+                    setEntryToRemove({ id: entry.id, name: entry.customerName });
+                    setShowRemoveDialog(true);
+                  }}
+                  className="w-11 h-11 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-all duration-200 flex items-center justify-center"
+                  title="Sıradan Çıkar"
+                >
+                  <X size={16} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
-            <span className="font-bold text-lg text-emerald-400">
-              {entry.totalPrice}₺
-            </span>
           </div>
-
-          {entry.notes && (
-            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] mb-4">
-              <p className="text-xs text-[var(--muted-lead)] italic">
-                {entry.notes}
-              </p>
-            </div>
-          )}
-
-          <button
-            onClick={() => {
-              setSelectedEntry(entry);
-              setShowAssignModal(true);
-            }}
-            className="w-full h-11 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30 text-white font-heading font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
-          >
-            <ArrowRight size={16} strokeWidth={2.5} />
-            Randevuya Ata
-          </button>
         </motion.div>
       ))}
+      </div>
 
       {showAssignModal && selectedEntry && salon && (
         <AssignToSlotModal

@@ -30,6 +30,19 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
   const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [showOperations, setShowOperations] = useState(false);
+  const [showManualReservation, setShowManualReservation] = useState(false);
+  const [manualFormData, setManualFormData] = useState({
+    userName: '',
+    userPhone: '',
+    userEmail: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    notes: '',
+    services: [] as any[],
+    staffId: '',
+    totalAmount: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const { addToast } = useUIStore();
@@ -190,6 +203,102 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
     setLoading(false);
   };
 
+  const handleManualReservation = async () => {
+    // Validation
+    if (!manualFormData.userName.trim()) {
+      addToast('Müşteri adı gerekli', 'error');
+      return;
+    }
+    if (!manualFormData.userPhone.trim()) {
+      addToast('Telefon numarası gerekli', 'error');
+      return;
+    }
+    if (!manualFormData.date) {
+      addToast('Tarih seçiniz', 'error');
+      return;
+    }
+    if (!manualFormData.startTime) {
+      addToast('Başlangıç saati seçiniz', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Dummy userId oluştur (telefon numarasından)
+      const tempUserId = 'manual_' + manualFormData.userPhone.replace(/\D/g, '');
+      
+      // İlk rezervasyondan businessId ve businessName al
+      const businessId = reservations[0]?.businessId || '';
+      const businessName = reservations[0]?.businessName || '';
+      
+      if (!businessId) {
+        addToast('İşletme bilgisi bulunamadı', 'error');
+        setLoading(false);
+        return;
+      }
+      
+      // Slot reservation oluştur
+      const newReservation: Partial<SlotReservation> = {
+        type: 'slot',
+        userId: tempUserId,
+        userName: manualFormData.userName,
+        userPhone: manualFormData.userPhone,
+        userEmail: manualFormData.userEmail || '',
+        businessId: businessId,
+        businessName: businessName,
+        staffId: manualFormData.staffId || '',
+        staffName: '',
+        date: manualFormData.date,
+        startTime: manualFormData.startTime,
+        endTime: manualFormData.endTime || manualFormData.startTime,
+        services: manualFormData.services.length > 0 ? manualFormData.services : [{
+          id: 'manual',
+          name: 'Manuel Rezervasyon',
+          price: manualFormData.totalAmount,
+          duration: 60
+        }],
+        status: 'confirmed', // Manuel eklenenler direkt onaylı
+        notes: manualFormData.notes,
+        pricing: {
+          basePrice: manualFormData.totalAmount,
+          extrasTotal: 0,
+          discountAmount: 0,
+          taxAmount: 0,
+          totalAmount: manualFormData.totalAmount,
+          depositRequired: false,
+          depositPercentage: 0,
+          depositAmount: 0,
+          finalAmount: manualFormData.totalAmount,
+          currency: 'TRY' as const,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await reservationService.createReservation(newReservation as any);
+      
+      addToast('✅ Manuel rezervasyon başarıyla oluşturuldu', 'success');
+      setShowManualReservation(false);
+      setManualFormData({
+        userName: '',
+        userPhone: '',
+        userEmail: '',
+        date: '',
+        startTime: '',
+        endTime: '',
+        notes: '',
+        services: [],
+        staffId: '',
+        totalAmount: 0,
+      });
+      onRefresh();
+    } catch (e: any) {
+      console.error('Manuel rezervasyon hatası:', e);
+      addToast(e.message || 'Rezervasyon oluşturulamadı', 'error');
+    }
+    setLoading(false);
+  };
+
   const sendPush = async (userId: string, title: string, body: string) => {
     try {
       const userDoc = await getDoc(doc(db, 'users', userId));
@@ -281,14 +390,14 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
             onClick={(e) => { 
               e.preventDefault(); 
               e.stopPropagation(); 
-              console.log('Operasyon button clicked, current state:', showOperations);
-              setShowOperations(true);
-              console.log('After setShowOperations(true), new state:', true);
+              console.log('Operasyon button clicked');
+              setShowManualReservation(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Operasyon</span>
+            <span className="hidden sm:inline">Manuel Rezervasyon</span>
+            <span className="sm:hidden">Ekle</span>
           </button>
           
           <button
@@ -734,7 +843,167 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           document.body
         )}
 
-      {/* Operations Modal */}
+      {/* Manual Reservation Modal */}
+      {showManualReservation && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            onClick={() => setShowManualReservation(false)} 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden z-10"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+              <div className="p-6 md:p-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h3 className="text-2xl font-heading font-bold text-white mb-2">Manuel Rezervasyon</h3>
+                    <p className="text-white/50">Telefon veya yüz yüze alınan rezervasyonları kaydedin</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowManualReservation(false)} 
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
+                    <X className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
+
+                {/* Form */}
+                <div className="space-y-4">
+                  {/* Müşteri Bilgileri */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-white/70">Müşteri Bilgileri</h4>
+                    
+                    <input
+                      type="text"
+                      value={manualFormData.userName}
+                      onChange={(e) => setManualFormData({...manualFormData, userName: e.target.value})}
+                      placeholder="Müşteri Adı Soyadı *"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 transition-colors"
+                      required
+                    />
+                    
+                    <input
+                      type="tel"
+                      value={manualFormData.userPhone}
+                      onChange={(e) => setManualFormData({...manualFormData, userPhone: e.target.value})}
+                      placeholder="Telefon Numarası *"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 transition-colors"
+                      required
+                    />
+                    
+                    <input
+                      type="email"
+                      value={manualFormData.userEmail}
+                      onChange={(e) => setManualFormData({...manualFormData, userEmail: e.target.value})}
+                      placeholder="E-posta (opsiyonel)"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+
+                  {/* Tarih ve Saat */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-white/70">Tarih ve Saat</h4>
+                    
+                    <ModernDateTimePicker
+                      date={manualFormData.date}
+                      time={manualFormData.startTime}
+                      onDateChange={(date) => setManualFormData({...manualFormData, date})}
+                      onTimeChange={(time) => setManualFormData({...manualFormData, startTime: time})}
+                      label="Rezervasyon Tarihi"
+                      timeLabel="Başlangıç Saati"
+                    />
+                    
+                    <div>
+                      <label className="text-sm font-semibold text-white/70 mb-2 block">Bitiş Saati (opsiyonel)</label>
+                      <ModernDateTimePicker
+                        date={manualFormData.date}
+                        time={manualFormData.endTime}
+                        onDateChange={() => {}}
+                        onTimeChange={(time) => setManualFormData({...manualFormData, endTime: time})}
+                        label=""
+                        showTime={true}
+                        timeLabel="Bitiş Saati"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ücret */}
+                  <div>
+                    <label className="text-sm font-semibold text-white/70 mb-2 block">Toplam Ücret (TL)</label>
+                    <input
+                      type="number"
+                      value={manualFormData.totalAmount}
+                      onChange={(e) => setManualFormData({...manualFormData, totalAmount: parseFloat(e.target.value) || 0})}
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 transition-colors font-mono text-lg"
+                    />
+                  </div>
+
+                  {/* Notlar */}
+                  <div>
+                    <label className="text-sm font-semibold text-white/70 mb-2 block">Notlar</label>
+                    <textarea
+                      value={manualFormData.notes}
+                      onChange={(e) => setManualFormData({...manualFormData, notes: e.target.value})}
+                      rows={3}
+                      placeholder="Rezervasyon hakkında notlar..."
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
+                    />
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-blue-200">
+                        <p className="font-semibold mb-1">Manuel rezervasyon otomatik onaylıdır</p>
+                        <p className="text-blue-200/70">Bu rezervasyon direkt olarak "Onaylanmış" durumunda kaydedilecek. Müşteri telefon veya yüz yüze bilgilendirilmelidir.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button 
+                      type="button"
+                      onClick={handleManualReservation}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50">
+                      {loading ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="w-5 h-5" />
+                          <span>Rezervasyonu Kaydet</span>
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setShowManualReservation(false)} 
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">
+                      İptal
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* Operations Modal - IMPROVED WITH REAL ACTIONS */}
       {showOperations && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <motion.div 
@@ -744,7 +1013,6 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Operations backdrop clicked');
                 setShowOperations(false);
               }} 
               className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
@@ -754,61 +1022,166 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
               animate={{ opacity: 1, scale: 1 }} 
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-lg max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden z-10"
+              className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 border border-white/20 rounded-3xl shadow-2xl overflow-hidden z-10"
               onClick={(e) => e.stopPropagation()}>
               <div className="overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 <div className="p-6 md:p-8">
                   <div className="flex items-start justify-between mb-6">
-                    <div><h3 className="text-2xl font-heading font-bold text-white mb-2">Rezervasyon Operasyonu</h3><p className="text-white/50">Manuel işlemler ve yönlendirmeler</p></div>
+                    <div>
+                      <h3 className="text-2xl font-heading font-bold text-white mb-2">Hızlı İşlemler</h3>
+                      <p className="text-white/50">Rezervasyon yönetimi araçları</p>
+                    </div>
                     <button 
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('Close operations modal clicked');
                         setShowOperations(false);
                       }} 
                       className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex-shrink-0">
                       <X className="w-5 h-5 text-white/60" />
                     </button>
                   </div>
-                  <div className="space-y-4">
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0"><Calendar className="w-4 h-4 text-blue-400" /></div>
-                        <div><h4 className="font-semibold text-blue-300 mb-1">Manuel Rezervasyon</h4><p className="text-sm text-blue-200/70">Yeni rezervasyon oluşturmak için işletmenizin ana sayfasına gidin ve normal rezervasyon akışını kullanın.</p></div>
-                      </div>
-                    </div>
-                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0"><Edit className="w-4 h-4 text-purple-400" /></div>
-                        <div><h4 className="font-semibold text-purple-300 mb-1">Düzenleme</h4><p className="text-sm text-purple-200/70">Rezervasyon kartına tıklayın, detay sayfasında "Düzenle" butonunu kullanın. Tarih, saat ve notları güncelleyebilirsiniz.</p></div>
-                      </div>
-                    </div>
-                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4 text-rose-400" /></div>
-                        <div><h4 className="font-semibold text-rose-300 mb-1">İptal</h4><p className="text-sm text-rose-200/70">Detay sayfasında "İptal" butonu ile her zaman iptal edebilirsiniz. Müşteriye otomatik bildirim gönderilir.</p></div>
-                      </div>
-                    </div>
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0"><Check className="w-4 h-4 text-emerald-400" /></div>
-                        <div><h4 className="font-semibold text-emerald-300 mb-1">Onaylama</h4><p className="text-sm text-emerald-200/70">Bekleyen rezervasyonları detay sayfasından onaylayın. Push notification otomatik gönderilir.</p></div>
-                      </div>
-                    </div>
-                    <button 
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Bekleyen Rezervasyonları Onayla */}
+                    {stats.pending > 0 && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const pendingReservations = reservations.filter(r => r.status === 'pending');
+                          if (confirm(`${pendingReservations.length} bekleyen rezervasyonu toplu onayla?`)) {
+                            setLoading(true);
+                            try {
+                              for (const res of pendingReservations) {
+                                await handleApprove(res.id);
+                              }
+                              addToast(`${pendingReservations.length} rezervasyon onaylandı`, 'success');
+                              setShowOperations(false);
+                            } catch (e) {
+                              addToast('Bazı rezervasyonlar onaylanamadı', 'error');
+                            }
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-emerald-500/30 hover:border-emerald-500/50 transition-all overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-green-500/0 group-hover:from-emerald-500/20 group-hover:to-green-500/20 transition-all" />
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
+                            <Check className="w-6 h-6 text-emerald-400" />
+                          </div>
+                          <h4 className="font-heading font-bold text-emerald-300 mb-2">Toplu Onayla</h4>
+                          <p className="text-sm text-emerald-200/70 mb-3">Bekleyen {stats.pending} rezervasyonu onayla</p>
+                          <div className="text-xs text-emerald-400/80">Müşterilere bildirim gönderilir</div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Bugünkü Rezervasyonlar */}
+                    <button
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Anladım button clicked');
+                      onClick={() => {
+                        setActiveFilter('all');
+                        setSearchQuery(new Date().toISOString().split('T')[0]);
                         setShowOperations(false);
-                      }} 
-                      className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">
-                      Anladım
+                      }}
+                      className="group relative p-6 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-all overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-cyan-500/0 group-hover:from-blue-500/20 group-hover:to-cyan-500/20 transition-all" />
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mb-4">
+                          <Calendar className="w-6 h-6 text-blue-400" />
+                        </div>
+                        <h4 className="font-heading font-bold text-blue-300 mb-2">Bugünkü Rezervasyonlar</h4>
+                        <p className="text-sm text-blue-200/70 mb-3">Bugün için {reservations.filter(r => {
+                          const today = new Date().toISOString().split('T')[0];
+                          const resDate = getEventDate(r) || '';
+                          return resDate === today;
+                        }).length} rezervasyon</p>
+                        <div className="text-xs text-blue-400/80">Hızlı filtreleme</div>
+                      </div>
+                    </button>
+
+                    {/* Tüm Onaylanmış */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveFilter('confirmed');
+                        setSearchQuery('');
+                        setShowOperations(false);
+                      }}
+                      className="group relative p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 hover:border-purple-500/50 transition-all overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/20 group-hover:to-pink-500/20 transition-all" />
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
+                          <Users className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <h4 className="font-heading font-bold text-purple-300 mb-2">Onaylı Rezervasyonlar</h4>
+                        <p className="text-sm text-purple-200/70 mb-3">{stats.confirmed} onaylanmış rezervasyon</p>
+                        <div className="text-xs text-purple-400/80">Filtreye git</div>
+                      </div>
+                    </button>
+
+                    {/* Yenile */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRefresh();
+                        setShowOperations(false);
+                        addToast('Rezervasyonlar güncellendi', 'success');
+                      }}
+                      className="group relative p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/50 transition-all overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-orange-500/0 group-hover:from-amber-500/20 group-hover:to-orange-500/20 transition-all" />
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
+                          <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
+                            <Clock className="w-6 h-6 text-amber-400" />
+                          </motion.div>
+                        </div>
+                        <h4 className="font-heading font-bold text-amber-300 mb-2">Yenile</h4>
+                        <p className="text-sm text-amber-200/70 mb-3">Rezervasyonları güncelle</p>
+                        <div className="text-xs text-amber-400/80">En güncel verileri çek</div>
+                      </div>
                     </button>
                   </div>
+
+                  {/* İstatistikler */}
+                  <div className="mt-6 p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <h4 className="font-heading font-bold text-white mb-3">Özet İstatistikler</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{stats.total}</div>
+                        <div className="text-xs text-white/50">Toplam</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-amber-400">{stats.pending}</div>
+                        <div className="text-xs text-white/50">Bekleyen</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-emerald-400">{stats.confirmed}</div>
+                        <div className="text-xs text-white/50">Onaylı</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-400">{stats.revenue.toLocaleString('tr-TR')} ₺</div>
+                        <div className="text-xs text-white/50">Gelir</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowOperations(false);
+                    }} 
+                    className="w-full mt-6 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-semibold transition-colors border border-white/10">
+                    Kapat
+                  </button>
                 </div>
               </div>
             </motion.div>
