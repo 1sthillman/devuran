@@ -202,18 +202,13 @@ export function SalonDetail() {
   return (
     <div 
       className="w-full pb-8 pt-6 relative"
-      style={actualTheme === 'light' ? {
-        ['--chrome-white' as any]: '#ffffff',
-        ['--silver-frost' as any]: '#f0f0f0',
-        ['--muted-lead' as any]: '#d0d0d0',
-      } : undefined}
     >
       {/* 🎨 Animated Background - Bokeh Effect (Sadece Aydınlık Mod) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden dark:hidden">
         <img
           src="/asset/Kaliteyi_bozmadan_loop_olmasn_istiyorum_kar.gif"
           alt=""
-          className="w-full h-full object-cover blur-[40px] scale-110 opacity-30"
+          className="w-full h-full object-cover blur-[20px] scale-105 opacity-[0.15]"
           loading="lazy"
           decoding="async"
           style={{
@@ -223,8 +218,8 @@ export function SalonDetail() {
         />
       </div>
       
-      {/* Contrast Overlay - Aydınlık modda hafif overlay */}
-      <div className="fixed inset-0 bg-black/20 dark:hidden pointer-events-none z-0" />
+      {/* Contrast Overlay - Çok hafif */}
+      <div className="fixed inset-0 bg-white/40 dark:hidden pointer-events-none z-0" />
       
       {/* Content */}
       <div className="relative z-10">
@@ -270,10 +265,10 @@ export function SalonDetail() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center gap-2.5">
             <StarRating score={salon.stats.averageRating} size={18} />
-            <span className="font-heading font-bold text-xl text-[var(--chrome-white)]">
+            <span className="font-heading font-bold text-xl text-black dark:text-[var(--chrome-white)]">
               {salon.stats.averageRating}
             </span>
-            <span className="font-body text-sm text-[var(--muted-lead)]">
+            <span className="font-body text-sm text-gray-600 dark:text-[var(--muted-lead)]">
               ({salon.stats.reviewCount} yorum)
             </span>
           </div>
@@ -376,13 +371,13 @@ export function SalonDetail() {
               onClick={() => toggleCategory(category)}
               className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.02] transition-colors"
             >
-              <span className="font-heading font-semibold text-sm text-[var(--silver-frost)]">
+              <span className="font-heading font-semibold text-sm text-white">
                 {category}
               </span>
               {expandedCategories[category] ? (
-                <ChevronUp size={16} className="text-[var(--muted-lead)]" />
+                <ChevronUp size={16} className="text-white/70" />
               ) : (
-                <ChevronDown size={16} className="text-[var(--muted-lead)]" />
+                <ChevronDown size={16} className="text-white/70" />
               )}
             </button>
             {expandedCategories[category] && (
@@ -390,13 +385,13 @@ export function SalonDetail() {
                 {services.map((service) => (
                   <div key={service.id} className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--obsidian-rim)]">
                     <div>
-                      <span className="font-body text-[14px] text-[var(--chrome-white)]">{service.name}</span>
+                      <span className="font-body text-[14px] text-white">{service.name}</span>
                       {/* Sadece slot-based kategorilerde dakika göster */}
                       {['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salon.category) && (
-                        <span className="block font-body text-[12px] text-[var(--muted-lead)]">{service.duration} dk</span>
+                        <span className="block font-body text-[12px] text-white/70">{service.duration} dk</span>
                       )}
                     </div>
-                    <span className="font-mono font-medium text-sm text-[var(--silver-frost)]">{service.price} TL</span>
+                    <span className="font-mono font-medium text-sm text-white">{service.price} TL</span>
                   </div>
                 ))}
               </div>
@@ -563,10 +558,10 @@ export function SalonDetail() {
 
       {/* Contact */}
       <section className="mt-8 mb-24 md:mb-8 max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
-        <h2 className="font-display font-bold text-xl text-[var(--chrome-white)] mb-3">
+        <h2 className="font-display font-bold text-xl text-white mb-3">
           Iletisim
         </h2>
-        <ObsidianCard hover={false} className="p-4 space-y-3">
+        <ObsidianCard hover={false} className="p-4 space-y-3 bg-white dark:bg-[var(--slate-surface)]">
           <a
             href={`tel:${salon.phone}`}
             className="flex items-center gap-3 p-2.5 rounded-full hover:bg-white/5 transition-colors"
@@ -575,8 +570,8 @@ export function SalonDetail() {
               <Phone size={16} className="text-[var(--liquid-chrome)]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-heading font-medium text-xs text-[var(--chrome-white)]">Telefon</p>
-              <p className="font-mono text-sm text-[var(--silver-frost)]">{salon.phone}</p>
+              <p className="font-heading font-medium text-xs text-white">Telefon</p>
+              <p className="font-mono text-sm text-white/80">{salon.phone}</p>
             </div>
           </a>
           
@@ -585,8 +580,8 @@ export function SalonDetail() {
               <MapPin size={16} className="text-[var(--liquid-chrome)]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-heading font-medium text-xs text-[var(--chrome-white)] mb-0.5">Adres</p>
-              <p className="font-body text-sm text-[var(--silver-frost)] leading-relaxed">{salon.address.full}</p>
+              <p className="font-heading font-medium text-xs text-white mb-0.5">Adres</p>
+              <p className="font-body text-sm text-white/80 leading-relaxed">{salon.address.full}</p>
             </div>
           </div>
         </ObsidianCard>

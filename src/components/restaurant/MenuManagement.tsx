@@ -170,6 +170,63 @@ export function MenuManagement({ restaurantId }: Props) {
     console.log('✅ Validation başarılı, kaydetmeye devam ediliyor...');
 
     try {
+      // ✅ ABONELIK LİMİT KONTROLÜ - Yeni menü ürünü eklenirken
+      if (!editingItem) {
+        const { subscriptionService } = await import('@/services/subscriptionService');
+        const subscription = await subscriptionService.getBusinessSubscription(restaurantId);
+        
+        if (!subscription || subscription.status !== 'active') {
+          toast.error('Aktif aboneliğiniz yok', {
+            description: 'Menü ürünü eklemek için aktif bir aboneliğe ihtiyacınız var',
+            duration: 5000,
+          });
+          return;
+        }
+
+        // Plan özelliklerini al
+        const plan = subscription.customFeatures || 
+          (await import('@/config/restaurantSubscriptionPlans')).RESTAURANT_SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType)?.features;
+        
+        if (!plan) {
+          toast.error('Plan bilgisi bulunamadı');
+          return;
+        }
+
+        const maxMenuItems = plan.maxMenuItems;
+        const currentItemCount = menuItems.length;
+
+        // Limit kontrolü
+        if (maxMenuItems !== 'unlimited' && currentItemCount >= maxMenuItems) {
+          toast.error(`Menü ürünü limiti aşıldı!`, {
+            description: `${subscription.planType.toUpperCase()} paketinizde maksimum ${maxMenuItems} ürün ekleyebilirsiniz. Daha fazla ürün için paketinizi yükseltin.`,
+            duration: 7000,
+            action: {
+              label: 'Paketi Yükselt',
+              onClick: () => {
+                window.location.href = '/owner-dashboard?tab=subscription';
+              }
+            }
+          });
+          return;
+        }
+
+        // Kategori limiti kontrolü
+        if (plan.maxCategories && plan.maxCategories !== 'unlimited') {
+          const currentCategoryCount = categories.length;
+          if (currentCategoryCount >= plan.maxCategories) {
+            // Yeni kategori mi ekleniyor kontrol et
+            const isNewCategory = !categories.find(c => c.id === selectedCategory);
+            if (isNewCategory) {
+              toast.error(`Kategori limiti aşıldı!`, {
+                description: `${subscription.planType.toUpperCase()} paketinizde maksimum ${plan.maxCategories} kategori oluşturabilirsiniz.`,
+                duration: 7000,
+              });
+              return;
+            }
+          }
+        }
+      }
+
       const itemData = {
         categoryId: selectedCategory,
         name: itemName,

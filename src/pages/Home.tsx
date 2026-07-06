@@ -28,7 +28,24 @@ export function Home() {
   const [selectedPriceRange, setSelectedPriceRange] = useState<'all' | 'budget' | 'mid' | 'premium'>('all');
   const [selectedRating, setSelectedRating] = useState<number>(0);
   const { user, isOwner } = useAuthStore();
+  const { actualTheme } = useThemeStore();
   const location = useLocation();
+
+  // URL parametrelerini oku
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const groupParam = params.get('group');
+    const searchParam = params.get('search');
+    
+    if (groupParam) {
+      setActiveGroup(groupParam);
+      setActiveCategory('all');
+    }
+    
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+  }, [location.search]);
 
   // Filter panel body scroll lock
   useEffect(() => {
@@ -455,27 +472,53 @@ export function Home() {
                 className="w-full max-w-xl"
                 style={{ maxHeight: 'calc(100vh - 2rem)', display: 'flex', flexDirection: 'column' }}
               >
-                {/* Header - Kompakt */}
-                <div className="mb-3 flex items-center justify-between flex-shrink-0">
+                {/* Header - Modern */}
+                <div className="mb-4 flex items-center justify-between flex-shrink-0">
                   <div>
-                    <h2 className="font-heading font-bold text-xl sm:text-2xl text-white">Filtreler</h2>
-                    <p className="text-xs sm:text-sm text-white/50 mt-0.5">{filteredSalons.length} sonuç</p>
+                    <h2 
+                      className="font-heading font-bold text-xl sm:text-2xl"
+                      style={{ color: actualTheme === 'light' ? '#111827' : 'white' }}
+                    >
+                      Filtreler
+                    </h2>
+                    <p 
+                      className="text-xs sm:text-sm mt-0.5"
+                      style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255,255,255,0.5)' }}
+                    >
+                      {filteredSalons.length} sonuç
+                    </p>
                   </div>
                   <button
                     onClick={() => setShowFilters(false)}
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                    style={{
+                      backgroundColor: actualTheme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)',
+                      color: actualTheme === 'light' ? '#111827' : 'white'
+                    }}
                   >
-                    <X size={20} />
+                    <X size={20} strokeWidth={2.5} />
                   </button>
                 </div>
 
-                {/* Content Card - Scrollable */}
-                <div className="rounded-[28px] sm:rounded-[32px] bg-gradient-to-r from-white/[0.08] to-white/[0.04] p-[1px] flex-1 min-h-0 overflow-hidden">
-                  <div className="h-full rounded-[28px] sm:rounded-[32px] bg-[var(--slate-surface)]/95 backdrop-blur-xl overflow-y-auto">
+                {/* Content Card - Modern Scrollable */}
+                <div 
+                  className="rounded-3xl sm:rounded-[32px] flex-1 min-h-0 overflow-hidden border"
+                  style={{
+                    backgroundColor: actualTheme === 'light' ? 'white' : 'rgba(15, 23, 42, 0.95)',
+                    borderColor: actualTheme === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+                    boxShadow: actualTheme === 'light' 
+                      ? '0 10px 40px -10px rgba(0,0,0,0.1)'
+                      : '0 10px 40px -10px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  <div className="h-full overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                     <div className="p-4 sm:p-6 space-y-5">
-                      {/* Fiyat Aralığı */}
+                      {/* Fiyat Aralığı - Modern Clean */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold text-[var(--chrome-white)] mb-2.5">
+                        <label 
+                          className="block text-sm font-bold mb-3"
+                          style={{ color: actualTheme === 'light' ? '#111827' : 'white' }}
+                        >
                           Fiyat Aralığı
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -490,12 +533,27 @@ export function Home() {
                               <button
                                 key={range.id}
                                 onClick={() => setSelectedPriceRange(range.id as any)}
-                                className={cn(
-                                  "py-3 sm:py-3.5 rounded-[18px] sm:rounded-[20px] text-xs sm:text-sm font-semibold transition-all duration-200",
-                                  isSelected
-                                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30"
-                                    : "bg-white/[0.06] border border-white/[0.08] text-[var(--silver-frost)] hover:bg-white/[0.1] hover:border-white/[0.12]"
-                                )}
+                                className="relative py-3 sm:py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                                style={{
+                                  background: isSelected
+                                    ? 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)'
+                                    : actualTheme === 'light'
+                                    ? 'rgba(0,0,0,0.04)'
+                                    : 'rgba(255,255,255,0.06)',
+                                  border: `1.5px solid ${isSelected 
+                                    ? 'transparent' 
+                                    : actualTheme === 'light' 
+                                    ? 'rgba(0,0,0,0.1)' 
+                                    : 'rgba(255,255,255,0.12)'}`,
+                                  color: isSelected 
+                                    ? 'white' 
+                                    : actualTheme === 'light' 
+                                    ? '#111827' 
+                                    : '#e5e7eb',
+                                  boxShadow: isSelected 
+                                    ? '0 4px 12px -2px rgba(168, 85, 247, 0.3)' 
+                                    : 'none'
+                                }}
                               >
                                 {range.label}
                               </button>
@@ -504,12 +562,15 @@ export function Home() {
                         </div>
                       </div>
 
-                      {/* Minimum Puan */}
+                      {/* Minimum Puan - Clean Grid */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold text-[var(--chrome-white)] mb-2.5">
+                        <label 
+                          className="block text-sm font-bold mb-3"
+                          style={{ color: actualTheme === 'light' ? '#111827' : 'white' }}
+                        >
                           Minimum Puan
                         </label>
-                        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                           {[
                             { rating: 0, label: 'Tümü' },
                             { rating: 3, label: '3+' },
@@ -521,12 +582,27 @@ export function Home() {
                               <button
                                 key={item.rating}
                                 onClick={() => setSelectedRating(item.rating)}
-                                className={cn(
-                                  "py-3 sm:py-3.5 rounded-[18px] sm:rounded-[20px] text-xs sm:text-sm font-semibold transition-all duration-200",
-                                  isSelected
-                                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30"
-                                    : "bg-white/[0.06] border border-white/[0.08] text-[var(--silver-frost)] hover:bg-white/[0.1] hover:border-white/[0.12]"
-                                )}
+                                className="relative py-3 sm:py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                                style={{
+                                  background: isSelected
+                                    ? 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)'
+                                    : actualTheme === 'light'
+                                    ? 'rgba(0,0,0,0.04)'
+                                    : 'rgba(255,255,255,0.06)',
+                                  border: `1.5px solid ${isSelected 
+                                    ? 'transparent' 
+                                    : actualTheme === 'light' 
+                                    ? 'rgba(0,0,0,0.1)' 
+                                    : 'rgba(255,255,255,0.12)'}`,
+                                  color: isSelected 
+                                    ? 'white' 
+                                    : actualTheme === 'light' 
+                                    ? '#111827' 
+                                    : '#e5e7eb',
+                                  boxShadow: isSelected 
+                                    ? '0 4px 12px -2px rgba(245, 158, 11, 0.3)' 
+                                    : 'none'
+                                }}
                               >
                                 {item.label}
                               </button>
@@ -535,26 +611,48 @@ export function Home() {
                         </div>
                       </div>
 
-                      {/* Kategori */}
+                      {/* Kategori - Compact Mobile Grid */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold text-[var(--chrome-white)] mb-2.5">
+                        <label 
+                          className="block text-sm font-bold mb-3"
+                          style={{ color: actualTheme === 'light' ? '#111827' : 'white' }}
+                        >
                           Kategori
                         </label>
-                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                           <button
                             onClick={() => {
                               setActiveGroup('all');
                               setActiveCategory('all');
                             }}
-                            className={cn(
-                              "aspect-square rounded-[20px] sm:rounded-[24px] transition-all duration-200 flex flex-col items-center justify-center gap-1.5 sm:gap-2 p-2 sm:p-3",
-                              activeGroup === 'all'
-                                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30"
-                                : "bg-white/[0.06] border border-white/[0.08] text-[var(--silver-frost)] hover:bg-white/[0.1] hover:border-white/[0.12]"
-                            )}
+                            className="aspect-square rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 p-2"
+                            style={{
+                              background: activeGroup === 'all'
+                                ? 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)'
+                                : actualTheme === 'light'
+                                ? 'rgba(0,0,0,0.04)'
+                                : 'rgba(255,255,255,0.06)',
+                              border: `1.5px solid ${activeGroup === 'all' 
+                                ? 'transparent' 
+                                : actualTheme === 'light' 
+                                ? 'rgba(0,0,0,0.1)' 
+                                : 'rgba(255,255,255,0.12)'}`,
+                              boxShadow: activeGroup === 'all' 
+                                ? '0 4px 12px -2px rgba(59, 130, 246, 0.3)' 
+                                : 'none'
+                            }}
                           >
-                            <Sparkles size={20} strokeWidth={2} className="sm:w-6 sm:h-6" />
-                            <span className="text-[9px] sm:text-[10px] font-bold">Tümü</span>
+                            <Sparkles 
+                              size={20} 
+                              strokeWidth={2.5}
+                              style={{ color: activeGroup === 'all' ? 'white' : actualTheme === 'light' ? '#111827' : '#e5e7eb' }}
+                            />
+                            <span 
+                              className="text-[9px] font-bold text-center leading-tight"
+                              style={{ color: activeGroup === 'all' ? 'white' : actualTheme === 'light' ? '#111827' : '#e5e7eb' }}
+                            >
+                              Tümü
+                            </span>
                           </button>
                           
                           {categoryGroups.map((group) => {
@@ -567,15 +665,32 @@ export function Home() {
                                   setActiveGroup(group.id);
                                   setActiveCategory('all');
                                 }}
-                                className={cn(
-                                  "aspect-square rounded-[20px] sm:rounded-[24px] transition-all duration-200 flex flex-col items-center justify-center gap-1.5 sm:gap-2 p-2 sm:p-3",
-                                  isActive
-                                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30"
-                                    : "bg-white/[0.06] border border-white/[0.08] text-[var(--silver-frost)] hover:bg-white/[0.1] hover:border-white/[0.12]"
-                                )}
+                                className="aspect-square rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 p-2"
+                                style={{
+                                  background: isActive
+                                    ? 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)'
+                                    : actualTheme === 'light'
+                                    ? 'rgba(0,0,0,0.04)'
+                                    : 'rgba(255,255,255,0.06)',
+                                  border: `1.5px solid ${isActive 
+                                    ? 'transparent' 
+                                    : actualTheme === 'light' 
+                                    ? 'rgba(0,0,0,0.1)' 
+                                    : 'rgba(255,255,255,0.12)'}`,
+                                  boxShadow: isActive 
+                                    ? '0 4px 12px -2px rgba(59, 130, 246, 0.3)' 
+                                    : 'none'
+                                }}
                               >
-                                <IconComponent size={20} strokeWidth={2} className="sm:w-6 sm:h-6" />
-                                <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight">
+                                <IconComponent 
+                                  size={20} 
+                                  strokeWidth={2.5}
+                                  style={{ color: isActive ? 'white' : actualTheme === 'light' ? '#111827' : '#e5e7eb' }}
+                                />
+                                <span 
+                                  className="text-[9px] font-bold text-center leading-tight"
+                                  style={{ color: isActive ? 'white' : actualTheme === 'light' ? '#111827' : '#e5e7eb' }}
+                                >
                                   {group.name.includes('&') ? group.name.split('&')[0].trim() : group.name}
                                 </span>
                               </button>
@@ -587,8 +702,8 @@ export function Home() {
                   </div>
                 </div>
 
-                {/* Footer Buttons - Kompakt */}
-                <div className="mt-3 flex gap-2 sm:gap-3 flex-shrink-0">
+                {/* Footer Buttons - Clean Modern */}
+                <div className="mt-4 flex gap-3 flex-shrink-0">
                   <button
                     onClick={() => {
                       setSelectedPriceRange('all');
@@ -596,13 +711,22 @@ export function Home() {
                       setActiveGroup('all');
                       setActiveCategory('all');
                     }}
-                    className="flex-1 h-12 sm:h-14 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white font-semibold text-sm transition-all"
+                    className="flex-1 h-14 rounded-full font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    style={{
+                      backgroundColor: actualTheme === 'light' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)',
+                      border: `1.5px solid ${actualTheme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)'}`,
+                      color: actualTheme === 'light' ? '#111827' : 'white'
+                    }}
                   >
                     Temizle
                   </button>
                   <button
                     onClick={() => setShowFilters(false)}
-                    className="flex-[2] h-12 sm:h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-xl hover:shadow-purple-500/40 text-white font-bold text-sm transition-all"
+                    className="flex-[2] h-14 rounded-full font-semibold text-sm text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    style={{
+                      background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
+                      boxShadow: '0 4px 16px -4px rgba(168, 85, 247, 0.4)'
+                    }}
                   >
                     {filteredSalons.length} Sonuç Göster
                   </button>

@@ -10,6 +10,7 @@ import { reservationService } from '@/services/reservationService';
 import { notificationService } from '@/services/notificationService';
 import { fcmService } from '@/services/fcmService';
 import { useUIStore } from '@/store/uiStore';
+import { useThemeStore } from '@/store/themeStore';
 import { db } from '@/lib/firebase';
 import { getDoc, doc } from 'firebase/firestore';
 import { ModernDateTimePicker } from './ModernDateTimePicker';
@@ -46,6 +47,7 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const { addToast } = useUIStore();
+  const { actualTheme } = useThemeStore();
 
   const filteredReservations = useMemo(() => {
     return reservations.filter(reservation => {
@@ -379,8 +381,8 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
             <Calendar size={20} className="text-purple-400" />
           </div>
           <div>
-            <h2 className="font-heading font-bold text-xl text-white">Rezervasyon Yönetimi</h2>
-            <p className="text-xs text-white/50 mt-0.5">Tüm rezervasyonlarınızı yönetin</p>
+            <h2 className="font-heading font-bold text-xl" style={{ color: actualTheme === 'light' ? '#1f2937' : 'white' }}>Rezervasyon Yönetimi</h2>
+            <p className="text-xs mt-0.5" style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255, 255, 255, 0.5)' }}>Tüm rezervasyonlarınızı yönetin</p>
           </div>
         </div>
         
@@ -393,7 +395,7 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
               console.log('Operasyon button clicked');
               setShowManualReservation(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all shadow-md"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Manuel Rezervasyon</span>
@@ -403,31 +405,68 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
           <button
             type="button"
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all"
+            style={{
+              backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.8)' : 'rgba(255, 255, 255, 0.05)',
+              borderWidth: '1px',
+              borderColor: actualTheme === 'light' ? 'rgba(209, 213, 219, 0.8)' : 'rgba(255, 255, 255, 0.1)',
+              color: actualTheme === 'light' ? '#1f2937' : 'white'
+            }}
           >
-            <Filter className="w-4 h-4" />
-            <ChevronDown className={cn("w-4 h-4 transition-transform", showFilters && "rotate-180")} />
+            <Filter className="w-4 h-4" style={{ color: actualTheme === 'light' ? '#1f2937' : 'white' }} />
+            <ChevronDown className={cn("w-4 h-4 transition-transform", showFilters && "rotate-180")} style={{ color: actualTheme === 'light' ? '#1f2937' : 'white' }} />
           </button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <button onClick={() => setActiveFilter('all')} className={cn("rounded-2xl p-4 text-left border-2 transition-all", activeFilter === 'all' ? "bg-white/10 border-white/20" : "bg-white/5 border-white/10 hover:bg-white/[0.07]")}>
-          <div className="flex items-center gap-2 mb-2"><Calendar className="w-4 h-4 text-white/50" /><div className="text-xs font-bold uppercase tracking-wider text-white/50">TÜMÜ</div></div>
-          <div className="text-3xl font-heading font-bold text-white">{stats.total}</div>
+        <button onClick={() => setActiveFilter('all')} className={cn("rounded-2xl p-4 text-left border-2 transition-all", activeFilter === 'all' ? "bg-white/10 border-white/20" : actualTheme === 'light' ? "hover:shadow-md" : "hover:bg-white/[0.07]")}
+          style={{
+            backgroundColor: actualTheme === 'light' ? (activeFilter === 'all' ? '#f3f4f6' : 'white') : (activeFilter === 'all' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
+            borderColor: actualTheme === 'light' ? (activeFilter === 'all' ? '#9ca3af' : '#d1d5db') : (activeFilter === 'all' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)'),
+            boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+          }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-4 h-4" style={{ color: actualTheme === 'light' ? '#6b7280' : '#9ca3af' }} />
+            <div className="text-xs font-bold uppercase tracking-wider" style={{ color: actualTheme === 'light' ? '#6b7280' : '#9ca3af' }}>TÜMÜ</div>
+          </div>
+          <div className="text-3xl font-heading font-bold" style={{ color: actualTheme === 'light' ? '#1f2937' : 'white' }}>{stats.total}</div>
         </button>
-        <button onClick={() => setActiveFilter('pending')} className={cn("rounded-2xl p-4 text-left border-2 transition-all", activeFilter === 'pending' ? "bg-amber-500/10 border-amber-500/30" : "bg-white/5 border-white/10 hover:bg-white/[0.07]")}>
-          <div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-amber-400/70" /><div className="text-xs font-bold uppercase tracking-wider text-amber-400/70">BEKLEYEN</div></div>
-          <div className="text-3xl font-heading font-bold text-amber-400">{stats.pending}</div>
+        <button onClick={() => setActiveFilter('pending')} className={cn("rounded-2xl p-4 text-left border-2 transition-all", activeFilter === 'pending' ? "bg-amber-500/10 border-amber-500/30" : actualTheme === 'light' ? "hover:shadow-md" : "hover:bg-white/[0.07]")}
+          style={{
+            backgroundColor: actualTheme === 'light' ? (activeFilter === 'pending' ? '#fef3c7' : 'white') : (activeFilter === 'pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
+            borderColor: actualTheme === 'light' ? (activeFilter === 'pending' ? '#f59e0b' : '#d1d5db') : (activeFilter === 'pending' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255, 255, 255, 0.1)'),
+            boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+          }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4" style={{ color: actualTheme === 'light' ? '#d97706' : '#fbbf24' }} />
+            <div className="text-xs font-bold uppercase tracking-wider" style={{ color: actualTheme === 'light' ? '#d97706' : '#fbbf24' }}>BEKLEYEN</div>
+          </div>
+          <div className="text-3xl font-heading font-bold" style={{ color: actualTheme === 'light' ? '#d97706' : '#fbbf24' }}>{stats.pending}</div>
         </button>
-        <button onClick={() => setActiveFilter('confirmed')} className={cn("rounded-2xl p-4 text-left border-2 transition-all", activeFilter === 'confirmed' ? "bg-emerald-500/10 border-emerald-500/30" : "bg-white/5 border-white/10 hover:bg-white/[0.07]")}>
-          <div className="flex items-center gap-2 mb-2"><Check className="w-4 h-4 text-emerald-400/70" /><div className="text-xs font-bold uppercase tracking-wider text-emerald-400/70">ONAYLANMIŞ</div></div>
-          <div className="text-3xl font-heading font-bold text-emerald-400">{stats.confirmed}</div>
+        <button onClick={() => setActiveFilter('confirmed')} className={cn("rounded-2xl p-4 text-left border-2 transition-all", activeFilter === 'confirmed' ? "bg-emerald-500/10 border-emerald-500/30" : actualTheme === 'light' ? "hover:shadow-md" : "hover:bg-white/[0.07]")}
+          style={{
+            backgroundColor: actualTheme === 'light' ? (activeFilter === 'confirmed' ? '#d1fae5' : 'white') : (activeFilter === 'confirmed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
+            borderColor: actualTheme === 'light' ? (activeFilter === 'confirmed' ? '#10b981' : '#d1d5db') : (activeFilter === 'confirmed' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)'),
+            boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+          }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Check className="w-4 h-4" style={{ color: actualTheme === 'light' ? '#059669' : '#6ee7b7' }} />
+            <div className="text-xs font-bold uppercase tracking-wider" style={{ color: actualTheme === 'light' ? '#059669' : '#6ee7b7' }}>ONAYLANMIŞ</div>
+          </div>
+          <div className="text-3xl font-heading font-bold" style={{ color: actualTheme === 'light' ? '#059669' : '#6ee7b7' }}>{stats.confirmed}</div>
         </button>
-        <div className="rounded-2xl p-4 bg-white/5 border-2 border-white/10">
-          <div className="flex items-center gap-2 mb-2"><DollarSign className="w-4 h-4 text-purple-400/70" /><div className="text-xs font-bold uppercase tracking-wider text-purple-400/70">TOPLAM</div></div>
-          <div className="text-2xl font-heading font-bold text-purple-400">{stats.revenue.toLocaleString('tr-TR')} ₺</div>
+        <div className="rounded-2xl p-4 border-2" style={{
+          backgroundColor: actualTheme === 'light' ? 'white' : 'rgba(255, 255, 255, 0.05)',
+          borderColor: actualTheme === 'light' ? '#d1d5db' : 'rgba(255, 255, 255, 0.1)',
+          boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+        }}>
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-4 h-4" style={{ color: actualTheme === 'light' ? '#7c3aed' : '#c4b5fd' }} />
+            <div className="text-xs font-bold uppercase tracking-wider" style={{ color: actualTheme === 'light' ? '#7c3aed' : '#c4b5fd' }}>TOPLAM</div>
+          </div>
+          <div className="text-2xl font-heading font-bold" style={{ color: actualTheme === 'light' ? '#7c3aed' : '#c4b5fd' }}>{stats.revenue.toLocaleString('tr-TR')} ₺</div>
         </div>
       </div>
 
@@ -435,11 +474,30 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
       <AnimatePresence>
         {showFilters && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-              <label className="text-xs font-semibold text-white/50 mb-2 block">TİP</label>
+            <div className="rounded-2xl p-4" style={{
+              backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.9)' : 'rgba(255, 255, 255, 0.05)',
+              borderWidth: '1px',
+              borderColor: actualTheme === 'light' ? 'rgba(209, 213, 219, 0.5)' : 'rgba(255, 255, 255, 0.1)'
+            }}>
+              <label className="text-xs font-semibold mb-2 block" style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255, 255, 255, 0.5)' }}>TİP</label>
               <div className="flex flex-wrap gap-2">
                 {(['all', 'slot', 'daily', 'nightly', 'project', 'order'] as const).map((t) => (
-                  <button key={t} onClick={() => setTypeFilter(t)} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all border", typeFilter === t ? "bg-purple-500/20 border-purple-500/30 text-purple-300" : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10")}>
+                  <button 
+                    key={t} 
+                    onClick={() => setTypeFilter(t)} 
+                    className={cn("flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all border")}
+                    style={{
+                      backgroundColor: typeFilter === t 
+                        ? (actualTheme === 'light' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(168, 85, 247, 0.2)')
+                        : (actualTheme === 'light' ? 'white' : 'rgba(255, 255, 255, 0.05)'),
+                      borderColor: typeFilter === t
+                        ? (actualTheme === 'light' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(168, 85, 247, 0.3)')
+                        : (actualTheme === 'light' ? 'rgba(209, 213, 219, 0.5)' : 'rgba(255, 255, 255, 0.1)'),
+                      color: typeFilter === t
+                        ? (actualTheme === 'light' ? '#7c3aed' : '#c084fc')
+                        : (actualTheme === 'light' ? '#374151' : 'rgba(255, 255, 255, 0.7)')
+                    }}
+                  >
                     {t !== 'all' && getTypeIcon(t)}
                     {t === 'all' ? 'Tümü' : getTypeLabel(t)}
                   </button>
@@ -452,42 +510,55 @@ export function ReservationManager({ reservations, onRefresh }: ReservationManag
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: actualTheme === 'light' ? '#9ca3af' : 'rgba(255, 255, 255, 0.4)' }} />
         <input type="text" placeholder="İsim, telefon, email, ID ara..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 transition-colors" />
+          className="w-full pl-12 pr-4 py-3 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+          style={{
+            backgroundColor: actualTheme === 'light' ? 'white' : 'rgba(255, 255, 255, 0.05)',
+            borderWidth: '1px',
+            borderColor: actualTheme === 'light' ? '#d1d5db' : 'rgba(255, 255, 255, 0.1)',
+            color: actualTheme === 'light' ? '#1f2937' : 'white',
+            boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+          }}
+        />
       </div>
 
       {/* List */}
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {filteredReservations.length === 0 ? (
-          <div className="text-center py-12 text-white/40"><Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>Rezervasyon bulunamadı</p></div>
+          <div className="col-span-full text-center py-12 text-white/40"><Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>Rezervasyon bulunamadı</p></div>
         ) : (
           <AnimatePresence mode="popLayout">
             {filteredReservations.map((r, i) => (
               <motion.div key={r.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.02 }}
-                className="group bg-white/5 border border-white/10 hover:border-purple-500/30 rounded-2xl p-5 transition-all">
+                className="group border hover:border-purple-500/40 rounded-2xl p-5 transition-all hover:shadow-lg"
+                style={{
+                  backgroundColor: actualTheme === 'light' ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.05)',
+                  borderColor: actualTheme === 'light' ? 'rgba(209, 213, 219, 0.8)' : 'rgba(255, 255, 255, 0.1)',
+                  boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
                       <User className="w-5 h-5 text-purple-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-heading font-bold text-white group-hover:text-purple-300 transition-colors truncate">{r.userName}</h3>
-                      <p className="text-xs text-white/40">{r.userPhone}</p>
+                      <h3 className="font-heading font-bold group-hover:text-purple-300 transition-colors truncate" style={{ color: actualTheme === 'light' ? '#1f2937' : 'white' }}>{r.userName}</h3>
+                      <p className="text-xs" style={{ color: actualTheme === 'light' ? '#9ca3af' : 'rgba(255, 255, 255, 0.4)' }}>{r.userPhone}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">{getStatusBadge(r.status)}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                  <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 truncate text-xs">{r.businessName}</span></div>
-                  <div className="flex items-center gap-2">{getTypeIcon(r.type)}<span className="text-white/70 text-xs">{getTypeLabel(r.type)}</span></div>
-                  {getEventDate(r) && <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 text-xs">{getEventDate(r)}</span></div>}
-                  {getEventTime(r) && <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 text-xs">{getEventTime(r)}</span></div>}
-                  <div className="flex items-center gap-2 col-span-2"><DollarSign className="w-4 h-4 text-white/40 flex-shrink-0" /><span className="text-white/70 font-semibold text-xs">{r.pricing.totalAmount.toLocaleString('tr-TR')} ₺</span></div>
+                  <div className="flex items-center gap-2"><MapPin className="w-4 h-4 flex-shrink-0" style={{ color: actualTheme === 'light' ? '#9ca3af' : 'rgba(255, 255, 255, 0.4)' }} /><span className="truncate text-xs" style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255, 255, 255, 0.7)' }}>{r.businessName}</span></div>
+                  <div className="flex items-center gap-2">{getTypeIcon(r.type)}<span className="text-xs" style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255, 255, 255, 0.7)' }}>{getTypeLabel(r.type)}</span></div>
+                  {getEventDate(r) && <div className="flex items-center gap-2"><Calendar className="w-4 h-4 flex-shrink-0" style={{ color: actualTheme === 'light' ? '#9ca3af' : 'rgba(255, 255, 255, 0.4)' }} /><span className="text-xs" style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255, 255, 255, 0.7)' }}>{getEventDate(r)}</span></div>}
+                  {getEventTime(r) && <div className="flex items-center gap-2"><Clock className="w-4 h-4 flex-shrink-0" style={{ color: actualTheme === 'light' ? '#9ca3af' : 'rgba(255, 255, 255, 0.4)' }} /><span className="text-xs" style={{ color: actualTheme === 'light' ? '#6b7280' : 'rgba(255, 255, 255, 0.7)' }}>{getEventTime(r)}</span></div>}
+                  <div className="flex items-center gap-2 col-span-2"><DollarSign className="w-4 h-4 flex-shrink-0" style={{ color: actualTheme === 'light' ? '#9ca3af' : 'rgba(255, 255, 255, 0.4)' }} /><span className="font-semibold text-xs" style={{ color: actualTheme === 'light' ? '#1f2937' : 'rgba(255, 255, 255, 0.7)' }}>{r.pricing.totalAmount.toLocaleString('tr-TR')} ₺</span></div>
                 </div>
                 
                 {/* Butonlar */}
-                <div className="flex gap-2 pt-3 border-t border-white/10">
+                <div className="flex gap-2 pt-3" style={{ borderTop: `1px solid ${actualTheme === 'light' ? 'rgba(209, 213, 219, 0.5)' : 'rgba(255, 255, 255, 0.1)'}` }}>
                   <button
                     type="button"
                     onClick={(e) => { 

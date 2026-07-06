@@ -68,6 +68,48 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     }
 
     try {
+      // ✅ ABONELIK LİMİT KONTROLÜ - Yeni masa eklenirken
+      if (!editingTable) {
+        const { subscriptionService } = await import('@/services/subscriptionService');
+        const subscription = await subscriptionService.getBusinessSubscription(restaurantId);
+        
+        if (!subscription || subscription.status !== 'active') {
+          toast.error('Aktif aboneliğiniz yok', {
+            description: 'Masa eklemek için aktif bir aboneliğe ihtiyacınız var',
+            duration: 5000,
+          });
+          return;
+        }
+
+        // Plan özelliklerini al
+        const plan = subscription.customFeatures || 
+          (await import('@/config/restaurantSubscriptionPlans')).RESTAURANT_SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType)?.features;
+        
+        if (!plan) {
+          toast.error('Plan bilgisi bulunamadı');
+          return;
+        }
+
+        const maxTables = plan.maxTables;
+        const currentTableCount = tables.length;
+
+        // Limit kontrolü
+        if (maxTables !== 'unlimited' && currentTableCount >= maxTables) {
+          toast.error(`Masa limiti aşıldı!`, {
+            description: `${subscription.planType.toUpperCase()} paketinizde maksimum ${maxTables} masa ekleyebilirsiniz. Daha fazla masa için paketinizi yükseltin.`,
+            duration: 7000,
+            action: {
+              label: 'Paketi Yükselt',
+              onClick: () => {
+                // Owner dashboard'a yönlendir
+                window.location.href = '/owner-dashboard?tab=subscription';
+              }
+            }
+          });
+          return;
+        }
+      }
+
       const priceValue = parseFloat(reservationPrice) || 0;
       const durationValue = parseInt(reservationDuration) || 60;
       

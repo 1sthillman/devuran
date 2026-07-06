@@ -5,54 +5,68 @@ export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled' | 
 
 // Özellik Limitleri
 export interface PlanFeatures {
-  // Personel Yönetimi
-  maxStaff: number | 'unlimited';
+  // Personel Yönetimi (Sadece salon için - restoran için kullanılmaz)
+  maxStaff?: number | 'unlimited';
   
-  // Hizmet Yönetimi
-  maxServices: number | 'unlimited';
+  // Hizmet Yönetimi (salon için)
+  maxServices?: number | 'unlimited';
   
   // Randevu & Rezervasyon
-  maxMonthlyBookings: number | 'unlimited';
+  maxMonthlyBookings?: number | 'unlimited';
+  
+  // Restoran Özellikleri
+  maxTables?: number | 'unlimited';
+  maxMenuItems?: number | 'unlimited';
+  maxCategories?: number | 'unlimited';
+  maxMonthlyOrders?: number | 'unlimited';
+  qrCodeGeneration?: boolean;
+  kitchenDisplay?: boolean;
+  waiterApp?: boolean;
+  cashierPanel?: boolean;
+  tableManagement?: boolean;
+  orderTracking?: boolean;
+  customerNotifications?: boolean;
   
   // Müşteri Yönetimi
-  customerManagement: boolean;
-  customerNotes: boolean;
-  customerTags: boolean;
-  loyaltyProgram: boolean;
+  customerManagement?: boolean;
+  customerNotes?: boolean;
+  customerTags?: boolean;
+  loyaltyProgram?: boolean;
   
   // Analitik & Raporlama
-  basicAnalytics: boolean;
-  advancedAnalytics: boolean;
-  customReports: boolean;
-  exportData: boolean;
+  basicAnalytics?: boolean;
+  advancedAnalytics?: boolean;
+  customReports?: boolean;
+  exportData?: boolean;
   
   // İletişim
-  smsNotifications: boolean;
-  emailNotifications: boolean;
-  whatsappIntegration: boolean;
+  smsNotifications?: boolean;
+  emailNotifications?: boolean;
+  whatsappIntegration?: boolean;
   
   // Sıra Sistemi
-  queueManagement: boolean;
+  queueManagement?: boolean;
   
   // Değerlendirme & Yorumlar
-  reviewManagement: boolean;
-  reviewResponses: boolean;
+  reviewManagement?: boolean;
+  reviewResponses?: boolean;
   
   // Ödeme
-  onlinePayments: boolean;
-  depositPayments: boolean;
+  onlinePayments?: boolean;
+  depositPayments?: boolean;
   
   // Özelleştirme
-  customBranding: boolean;
-  customDomain: boolean;
+  customBranding?: boolean;
+  customDomain?: boolean;
   
   // Destek
-  supportLevel: 'email' | 'priority' | 'dedicated';
+  supportLevel?: 'email' | 'priority' | 'dedicated';
+  prioritySupport?: boolean; // Restoran için
   
   // Diğer
-  multiLocation: boolean;
-  apiAccess: boolean;
-  whiteLabel: boolean;
+  multiLocation?: boolean;
+  apiAccess?: boolean;
+  whiteLabel?: boolean;
 }
 
 // Abonelik Planı

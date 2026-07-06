@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Zap, TrendingUp, Building2, Crown, Sparkles, ArrowRight, ArrowDown, CheckCircle, UtensilsCrossed, QrCode, ChefHat, Users } from 'lucide-react';
+import { X, Check, Zap, TrendingUp, Building2, Crown, Sparkles, ArrowRight, ArrowDown, CheckCircle, UtensilsCrossed, QrCode, ChefHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RESTAURANT_SUBSCRIPTION_PLANS } from '@/config/restaurantSubscriptionPlans';
 import { subscriptionService } from '@/services/subscriptionService';
 import { useUIStore } from '@/store/uiStore';
+import { useThemeStore } from '@/store/themeStore';
 import type { SubscriptionPlanType, SubscriptionInterval } from '@/types/subscription';
 
 interface RestaurantSubscriptionModalProps {
@@ -45,6 +46,7 @@ export function RestaurantSubscriptionModal({
   const [selectedInterval, setSelectedInterval] = useState<SubscriptionInterval>('monthly');
   const [loading, setLoading] = useState(false);
   const { addToast } = useUIStore();
+  const { actualTheme } = useThemeStore();
 
   const handleSelectPlan = (planId: SubscriptionPlanType, interval: SubscriptionInterval) => {
     if (planId === 'custom') {
@@ -63,14 +65,15 @@ export function RestaurantSubscriptionModal({
       setLoading(true);
       
       if (currentPlan) {
-        await subscriptionService.changePlan(businessId, selectedPlan);
+        await subscriptionService.changePlan(businessId, selectedPlan, 'restaurant');
         addToast('⏳ Plan değişikliği talebi oluşturuldu! Admin onayı bekleniyor.', 'info');
       } else {
         await subscriptionService.purchaseSubscription(
           businessId,
           businessName,
           selectedPlan,
-          selectedInterval
+          selectedInterval,
+          'restaurant'
         );
         addToast('⏳ Abonelik talebi oluşturuldu! Admin onayı bekleniyor.', 'info');
       }
@@ -111,7 +114,7 @@ export function RestaurantSubscriptionModal({
             exit={{ y: 50, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-4 sm:top-auto sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-6xl sm:my-auto h-[85vh] sm:h-auto sm:max-h-[90vh] bg-white dark:bg-[var(--slate-surface)] rounded-t-3xl sm:rounded-3xl border-t border-gray-200 dark:border-white/[0.08] sm:border shadow-2xl flex flex-col overflow-hidden will-change-transform"
+            className="fixed inset-4 bg-white dark:bg-[var(--slate-surface)] rounded-3xl border border-gray-200 dark:border-white/[0.08] shadow-2xl flex flex-col overflow-hidden will-change-transform"
           >
           {/* Sticky Header */}
           <div className="sticky top-0 bg-gradient-to-b from-white to-white/95 dark:from-[var(--slate-surface)] dark:to-[var(--slate-surface)]/95 backdrop-blur-xl border-b border-gray-200 dark:border-white/[0.08] p-5 z-10 flex-shrink-0">
@@ -169,9 +172,10 @@ export function RestaurantSubscriptionModal({
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-8" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-5 max-w-[1600px] mx-auto">
-              {RESTAURANT_SUBSCRIPTION_PLANS.map((plan) => {
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="max-w-[1600px] mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 lg:gap-6">
+                {RESTAURANT_SUBSCRIPTION_PLANS.map((plan) => {
                 const Icon = PLAN_ICONS[plan.id];
                 const isCurrentPlan = currentPlan === plan.id;
                 const planPrice = plan.pricing[selectedInterval] || 0;
@@ -187,123 +191,183 @@ export function RestaurantSubscriptionModal({
                   <div
                     key={plan.id}
                     className={cn(
-                      'relative bg-gray-50 dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl border-2 transition-all overflow-hidden will-change-transform hover:-translate-y-1',
-                      isCurrentPlan
-                        ? 'border-emerald-500/50 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-500/10'
-                        : isUpgrade
-                        ? 'border-orange-500/30 hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/20'
-                        : 'border-gray-200 dark:border-white/[0.08] hover:border-gray-300 dark:hover:border-white/20 hover:shadow-xl hover:shadow-gray-200 dark:hover:shadow-white/5',
-                      plan.popular && 'ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/10'
+                      'group relative rounded-3xl transition-all duration-300 overflow-hidden will-change-transform hover:-translate-y-2 flex flex-col',
+                      isCurrentPlan && 'ring-2 ring-emerald-400/50 shadow-2xl shadow-emerald-500/20',
+                      plan.popular && 'ring-2 ring-orange-400/50 shadow-2xl shadow-orange-500/20'
                     )}
+                    style={{
+                      backgroundColor: actualTheme === 'light' ? 'white' : 'rgba(15, 23, 42, 0.6)',
+                      backdropFilter: actualTheme === 'dark' ? 'blur(20px)' : 'none',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      borderColor: actualTheme === 'light' 
+                        ? (isCurrentPlan ? 'rgba(16, 185, 129, 0.3)' : 'rgba(226, 232, 240, 1)')
+                        : (isCurrentPlan ? 'rgba(16, 185, 129, 0.3)' : 'rgba(51, 65, 85, 0.5)'),
+                      boxShadow: actualTheme === 'light' 
+                        ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' 
+                        : '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)'
+                    }}
                   >
-                    {plan.popular && (
-                      <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-2xl">
-                        Popüler
-                      </div>
-                    )}
+                    {/* Gradient Overlay on Hover */}
+                    <div 
+                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                      style={{
+                        background: actualTheme === 'light'
+                          ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.03) 0%, rgba(251, 146, 60, 0.05) 100%)'
+                          : 'linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(251, 146, 60, 0.08) 100%)'
+                      }}
+                    />
 
-                    {isCurrentPlan && (
-                      <div className="absolute top-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold px-3 py-1 rounded-br-2xl flex items-center gap-1">
-                        <CheckCircle size={12} strokeWidth={2.5} />
-                        <span>Mevcut</span>
-                      </div>
-                    )}
-                    
-                    {!isCurrentPlan && isUpgrade && (
-                      <div className="absolute top-0 left-0 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-2xl flex items-center gap-1">
-                        <TrendingUp size={12} strokeWidth={2.5} />
-                        <span>Yükselt</span>
-                      </div>
-                    )}
-                    
-                    {!isCurrentPlan && isDowngrade && (
-                      <div className="absolute top-0 left-0 bg-gradient-to-r from-gray-600 to-gray-700 text-white text-xs font-bold px-3 py-1 rounded-br-2xl flex items-center gap-1">
-                        <ArrowDown size={12} strokeWidth={2.5} />
-                        <span>Düşür</span>
-                      </div>
-                    )}
+                    {/* Badge Container */}
+                    <div className="relative z-10">
+                      {plan.popular && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-2xl rounded-tr-3xl shadow-lg">
+                          ⭐ Popüler
+                        </div>
+                      )}
 
-                    <div className="p-5 lg:p-6">
+                      {isCurrentPlan && (
+                        <div className="absolute top-0 left-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white text-xs font-bold px-4 py-1.5 rounded-br-2xl rounded-tl-3xl flex items-center gap-1.5 shadow-lg">
+                          <CheckCircle size={14} strokeWidth={2.5} />
+                          <span>Mevcut Plan</span>
+                        </div>
+                      )}
+                      
+                      {!isCurrentPlan && isUpgrade && (
+                        <div className="absolute top-0 left-0 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white text-xs font-bold px-4 py-1.5 rounded-br-2xl rounded-tl-3xl flex items-center gap-1.5 shadow-lg">
+                          <TrendingUp size={14} strokeWidth={2.5} />
+                          <span>Yükseltme</span>
+                        </div>
+                      )}
+                      
+                      {!isCurrentPlan && isDowngrade && (
+                        <div className="absolute top-0 left-0 bg-gradient-to-r from-slate-600 to-slate-700 text-white text-xs font-bold px-4 py-1.5 rounded-br-2xl rounded-tl-3xl flex items-center gap-1.5 shadow-lg">
+                          <ArrowDown size={14} strokeWidth={2.5} />
+                          <span>Düşürme</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative z-10 p-6 flex flex-col flex-1">
                       {/* Icon & Name */}
                       <div className="flex flex-col items-center text-center mb-5">
-                        <div className={cn('w-14 h-14 rounded-2xl bg-gradient-to-br shadow-lg mb-3', PLAN_COLORS[plan.id])}>
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Icon className="w-7 h-7 text-white" strokeWidth={2.5} />
+                        <div className={cn('relative w-20 h-20 rounded-2xl bg-gradient-to-br shadow-2xl mb-4 transform group-hover:scale-110 transition-transform duration-300', PLAN_COLORS[plan.id])}>
+                          {/* Glow effect */}
+                          <div className={cn('absolute inset-0 rounded-2xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity', PLAN_COLORS[plan.id])} />
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            <Icon className="w-10 h-10 text-white drop-shadow-lg" strokeWidth={2} />
                           </div>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white font-heading">
+                        <h3 className="text-2xl font-black font-heading tracking-tight" style={{ 
+                          color: actualTheme === 'light' ? '#0f172a' : 'white',
+                          textShadow: actualTheme === 'dark' ? '0 2px 10px rgba(0,0,0,0.3)' : 'none'
+                        }}>
                           {plan.name}
                         </h3>
                       </div>
 
                       {/* Description */}
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 text-center min-h-[40px]">
+                      <p className="text-sm text-center mb-6 min-h-[42px] leading-relaxed" style={{ color: actualTheme === 'light' ? '#64748b' : '#94a3b8' }}>
                         {plan.description}
                       </p>
 
                       {/* Pricing */}
-                      <div className="mb-5 text-center">
+                      <div className="mb-6 text-center">
                         {plan.customPricing ? (
-                          <div className="py-3">
-                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                          <div className="py-4">
+                            <p className="text-4xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                               Özel Fiyat
                             </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            <p className="text-sm mt-2 font-medium" style={{ color: actualTheme === 'light' ? '#64748b' : '#94a3b8' }}>
                               İletişime geçin
                             </p>
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-baseline justify-center gap-1">
-                              <span className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white font-mono">
+                            <div className="flex items-baseline justify-center gap-1 mb-2">
+                              <span className="text-5xl font-black font-mono tracking-tighter" style={{ 
+                                color: actualTheme === 'light' ? '#0f172a' : 'white',
+                                textShadow: actualTheme === 'dark' ? '0 2px 10px rgba(0,0,0,0.3)' : 'none'
+                              }}>
                                 {planPrice.toLocaleString('tr-TR')}₺
                               </span>
                             </div>
-                            <span className="text-gray-600 dark:text-gray-400 text-sm block mt-1">
-                              / {selectedInterval === 'monthly' ? 'ay' : 'dönem'}
+                            <span className="text-sm font-semibold" style={{ color: actualTheme === 'light' ? '#64748b' : '#94a3b8' }}>
+                              / {selectedInterval === 'monthly' ? 'aylık' : 'dönem'}
                             </span>
                             {discount > 0 && (
-                              <div className="mt-3 inline-flex items-center gap-1 bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold px-3 py-1.5 rounded-full">
-                                <TrendingUp className="w-3 h-3" />
-                                %{discount} tasarruf
+                              <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-full shadow-lg" style={{
+                                backgroundColor: actualTheme === 'light' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.15)',
+                                color: actualTheme === 'light' ? '#15803d' : '#4ade80',
+                                border: `1px solid ${actualTheme === 'light' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)'}`
+                              }}>
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                <span>%{discount} tasarruf</span>
                               </div>
                             )}
                           </>
                         )}
                       </div>
 
-                      {/* Key Features - Restaurant Specific */}
-                      <div className="space-y-3 mb-6">
-                        <div className="flex items-start gap-3 text-sm">
-                          <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <UtensilsCrossed className="w-3 h-3 text-orange-500 dark:text-orange-400" strokeWidth={3} />
+                      {/* Divider */}
+                      <div className="h-px mb-6" style={{ 
+                        background: actualTheme === 'light' 
+                          ? 'linear-gradient(90deg, transparent, rgba(203, 213, 225, 0.5), transparent)'
+                          : 'linear-gradient(90deg, transparent, rgba(51, 65, 85, 0.5), transparent)'
+                      }} />
+
+                      {/* Key Features */}
+                      <div className="space-y-3 mb-6 flex-1">
+                        <div 
+                          className="flex items-center gap-3 text-sm py-3 px-4 rounded-xl transition-all duration-200 hover:scale-105"
+                          style={{
+                            backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.8)' : 'rgba(51, 65, 85, 0.3)',
+                            border: `1px solid ${actualTheme === 'light' ? 'rgba(226, 232, 240, 0.8)' : 'rgba(71, 85, 105, 0.3)'}`
+                          }}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{
+                            backgroundColor: actualTheme === 'light' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.15)'
+                          }}>
+                            <UtensilsCrossed className="w-5 h-5" style={{ color: actualTheme === 'light' ? '#ea580c' : '#fb923c' }} strokeWidth={2.5} />
                           </div>
-                          <span className="text-gray-700 dark:text-gray-300 font-medium">
-                            {plan.features.maxTables === 'unlimited' ? 'Sınırsız' : plan.features.maxTables} Masa
+                          <span className="font-bold text-base" style={{ color: actualTheme === 'light' ? '#0f172a' : '#e2e8f0' }}>
+                            {plan.features.maxTables === 'unlimited' ? 'Sınırsız' : plan.features.maxTables}
                           </span>
+                          <span className="font-medium" style={{ color: actualTheme === 'light' ? '#64748b' : '#94a3b8' }}>Masa</span>
                         </div>
-                        <div className="flex items-start gap-3 text-sm">
-                          <div className="w-5 h-5 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <ChefHat className="w-3 h-3 text-purple-500 dark:text-purple-400" strokeWidth={3} />
+                        
+                        <div 
+                          className="flex items-center gap-3 text-sm py-3 px-4 rounded-xl transition-all duration-200 hover:scale-105"
+                          style={{
+                            backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.8)' : 'rgba(51, 65, 85, 0.3)',
+                            border: `1px solid ${actualTheme === 'light' ? 'rgba(226, 232, 240, 0.8)' : 'rgba(71, 85, 105, 0.3)'}`
+                          }}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{
+                            backgroundColor: actualTheme === 'light' ? 'rgba(168, 85, 247, 0.1)' : 'rgba(168, 85, 247, 0.15)'
+                          }}>
+                            <ChefHat className="w-5 h-5" style={{ color: actualTheme === 'light' ? '#9333ea' : '#c084fc' }} strokeWidth={2.5} />
                           </div>
-                          <span className="text-gray-700 dark:text-gray-300 font-medium">
-                            {plan.features.maxMenuItems === 'unlimited' ? 'Sınırsız' : plan.features.maxMenuItems} Menü Ürünü
+                          <span className="font-bold text-base" style={{ color: actualTheme === 'light' ? '#0f172a' : '#e2e8f0' }}>
+                            {plan.features.maxMenuItems === 'unlimited' ? 'Sınırsız' : plan.features.maxMenuItems}
                           </span>
+                          <span className="font-medium" style={{ color: actualTheme === 'light' ? '#64748b' : '#94a3b8' }}>Menü</span>
                         </div>
-                        <div className="flex items-start gap-3 text-sm">
-                          <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Users className="w-3 h-3 text-blue-500 dark:text-blue-400" strokeWidth={3} />
-                          </div>
-                          <span className="text-gray-700 dark:text-gray-300 font-medium">
-                            {plan.features.maxStaff === 'unlimited' ? 'Sınırsız' : plan.features.maxStaff} Personel
-                          </span>
-                        </div>
+                        
                         {plan.features.qrCodeGeneration && (
-                          <div className="flex items-start gap-3 text-sm">
-                            <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <QrCode className="w-3 h-3 text-green-500 dark:text-green-400" strokeWidth={3} />
+                          <div 
+                            className="flex items-center gap-3 text-sm py-3 px-4 rounded-xl transition-all duration-200 hover:scale-105"
+                            style={{
+                              backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.8)' : 'rgba(51, 65, 85, 0.3)',
+                              border: `1px solid ${actualTheme === 'light' ? 'rgba(226, 232, 240, 0.8)' : 'rgba(71, 85, 105, 0.3)'}`
+                            }}
+                          >
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{
+                              backgroundColor: actualTheme === 'light' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.15)'
+                            }}>
+                              <QrCode className="w-5 h-5" style={{ color: actualTheme === 'light' ? '#16a34a' : '#4ade80' }} strokeWidth={2.5} />
                             </div>
-                            <span className="text-gray-700 dark:text-gray-300 font-medium">QR Kod Menü</span>
+                            <span className="font-semibold" style={{ color: actualTheme === 'light' ? '#0f172a' : '#e2e8f0' }}>QR Kod Menü</span>
                           </div>
                         )}
                       </div>
@@ -312,30 +376,44 @@ export function RestaurantSubscriptionModal({
                       <button
                         onClick={() => handleSelectPlan(plan.id, selectedInterval)}
                         className={cn(
-                          'w-full py-3.5 px-4 rounded-full font-heading font-bold text-sm transition-all hover:shadow-xl hover:scale-105 active:scale-95',
-                          isCurrentPlan
-                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
-                            : isUpgrade
-                            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30'
-                            : isDowngrade
-                            ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg shadow-gray-600/30'
-                            : 'bg-gradient-to-r ' + PLAN_COLORS[plan.id] + ' text-white shadow-lg'
+                          'relative w-full py-4 px-6 rounded-2xl font-heading font-bold text-base transition-all duration-300 hover:shadow-2xl hover:scale-105 active:scale-95 mt-auto overflow-hidden group/btn',
+                          isCurrentPlan && 'shadow-lg shadow-emerald-500/30',
+                          isUpgrade && 'shadow-lg shadow-orange-500/30'
                         )}
+                        style={{
+                          background: isCurrentPlan
+                            ? 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)'
+                            : isUpgrade
+                            ? 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)'
+                            : isDowngrade
+                            ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+                            : `linear-gradient(135deg, ${PLAN_COLORS[plan.id].split(' ')[0].replace('from-', '#')} 0%, ${PLAN_COLORS[plan.id].split(' ')[2].replace('to-', '#')} 100%)`,
+                          color: 'white'
+                        }}
                       >
-                        {isCurrentPlan 
-                          ? 'Yenile' 
-                          : plan.customPricing 
-                          ? 'İletişime Geç' 
-                          : isUpgrade
-                          ? 'Yükselt'
-                          : isDowngrade
-                          ? 'Düşür'
-                          : 'Planı Seç'}
+                        {/* Button shine effect */}
+                        <div className="absolute inset-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" style={{
+                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                          transform: 'translateX(-100%)',
+                          animation: 'shimmer 2s infinite'
+                        }} />
+                        <span className="relative z-10">
+                          {isCurrentPlan 
+                            ? 'Yenile' 
+                            : plan.customPricing 
+                            ? 'İletişime Geç' 
+                            : isUpgrade
+                            ? 'Yükselt'
+                            : isDowngrade
+                            ? 'Düşür'
+                            : 'Planı Seç'}
+                        </span>
                       </button>
                     </div>
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
 

@@ -66,6 +66,54 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
     e.preventDefault();
     setLoading(true);
     try {
+      // ✅ ABONELIK LİMİT KONTROLÜ - Yeni personel eklenirken
+      if (!staff) { // Sadece yeni personel eklerken kontrol et
+        const { subscriptionService } = await import('@/services/subscriptionService');
+        const { salonsService } = await import('@/services/firebaseService');
+        
+        const subscription = await subscriptionService.getBusinessSubscription(salonId);
+        
+        if (!subscription || subscription.status !== 'active') {
+          alert('Aktif aboneliğiniz yok. Personel eklemek için aktif bir aboneliğe ihtiyacınız var.');
+          setLoading(false);
+          return;
+        }
+
+        // Mevcut salon bilgisini al
+        const salon = await salonsService.getById(salonId);
+        if (!salon) {
+          alert('Salon bilgisi bulunamadı');
+          setLoading(false);
+          return;
+        }
+
+        // Plan özelliklerini al (hem restoran hem normal planlar için)
+        let plan;
+        if (salon.category === 'restoran' || salon.category === 'kafe') {
+          plan = subscription.customFeatures || 
+            (await import('@/config/restaurantSubscriptionPlans')).RESTAURANT_SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType)?.features;
+        } else {
+          plan = subscription.customFeatures || 
+            (await import('@/config/subscriptionPlans')).SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType)?.features;
+        }
+        
+        if (!plan) {
+          alert('Plan bilgisi bulunamadı');
+          setLoading(false);
+          return;
+        }
+
+        const maxStaff = plan.maxStaff;
+        const currentStaffCount = salon.staff?.length || 0;
+
+        // Limit kontrolü
+        if (maxStaff !== 'unlimited' && currentStaffCount >= maxStaff) {
+          alert(`Personel limiti aşıldı!\n\n${subscription.planType.toUpperCase()} paketinizde maksimum ${maxStaff} personel ekleyebilirsiniz.\n\nDaha fazla personel için paketinizi yükseltin.`);
+          setLoading(false);
+          return;
+        }
+      }
+
       await onSave({
         ...formData,
         salonId,

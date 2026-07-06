@@ -1,4 +1,4 @@
-import type { SubscriptionPlanType, SubscriptionInterval } from '@/types/subscription';
+import type { SubscriptionPlanType, SubscriptionInterval, PlanFeatures } from '@/types/subscription';
 
 export interface RestaurantSubscriptionPlan {
   id: SubscriptionPlanType;
@@ -18,37 +18,19 @@ export interface RestaurantSubscriptionPlan {
     'semi-annual': number;
     annual: number;
   };
-  features: {
-    maxTables: number | 'unlimited';
-    maxMenuItems: number | 'unlimited';
-    maxCategories: number | 'unlimited';
-    maxStaff: number | 'unlimited';
-    maxMonthlyOrders: number | 'unlimited';
-    qrCodeGeneration: boolean;
-    kitchenDisplay: boolean;
-    waiterApp: boolean;
-    cashierPanel: boolean;
-    tableManagement: boolean;
-    orderTracking: boolean;
-    customerNotifications: boolean;
-    advancedAnalytics: boolean;
-    multiLocation: boolean;
-    apiAccess: boolean;
-    prioritySupport: boolean;
-    customBranding: boolean;
-  };
+  features: PlanFeatures;
 }
 
 export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
   {
     id: 'starter',
     name: 'Başlangıç',
-    description: 'Küçük kafeler ve restoranlar için',
+    description: 'Küçük kafeler ve restoranlar için ideal başlangıç paketi',
     pricing: {
-      monthly: 499,
-      quarterly: 1347,
-      'semi-annual': 2543,
-      annual: 4790,
+      monthly: 2000,
+      quarterly: 5400, // %10 indirim
+      'semi-annual': 10200, // %15 indirim
+      annual: 19200, // %20 indirim
     },
     discounts: {
       monthly: 0,
@@ -58,10 +40,9 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
     },
     features: {
       maxTables: 10,
-      maxMenuItems: 50,
-      maxCategories: 10,
-      maxStaff: 3,
-      maxMonthlyOrders: 500,
+      maxMenuItems: 20,
+      maxCategories: 5,
+      maxMonthlyOrders: 300,
       qrCodeGeneration: true,
       kitchenDisplay: true,
       waiterApp: true,
@@ -79,13 +60,13 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
   {
     id: 'professional',
     name: 'Profesyonel',
-    description: 'Orta ölçekli restoranlar için',
+    description: 'Orta ölçekli restoranlar için gelişmiş özellikler',
     popular: true,
     pricing: {
-      monthly: 999,
-      quarterly: 2697,
-      'semi-annual': 5093,
-      annual: 9590,
+      monthly: 4000,
+      quarterly: 10800, // %10 indirim
+      'semi-annual': 20400, // %15 indirim
+      annual: 38400, // %20 indirim
     },
     discounts: {
       monthly: 0,
@@ -94,11 +75,10 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
       annual: 20,
     },
     features: {
-      maxTables: 30,
-      maxMenuItems: 200,
-      maxCategories: 20,
-      maxStaff: 10,
-      maxMonthlyOrders: 2000,
+      maxTables: 25,
+      maxMenuItems: 50,
+      maxCategories: 15,
+      maxMonthlyOrders: 1000,
       qrCodeGeneration: true,
       kitchenDisplay: true,
       waiterApp: true,
@@ -110,18 +90,18 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
       multiLocation: false,
       apiAccess: false,
       prioritySupport: true,
-      customBranding: false,
+      customBranding: true,
     },
   },
   {
     id: 'business',
     name: 'İşletme',
-    description: 'Büyük restoranlar ve zincirler için',
+    description: 'Büyük restoranlar ve çoklu şubeler için',
     pricing: {
-      monthly: 1999,
-      quarterly: 5397,
-      'semi-annual': 10193,
-      annual: 19190,
+      monthly: 7000,
+      quarterly: 18900, // %10 indirim
+      'semi-annual': 35700, // %15 indirim
+      annual: 67200, // %20 indirim
     },
     discounts: {
       monthly: 0,
@@ -130,11 +110,10 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
       annual: 20,
     },
     features: {
-      maxTables: 100,
-      maxMenuItems: 500,
-      maxCategories: 50,
-      maxStaff: 30,
-      maxMonthlyOrders: 10000,
+      maxTables: 50,
+      maxMenuItems: 100,
+      maxCategories: 30,
+      maxMonthlyOrders: 3000,
       qrCodeGeneration: true,
       kitchenDisplay: true,
       waiterApp: true,
@@ -152,12 +131,12 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
   {
     id: 'enterprise',
     name: 'Kurumsal',
-    description: 'Restoran zincirleri ve franchise\'lar için',
+    description: 'Restoran zincirleri ve franchise\'lar için sınırsız hizmet',
     pricing: {
-      monthly: 3999,
-      quarterly: 10797,
-      'semi-annual': 20393,
-      annual: 38390,
+      monthly: 12000,
+      quarterly: 32400, // %10 indirim
+      'semi-annual': 61200, // %15 indirim
+      annual: 115200, // %20 indirim
     },
     discounts: {
       monthly: 0,
@@ -169,7 +148,6 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
       maxTables: 'unlimited',
       maxMenuItems: 'unlimited',
       maxCategories: 'unlimited',
-      maxStaff: 'unlimited',
       maxMonthlyOrders: 'unlimited',
       qrCodeGeneration: true,
       kitchenDisplay: true,
@@ -187,8 +165,8 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
   },
   {
     id: 'custom',
-    name: 'Özel',
-    description: 'Özel ihtiyaçlarınıza göre tasarlanmış çözüm',
+    name: 'Özel Çözüm',
+    description: 'İhtiyaçlarınıza özel tasarlanmış restoran paketi',
     customPricing: true,
     pricing: {
       monthly: 0,
@@ -206,7 +184,6 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
       maxTables: 'unlimited',
       maxMenuItems: 'unlimited',
       maxCategories: 'unlimited',
-      maxStaff: 'unlimited',
       maxMonthlyOrders: 'unlimited',
       qrCodeGeneration: true,
       kitchenDisplay: true,
@@ -223,3 +200,23 @@ export const RESTAURANT_SUBSCRIPTION_PLANS: RestaurantSubscriptionPlan[] = [
     },
   },
 ];
+
+// Restoran Özellikleri Açıklamaları
+export const RESTAURANT_FEATURE_DESCRIPTIONS: Record<string, string> = {
+  maxTables: 'Yönetebileceğiniz masa sayısı',
+  maxMenuItems: 'Menünüze ekleyebileceğiniz ürün sayısı',
+  maxCategories: 'Oluşturabileceğiniz kategori sayısı',
+  maxMonthlyOrders: 'Aylık sipariş limiti',
+  qrCodeGeneration: 'Masa için QR kod oluşturma',
+  kitchenDisplay: 'Mutfak ekranı sistemi',
+  waiterApp: 'Garson mobil uygulaması',
+  cashierPanel: 'Kasa yönetim paneli',
+  tableManagement: 'Masa yönetimi ve durum takibi',
+  orderTracking: 'Sipariş takip sistemi',
+  customerNotifications: 'Müşteri SMS ve bildirim sistemi',
+  advancedAnalytics: 'Gelişmiş analitik ve raporlama (satış, stok, performans)',
+  multiLocation: 'Çoklu şube yönetimi',
+  apiAccess: 'API erişimi ve entegrasyonlar',
+  prioritySupport: 'Öncelikli müşteri desteği',
+  customBranding: 'Özel logo ve marka görünümü',
+};

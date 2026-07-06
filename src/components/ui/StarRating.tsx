@@ -23,7 +23,7 @@ export function StarRating({ score, size = 14, showValue = false, className }: S
               ? 'fill-[#E5A522] text-[#E5A522]'
               : i === fullStars && hasHalf
               ? 'fill-[#E5A522]/50 text-[#E5A522]'
-              : 'fill-transparent text-[var(--obsidian-rim)]'
+              : 'fill-transparent text-gray-300 dark:text-[var(--obsidian-rim)]'
           )}
         />
       ))}

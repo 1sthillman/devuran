@@ -5,6 +5,7 @@ import {
   getDoc, 
   getDocs, 
   addDoc, 
+  setDoc,
   updateDoc, 
   deleteDoc, 
   query, 
@@ -537,15 +538,19 @@ export const adminSubscriptionService = {
     planType: string,
     days: number,
     adminId: string,
-    adminName: string
+    adminName: string,
+    businessName?: string
   ) {
     try {
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + days);
 
-      await addDoc(collection(db, 'subscriptions'), {
+      // ✅ ID = businessId (her business için 1 subscription)
+      await setDoc(doc(db, 'subscriptions', businessId), {
+        id: businessId,
         businessId,
+        businessName: businessName || businessId,
         planType,
         status: 'active',
         startDate: startDate.toISOString(),
@@ -556,7 +561,25 @@ export const adminSubscriptionService = {
         grantedBy: adminId,
         grantedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        usage: {
+          staffCount: 0,
+          serviceCount: 0,
+          monthlyBookings: 0,
+          lastUpdated: new Date().toISOString(),
+        },
       });
+      
+      // ✅ Salon subscriptionActive güncelle
+      try {
+        await updateDoc(doc(db, 'salons', businessId), {
+          subscriptionActive: true,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log('✅ Salon subscriptionActive updated to true');
+      } catch (salonError) {
+        console.error('⚠️ Could not update salon subscriptionActive:', salonError);
+      }
 
       await auditLogService.log({
         adminId,
@@ -564,7 +587,7 @@ export const adminSubscriptionService = {
         action: 'grant_manual_premium',
         targetType: 'subscription',
         targetId: businessId,
-        targetName: businessId,
+        targetName: businessName || businessId,
         metadata: { planType, days },
       });
 

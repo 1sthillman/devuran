@@ -36,14 +36,14 @@ export function ServiceCard({ service, selected, onToggle, salonCategory }: Serv
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <h4 className="font-body text-[15px] text-[var(--chrome-white)]">{service.name}</h4>
+        <h4 className="font-body text-[15px] text-white">{service.name}</h4>
         {showDuration && (
-          <p className="font-body text-[13px] text-[var(--muted-lead)]">{service.duration} dk</p>
+          <p className="font-body text-[13px] text-white/70">{service.duration} dk</p>
         )}
       </div>
 
       {/* Price */}
-      <span className="font-mono font-medium text-base text-[var(--silver-frost)]">
+      <span className="font-mono font-medium text-base text-white">
         {service.price} TL
       </span>
     </button>

@@ -7,6 +7,7 @@ import type { Appointment, Staff } from '@/types';
 import { appointmentsService, staffService } from '@/services/firebaseService';
 import { soundService } from '@/services/soundService';
 import { useUIStore } from '@/store/uiStore';
+import { useThemeStore } from '@/store/themeStore';
 
 interface AppointmentManagerProps {
   appointments: Appointment[];
@@ -21,6 +22,7 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
   const [cancelDialogAppointment, setCancelDialogAppointment] = useState<Appointment | null>(null);
   const [completeEarlyAppointment, setCompleteEarlyAppointment] = useState<Appointment | null>(null);
   const { addToast } = useUIStore();
+  const { actualTheme } = useThemeStore();
 
   useEffect(() => {
     loadStaff();
@@ -162,29 +164,37 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
 
       {/* Pending Appointments */}
       {pendingAppointments.length > 0 && (
-        <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+        <div className="p-5 rounded-3xl border" style={{
+          backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.95)' : 'rgba(255, 255, 255, 0.02)',
+          borderColor: actualTheme === 'light' ? 'rgba(209, 213, 219, 0.5)' : 'rgba(255, 255, 255, 0.08)'
+        }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 border border-orange-500/30 flex items-center justify-center">
               <Clock size={18} className="text-orange-400" strokeWidth={2} />
             </div>
             <div>
-              <h3 className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
+              <h3 className="font-heading font-semibold text-sm" style={{ color: actualTheme === 'light' ? '#1f2937' : 'var(--chrome-white)' }}>
                 Onay Bekleyen Randevular
               </h3>
-              <p className="text-[10px] text-[var(--muted-lead)] mt-0.5">
+              <p className="text-[10px] mt-0.5" style={{ color: actualTheme === 'light' ? '#6b7280' : 'var(--muted-lead)' }}>
                 {pendingAppointments.length} randevu onay bekliyor
               </p>
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {pendingAppointments.map((appointment, index) => (
               <motion.div
                 key={appointment.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-white/[0.02] to-orange-500/5 p-5 hover:border-amber-500/30 transition-all duration-300 group"
+                className="relative overflow-hidden rounded-3xl border p-5 hover:border-amber-500/40 transition-all duration-300 group hover:shadow-lg"
+                style={{
+                  backgroundColor: actualTheme === 'light' ? 'rgba(255, 252, 240, 0.98)' : 'rgba(251, 191, 36, 0.05)',
+                  borderColor: actualTheme === 'light' ? 'rgba(251, 191, 36, 0.5)' : 'rgba(251, 191, 36, 0.2)',
+                  boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(217, 119, 6, 0.1)' : 'none'
+                }}
               >
                 {/* Glow Effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -196,10 +206,10 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
                       <User size={20} className="text-white" strokeWidth={2.5} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-heading font-bold text-base text-[var(--chrome-white)] truncate">
+                      <h4 className="font-heading font-bold text-base truncate" style={{ color: actualTheme === 'light' ? '#1f2937' : 'var(--chrome-white)' }}>
                         {appointment.customerName}
                       </h4>
-                      <p className="font-mono text-xs text-[var(--muted-lead)]">
+                      <p className="font-mono text-xs" style={{ color: actualTheme === 'light' ? '#6b7280' : 'var(--muted-lead)' }}>
                         {appointment.customerPhone}
                       </p>
                     </div>
@@ -209,12 +219,15 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
                   </div>
 
                   {/* Date & Time - Kompakt */}
-                  <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                  <div className="p-3.5 rounded-2xl border" style={{
+                    backgroundColor: actualTheme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.03)',
+                    borderColor: actualTheme === 'light' ? 'rgba(209, 213, 219, 0.5)' : 'rgba(255, 255, 255, 0.08)'
+                  }}>
                     <div className="flex items-center gap-2.5 text-sm">
                       <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
                         <Clock size={16} className="text-cyan-400" strokeWidth={2.5} />
                       </div>
-                      <span className="font-mono text-[var(--chrome-white)] font-semibold">
+                      <span className="font-mono font-semibold" style={{ color: actualTheme === 'light' ? '#1f2937' : 'var(--chrome-white)' }}>
                         {appointment.date} • {appointment.time}
                       </span>
                     </div>
@@ -283,16 +296,19 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
           </div>
         </div>
       )}
-      <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.08]">
+      <div className="p-5 rounded-3xl border" style={{
+        backgroundColor: actualTheme === 'light' ? 'rgba(249, 250, 251, 0.95)' : 'rgba(255, 255, 255, 0.02)',
+        borderColor: actualTheme === 'light' ? 'rgba(209, 213, 219, 0.5)' : 'rgba(255, 255, 255, 0.08)'
+      }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
             <CheckCircle2 size={18} className="text-emerald-400" strokeWidth={2} />
           </div>
           <div>
-            <h3 className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
+            <h3 className="font-heading font-semibold text-sm" style={{ color: actualTheme === 'light' ? '#1f2937' : 'var(--chrome-white)' }}>
               Onaylanmış Randevular
             </h3>
-            <p className="text-[10px] text-[var(--muted-lead)] mt-0.5">
+            <p className="text-[10px] mt-0.5" style={{ color: actualTheme === 'light' ? '#6b7280' : 'var(--muted-lead)' }}>
               {confirmedAppointments.length} aktif randevu
             </p>
           </div>
@@ -303,22 +319,27 @@ export function AppointmentManager({ appointments, salonId, onRefresh }: Appoint
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 size={32} className="text-emerald-400" />
             </div>
-            <p className="font-heading font-semibold text-[var(--chrome-white)] mb-1">
+            <p className="font-heading font-semibold mb-1" style={{ color: actualTheme === 'light' ? '#1f2937' : 'var(--chrome-white)' }}>
               Onaylanmış randevu yok
             </p>
-            <p className="font-body text-sm text-[var(--muted-lead)]">
+            <p className="font-body text-sm" style={{ color: actualTheme === 'light' ? '#6b7280' : 'var(--muted-lead)' }}>
               Bekleyen randevuları onaylayın
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {confirmedAppointments.map((appointment, index) => (
               <motion.div
                 key={appointment.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-white/[0.02] to-teal-500/5 p-5 hover:border-emerald-500/30 transition-all duration-300 group cursor-pointer"
+                className="relative overflow-hidden rounded-3xl border p-5 hover:border-emerald-500/40 transition-all duration-300 group cursor-pointer hover:shadow-lg"
+                style={{
+                  backgroundColor: actualTheme === 'light' ? 'rgba(236, 253, 245, 0.98)' : 'rgba(16, 185, 129, 0.05)',
+                  borderColor: actualTheme === 'light' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.2)',
+                  boxShadow: actualTheme === 'light' ? '0 1px 3px rgba(5, 150, 105, 0.1)' : 'none'
+                }}
               >
                 {/* Glow Effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

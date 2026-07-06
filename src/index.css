@@ -168,8 +168,8 @@
 /* Light Theme - Premium & Minimal */
 :root[data-theme="light"] {
   /* Core Colors - Light */
-  --void: #ffffff;
-  --slate-surface: #f8f9fa;
+  --void: #f5f5f7;  /* Daha yumuşak açık gri */
+  --slate-surface: #ffffff;
   --slate-elevated: #ffffff;
   --obsidian-rim: #e0e0e6;
   --chrome-white: #0a0a0f;

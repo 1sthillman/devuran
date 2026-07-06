@@ -51,6 +51,7 @@ import { FloatingNavMenu } from '@/components/dashboard/FloatingNavMenu';
 import { toast } from 'sonner';
 import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus';
 import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
+import { RestaurantSubscriptionModal } from '@/components/subscription/RestaurantSubscriptionModal';
 import { SubscriptionGuard } from '@/components/subscription/SubscriptionGuard';
 import { SubscriptionOverviewCard } from '@/components/subscription/SubscriptionOverviewCard';
 import { AnnouncementPopup } from '@/components/announcement/AnnouncementPopup';
@@ -1242,8 +1243,10 @@ export function OwnerDashboard() {
                     onClick={() => setActiveTab(stat.tab)}
                     className="relative overflow-hidden obsidian-card p-5 text-left hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer group"
                   >
-                    {/* Animated Background */}
-                    <div className="absolute inset-0 opacity-[0.25] group-hover:opacity-[0.35] transition-opacity pointer-events-none">
+                    {/* Animated Background - Aydınlık modda çok daha belirgin */}
+                    <div className={`absolute inset-0 group-hover:opacity-[0.70] transition-opacity pointer-events-none ${
+                      actualTheme === 'light' ? 'opacity-[0.60]' : 'opacity-[0.25]'
+                    }`}>
                       <img
                         src={backgroundGif}
                         alt=""
@@ -1256,8 +1259,12 @@ export function OwnerDashboard() {
                       />
                     </div>
 
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--slate-surface)]/95 via-[var(--slate-surface)]/90 to-[var(--slate-surface)]/95 group-hover:from-[var(--slate-surface)]/90 group-hover:via-[var(--slate-surface)]/85 group-hover:to-[var(--slate-surface)]/90 transition-all pointer-events-none" />
+                    {/* Gradient Overlay - Aydınlık modda koyu overlay */}
+                    <div className={`absolute inset-0 transition-all pointer-events-none ${
+                      actualTheme === 'light'
+                        ? 'bg-gradient-to-br from-gray-900/85 via-gray-900/80 to-gray-900/85 group-hover:from-gray-900/80 group-hover:via-gray-900/75 group-hover:to-gray-900/80'
+                        : 'bg-gradient-to-br from-[var(--slate-surface)]/95 via-[var(--slate-surface)]/90 to-[var(--slate-surface)]/95 group-hover:from-[var(--slate-surface)]/90 group-hover:via-[var(--slate-surface)]/85 group-hover:to-[var(--slate-surface)]/90'
+                    }`} />
 
                     {/* Content */}
                     <div className="relative">
@@ -1269,10 +1276,10 @@ export function OwnerDashboard() {
                           <Icon size={20} style={{ color: stat.color }} strokeWidth={2.5} />
                         </div>
                       </div>
-                      <p className="font-mono font-bold text-3xl text-[var(--chrome-white)] mb-1">
+                      <p className="font-mono font-bold text-3xl text-white mb-1">
                         {stat.value}
                       </p>
-                      <p className="font-heading font-medium text-sm text-[var(--muted-lead)]">{stat.label}</p>
+                      <p className="font-heading font-medium text-sm text-gray-300">{stat.label}</p>
                     </div>
                   </motion.button>
                 );
@@ -1285,24 +1292,44 @@ export function OwnerDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.04 }}
-                className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl"
+                className="relative overflow-hidden rounded-3xl border border-white/[0.08] backdrop-blur-xl"
+                style={{
+                  background: actualTheme === 'light' 
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%)'
+                    : 'rgba(255, 255, 255, 0.02)'
+                }}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] via-transparent to-teal-500/[0.02] pointer-events-none" />
+                {/* Modern gradient overlay */}
+                <div className={`absolute inset-0 pointer-events-none ${
+                  actualTheme === 'light'
+                    ? 'bg-gradient-to-br from-emerald-600/[0.08] via-transparent to-teal-600/[0.08]'
+                    : 'bg-gradient-to-br from-emerald-500/[0.02] via-transparent to-teal-500/[0.02]'
+                }`} />
                 
                 <div className="relative">
                   <button
                     onClick={() => setShowSubscriptionCard(!showSubscriptionCard)}
-                    className="w-full p-6 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
+                    className="w-full p-6 flex items-center justify-between hover:bg-white/[0.05] transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-white/[0.08] flex items-center justify-center">
+                      <div className={`w-12 h-12 rounded-3xl border flex items-center justify-center ${
+                        actualTheme === 'light'
+                          ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/30'
+                          : 'bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-white/[0.08]'
+                      }`}>
                         <CreditCard size={20} className="text-emerald-400" strokeWidth={2} />
                       </div>
                       <div className="text-left">
-                        <h3 className="font-heading font-semibold text-base text-[var(--chrome-white)]">
+                        <h3 
+                          className="font-heading font-semibold text-base"
+                          style={{ color: actualTheme === 'light' ? '#111827' : 'white' }}
+                        >
                           Abonelik Durumu
                         </h3>
-                        <p className="text-xs text-[var(--muted-lead)] mt-0.5">
+                        <p 
+                          className="text-xs mt-0.5"
+                          style={{ color: actualTheme === 'light' ? '#6b7280' : '#d1d5db' }}
+                        >
                           Plan ve kullanım bilgileri
                         </p>
                       </div>
@@ -1311,7 +1338,7 @@ export function OwnerDashboard() {
                       animate={{ rotate: showSubscriptionCard ? 180 : 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <ChevronDown size={20} className="text-[var(--muted-lead)]" />
+                      <ChevronDown size={20} className="text-gray-300" />
                     </motion.div>
                   </button>
 
@@ -2371,17 +2398,33 @@ export function OwnerDashboard() {
 
       {/* Subscription Modal */}
       {showSubscriptionModal && salon && (
-        <SubscriptionModal
-          isOpen={showSubscriptionModal}
-          onClose={() => setShowSubscriptionModal(false)}
-          businessId={salon.id}
-          businessName={salon.name}
-          currentPlan={subscription?.planType}
-          onSuccess={() => {
-            loadSubscription();
-            loadData();
-          }}
-        />
+        <>
+          {(salon.businessType === 'restaurant' || salon.businessType === 'cafe' || salon.category === 'restoran' || salon.category === 'kafe') ? (
+            <RestaurantSubscriptionModal
+              isOpen={showSubscriptionModal}
+              onClose={() => setShowSubscriptionModal(false)}
+              businessId={salon.id}
+              businessName={salon.name}
+              currentPlan={subscription?.planType}
+              onSuccess={() => {
+                loadSubscription();
+                loadData();
+              }}
+            />
+          ) : (
+            <SubscriptionModal
+              isOpen={showSubscriptionModal}
+              onClose={() => setShowSubscriptionModal(false)}
+              businessId={salon.id}
+              businessName={salon.name}
+              currentPlan={subscription?.planType}
+              onSuccess={() => {
+                loadSubscription();
+                loadData();
+              }}
+            />
+          )}
+        </>
       )}
 
       </div>

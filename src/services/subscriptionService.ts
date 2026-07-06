@@ -22,10 +22,41 @@ import type {
   PlanFeatures,
 } from '@/types/subscription';
 import { SUBSCRIPTION_PLANS, TRIAL_PERIOD_DAYS } from '@/config/subscriptionPlans';
+import { RESTAURANT_SUBSCRIPTION_PLANS } from '@/config/restaurantSubscriptionPlans';
+
+// Tüm planları birleştir
+const ALL_PLANS = [...SUBSCRIPTION_PLANS];
+
+// Restoran planlarını getiren helper fonksiyon
+export function getRestaurantPlans() {
+  return RESTAURANT_SUBSCRIPTION_PLANS;
+}
+
+// Business type'a göre doğru plan listesini döndür
+export function getPlansForBusinessType(businessType?: string) {
+  if (businessType === 'restaurant' || businessType === 'cafe') {
+    return RESTAURANT_SUBSCRIPTION_PLANS;
+  }
+  return SUBSCRIPTION_PLANS;
+}
 
 class SubscriptionService {
   private subscriptionsCollection = 'subscriptions';
   private historyCollection = 'subscriptionHistory';
+
+  // Business type'a göre plan bul
+  private findPlan(planType: SubscriptionPlanType, businessType?: string) {
+    const plans = getPlansForBusinessType(businessType);
+    const plan = plans.find(p => p.id === planType);
+    
+    // Eğer bulunmazsa diğer plan listesinde ara
+    if (!plan) {
+      const alternatePlans = businessType === 'restaurant' ? SUBSCRIPTION_PLANS : RESTAURANT_SUBSCRIPTION_PLANS;
+      return alternatePlans.find(p => p.id === planType);
+    }
+    
+    return plan;
+  }
 
   /**
    * Yeni işletme için trial abonelik oluştur
@@ -181,9 +212,10 @@ class SubscriptionService {
     businessId: string,
     businessName: string,
     planType: SubscriptionPlanType,
-    interval: SubscriptionInterval
+    interval: SubscriptionInterval,
+    businessType?: string
   ): Promise<BusinessSubscription> {
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planType);
+    const plan = this.findPlan(planType, businessType);
     if (!plan) throw new Error('Geçersiz plan');
 
     const currentSubscription = await this.getBusinessSubscription(businessId);
@@ -306,12 +338,13 @@ class SubscriptionService {
    */
   async changePlan(
     businessId: string,
-    newPlanType: SubscriptionPlanType
+    newPlanType: SubscriptionPlanType,
+    businessType?: string
   ): Promise<BusinessSubscription> {
     const subscription = await this.getBusinessSubscription(businessId);
     if (!subscription) throw new Error('Abonelik bulunamadı');
 
-    const newPlan = SUBSCRIPTION_PLANS.find(p => p.id === newPlanType);
+    const newPlan = this.findPlan(newPlanType, businessType);
     if (!newPlan) throw new Error('Geçersiz plan');
 
     const oldPlanType = subscription.planType;
@@ -558,8 +591,8 @@ class SubscriptionService {
       };
     }
 
-    // Plan özelliklerini al
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType);
+    // Plan özelliklerini al (restoran veya normal plan olabilir)
+    const plan = this.findPlan(subscription.planType);
     if (!plan) {
       return { hasAccess: false, reason: 'Plan bulunamadı' };
     }
@@ -598,12 +631,12 @@ class SubscriptionService {
       };
     }
 
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType);
+    const plan = this.findPlan(subscription.planType);
     if (!plan) return { hasAccess: false };
 
     const features = subscription.customFeatures || plan.features;
     
-    let limit: number | 'unlimited';
+    let limit: number | 'unlimited' | undefined;
     switch (limitType) {
       case 'staff':
         limit = features.maxStaff;
@@ -616,7 +649,7 @@ class SubscriptionService {
         break;
     }
 
-    if (limit === 'unlimited') {
+    if (!limit || limit === 'unlimited') {
       return { hasAccess: true };
     }
 
@@ -713,8 +746,8 @@ class SubscriptionService {
   }
 
   private getRequiredPlanForFeature(feature: keyof PlanFeatures): SubscriptionPlanType {
-    // Her özellik için minimum gereken planı bul
-    for (const plan of SUBSCRIPTION_PLANS) {
+    // Her özellik için minimum gereken planı bul (hem normal hem restoran planlarında ara)
+    for (const plan of [...SUBSCRIPTION_PLANS, ...RESTAURANT_SUBSCRIPTION_PLANS]) {
       if (plan.features[feature]) {
         return plan.id;
       }

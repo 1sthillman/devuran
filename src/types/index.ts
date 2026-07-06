@@ -103,6 +103,7 @@ export interface Salon {
   ownerEmail?: string; // Salon sahibinin email adresi (bildirimler için)
   name: string;
   slug: string;
+  businessType?: 'salon' | 'restaurant' | 'cafe' | 'hotel' | 'venue'; // İşletme tipi
   category: 
     | 'kuafor' | 'berber' | 'guzellik' | 'tirnak'
     | 'dugun-organizasyon' | 'nisan-organizasyon' | 'evlilik-teklifi'

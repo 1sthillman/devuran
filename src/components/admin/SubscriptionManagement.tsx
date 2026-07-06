@@ -402,15 +402,18 @@ export function SubscriptionManagement() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500"
+            className="px-4 py-2.5 bg-slate-700 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+            style={{
+              colorScheme: 'dark'
+            }}
           >
-            <option value="all">Tüm Durumlar</option>
-            <option value="pending">⏳ Onay Bekleyen</option>
-            <option value="active">Aktif</option>
-            <option value="trial">Deneme</option>
-            <option value="frozen">Dondurulmuş</option>
-            <option value="expired">Süresi Dolmuş</option>
-            <option value="cancelled">İptal Edilmiş</option>
+            <option value="all" className="bg-slate-700 text-white">Tüm Durumlar</option>
+            <option value="pending" className="bg-slate-700 text-white">⏳ Onay Bekleyen</option>
+            <option value="active" className="bg-slate-700 text-white">Aktif</option>
+            <option value="trial" className="bg-slate-700 text-white">Deneme</option>
+            <option value="frozen" className="bg-slate-700 text-white">Dondurulmuş</option>
+            <option value="expired" className="bg-slate-700 text-white">Süresi Dolmuş</option>
+            <option value="cancelled" className="bg-slate-700 text-white">İptal Edilmiş</option>
           </select>
         </div>
 
@@ -517,16 +520,35 @@ export function SubscriptionManagement() {
             <div className="space-y-3 mb-4">
               <div className="flex items-center gap-2 text-sm text-white/60">
                 <Package className="w-4 h-4" />
-                <span className="capitalize">{subscription.planType}</span>
+                <span className="capitalize font-semibold text-white">{subscription.planType}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-white/60">
                 <DollarSign className="w-4 h-4" />
-                <span>{subscription.price} ₺ / {subscription.interval}</span>
+                <span className="font-bold text-green-400">{subscription.price} ₺</span>
+                <span>/ {subscription.interval}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-white/60">
                 <Calendar className="w-4 h-4" />
                 <span>Bitiş: {new Date(subscription.endDate).toLocaleDateString('tr-TR')}</span>
               </div>
+              
+              {/* Kullanım İstatistikleri */}
+              {subscription.usage && (
+                <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/50">Personel:</span>
+                    <span className="text-white font-semibold">{subscription.usage.staffCount || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/50">Hizmet:</span>
+                    <span className="text-white font-semibold">{subscription.usage.serviceCount || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/50">Aylık Randevu:</span>
+                    <span className="text-white font-semibold">{subscription.usage.monthlyBookings || 0}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">

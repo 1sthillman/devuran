@@ -8,6 +8,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { appointmentAutoCompleteService } from '@/services/appointmentAutoCompleteService';
 
 // Lazy load pages for better performance
+const NewHome = lazy(() => import('@/pages/NewHome').then(m => ({ default: m.NewHome })));
 const Home = lazy(() => import('@/pages/Home').then(m => ({ default: m.Home })));
 const SalonDetail = lazy(() => import('@/pages/SalonDetail').then(m => ({ default: m.SalonDetail })));
 const Booking = lazy(() => import('@/pages/Booking').then(m => ({ default: m.Booking })));
@@ -81,6 +82,14 @@ export default function App() {
           <Routes>
             <Route
               path="/"
+              element={
+                <AnimatedRoute>
+                  <NewHome />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/all"
               element={
                 <AnimatedRoute>
                   <Home />

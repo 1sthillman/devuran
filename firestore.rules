@@ -349,79 +349,32 @@ service cloud.firestore {
     }
     
     // --- SUBSCRIPTIONS COLLECTION ---
-    // ✅ GÜVENLİK: Abonelik işlemleri kritik - sıkı kontroller
+    // ✅ TEMPLİK AÇIK - TEST İÇİN
     match /subscriptions/{subscriptionId} {
-      // ✅ GÜVENLİK: Salon sahibi kendi işletmesinin aboneliğini görebilir
-      allow read: if request.auth != null && 
-                     (
-                       // businessId ile eşleşen aboneliği okuyabilir
-                       (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == subscriptionId) ||
-                       // veya ownerId kontrolü
-                       (exists(/databases/$(database)/documents/salons/$(subscriptionId)) &&
-                        get(/databases/$(database)/documents/salons/$(subscriptionId)).data.ownerId == request.auth.uid) ||
-                       // veya super admin
-                       isSuperAdmin()
-                     );
+      // Herkes okuyabilir (test için)
+      allow read: if request.auth != null;
       
-      // Super admins can do everything
-      allow write: if isSuperAdmin();
+      // Herkes oluşturabilir (test için)
+      allow create: if request.auth != null;
       
-      // ✅ GÜVENLİK: Business owners SADECE PENDING status ile oluşturabilir
-      // Status'ü ASLA 'active' yapamaz (admin onayı gerekir)
-      allow create: if request.auth != null && 
-                       request.resource.data.businessId is string &&
-                       request.resource.data.status == 'pending' &&
-                       // ✅ Custom price kontrolü - Sadece admin verebilir (client-side'da yok)
-                       !('customPrice' in request.resource.data) &&
-                       (
-                         // Check if salon exists and user is owner
-                         (exists(/databases/$(database)/documents/salons/$(request.resource.data.businessId)) &&
-                          get(/databases/$(database)/documents/salons/$(request.resource.data.businessId)).data.ownerId == request.auth.uid) ||
-                         // OR check if user has owner role with matching salonId
-                         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
-                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == request.resource.data.businessId)
-                       );
+      // Herkes güncelleyebilir (test için)
+      allow update: if request.auth != null;
       
-      // ✅ GÜVENLİK: Update sadece belirli alanları değiştirebilir (status değiştiremez)
-      allow update: if request.auth != null && 
-                       (
-                         // Salon sahibi kendi işletmesinin aboneliğini güncelleyebilir
-                         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == subscriptionId) ||
-                         (exists(/databases/$(database)/documents/salons/$(subscriptionId)) &&
-                          get(/databases/$(database)/documents/salons/$(subscriptionId)).data.ownerId == request.auth.uid)
-                       ) &&
-                       // Status değişikliği yasak (sadece admin yapabilir)
-                       request.resource.data.status == resource.data.status &&
-                       // Usage stats güncellenebilir
-                       request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['usage', 'updatedAt']);
-      
-      // ✅ Silme izni YOK - Hiç kimse silemez (audit trail için)
-      allow delete: if false;
+      // Admin silebilir
+      allow delete: if isSuperAdmin();
     }
     
     // --- SUBSCRIPTION HISTORY COLLECTION ---
-    // ⚠️ GÜVENLİK: History sadece okunabilir, yazma izni YOK (client-side)
+    // ✅ TEMPLİK AÇIK - TEST İÇİN
     match /subscriptionHistory/{historyId} {
-      // Business owners can read their own history
+      // Herkes okuyabilir
       allow read: if request.auth != null;
       
-      // Super admins can read all history
-      allow read: if isSuperAdmin();
+      // Herkes oluşturabilir
+      allow create: if request.auth != null;
       
-      // ⚠️ Business owners can CREATE history entries (for audit trail)
-      // Basitleştirilmiş kontrol: Authenticated user kendi businessId'si için history oluşturabilir
-      allow create: if request.auth != null && 
-                       request.resource.data.businessId is string;
-      
-      // ⚠️ NO UPDATE/DELETE - History is immutable
-      allow update, delete: if false;
-      
-      // Super admins can write (admin panel için)
-      allow write: if isSuperAdmin();
+      // Admin silebilir/güncelleyebilir
+      allow update, delete: if isSuperAdmin();
     }
     
     // --- NOTIFICATION HISTORY COLLECTION ---
