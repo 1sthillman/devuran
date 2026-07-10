@@ -74,14 +74,22 @@ export function OrderBookingWizard() {
       const services = await servicesService.getBySalon(salon!.id);
       setMenuItems(services);
     } catch (error) {
-      //
+      console.error('Menü yüklenirken hata:', error);
+      addToast('Menü yüklenirken bir hata oluştu', 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const addItem = (item: any) => {
     const existing = localItems.find((i) => i.id === item.id);
+    const MAX_QUANTITY = 50; // 🔥 Makul üst sınır
+    
     if (existing) {
+      if (existing.quantity >= MAX_QUANTITY) {
+        addToast(`Maksimum ${MAX_QUANTITY} adet sipariş verebilirsiniz`, 'warning');
+        return;
+      }
       setLocalItems(localItems.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
       setLocalItems([...localItems, { ...item, quantity: 1 }]);
@@ -118,8 +126,22 @@ export function OrderBookingWizard() {
       return;
     }
 
+    // 🔥 Teslimat bilgilerini kontrol et
+    if (!localDeliveryDate || !localDeliveryTime) {
+      addToast('Lütfen teslimat tarih ve saatini seçin', 'error');
+      setActiveStep(2);
+      return;
+    }
+
+    if (localDeliveryAddress.trim().length < 10) {
+      addToast('Lütfen geçerli bir teslimat adresi girin (en az 10 karakter)', 'error');
+      setActiveStep(2);
+      return;
+    }
+
     if (localItems.length === 0 || totalPrice <= 0) {
       addToast('Lütfen en az bir ürün seçin', 'error');
+      setActiveStep(1);
       return;
     }
     
@@ -414,14 +436,27 @@ export function OrderBookingWizard() {
                                   value={localDeliveryTime}
                                   onChange={(time) => setLocalDeliveryTime(time)}
                                   workingHours={
-                                    salon?.workingHours?.start ? {
-                                      start: salon.workingHours.start.open,
-                                      end: salon.workingHours.end.close
-                                    } : undefined
+                                    localDeliveryDate && salon?.workingHours ? (() => {
+                                      const date = new Date(localDeliveryDate);
+                                      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                                      const dayName = dayNames[date.getDay()];
+                                      const dayHours = (salon.workingHours as any)[dayName];
+                                      return dayHours?.open && dayHours?.close ? { 
+                                        start: dayHours.open, 
+                                        end: dayHours.close 
+                                      } : undefined;
+                                    })() : undefined
                                   }
                                   intervalMinutes={30}
                                   label="Teslimat saati seçin"
+                                  businessId={salon?.id}
+                                  selectedDate={localDeliveryDate}
                                 />
+                                {minOrderDays === 0 && localDeliveryDate === formatDateToString(new Date()) && (
+                                  <p className="text-xs text-amber-400 mt-2 text-center">
+                                    ⚠️ Bugün için sipariş veriyorsunuz - geçmiş saatleri seçemezsiniz
+                                  </p>
+                                )}
                               </div>
                               <div>
                                 <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Adresi</h4>

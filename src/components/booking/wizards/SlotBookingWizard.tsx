@@ -34,6 +34,23 @@ export function SlotBookingWizard() {
     isSubmitting
   } = useBookingStore();
 
+  // 🔥 TEK KAYNAK: Step ID hesaplaması (tutarsızlık önlemi)
+  const hasStaffStep = Boolean(
+    salon?.staff && 
+    Array.isArray(salon.staff) && 
+    salon.staff.length > 0 && 
+    salon.category !== 'restoran'
+  );
+  const isRestaurant = salon?.category === 'restoran';
+  const dateTimeStepId = hasStaffStep ? 3 : 2;
+  const contactStepId = hasStaffStep ? 4 : 3;
+  const maxStep = contactStepId;
+
+  // 🔥 Yardımcı fonksiyon: Masa kapasitesi (tek kaynak, tutarlılık)
+  const getTableCapacity = (service: any): number => {
+    return service?.pricingRules?.maxGuests || 4;
+  };
+
   const [activeStep, setActiveStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [localName, setLocalName] = useState(customerName || '');
@@ -41,14 +58,14 @@ export function SlotBookingWizard() {
   const [localEmail, setLocalEmail] = useState(customerEmail || '');
   const [localNotes, setLocalNotes] = useState(customerNotes || '');
   const [localAddress, setLocalAddress] = useState('');
+  const [guestCount, setGuestCount] = useState(2); // 🆕 Restoran için kişi sayısı
   const [gettingLocation, setGettingLocation] = useState(false);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
 
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
-    const customerInfoStep = salon?.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3;
-    if (user && activeStep === customerInfoStep) {
+    if (user && activeStep === contactStepId) {
       if (!localName && user.displayName) {
         setLocalName(user.displayName);
       }
@@ -60,18 +77,44 @@ export function SlotBookingWizard() {
         setLocalEmail(user.email);
       }
     }
-  }, [user, activeStep, salon?.staff]);
+  }, [user, activeStep, contactStepId]);
 
   const handleStepComplete = (step: number) => {
     if (!completedSteps.includes(step)) {
       setCompletedSteps([...completedSteps, step]);
     }
     setTimeout(() => {
-      const maxStep = salon?.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3;
       if (step < maxStep) {
         setActiveStep(step + 1);
       }
     }, 100);
+  };
+
+  // 🔥 Hizmet değiştiğinde sonraki adımları temizle
+  const handleServiceToggle = (service: any) => {
+    const wasSelected = selectedServices.some(s => s.id === service.id);
+    toggleService(service);
+    
+    // Süre değişti, tarih/saat artık geçersiz olabilir
+    setCompletedSteps(prev => prev.filter(s => s === 1));
+    selectDateTime('', ''); // Tarih/saat sıfırla
+    
+    // 🔥 Masa değişimi için kişi sayısını sıfırla
+    if (isRestaurant && !wasSelected) {
+      setGuestCount(2); // Yeni masa seçilince varsayılana dön
+    }
+    
+    // NOT: Personel sıfırlanmıyor - aynı personel birden fazla hizmet verebilir
+    // Sadece tarih/saat geçersiz olduğu için sıfırlanıyor
+  };
+
+  // 🔥 Personel değiştiğinde tarih/saati temizle
+  const handleStaffSelect = (staffId: string | null) => {
+    selectStaff(staffId);
+    
+    // Personel değişti, o personelin müsait saatleri farklı olabilir
+    setCompletedSteps(prev => prev.filter(s => s < dateTimeStepId));
+    selectDateTime('', ''); // Tarih/saat sıfırla
   };
 
   const handleDateTimeSelect = (date: Date, time: string) => {
@@ -89,7 +132,23 @@ export function SlotBookingWizard() {
       return;
     }
 
-    if (totalPrice <= 0 && salon.category !== 'restoran') {
+    // 🔥 Restoran için masa seçimi kontrolü
+    if (isRestaurant && selectedServices.length === 0) {
+      addToast('Lütfen en az bir masa seçin', 'error');
+      return;
+    }
+
+    // 🔥 Restoran için kapasite kontrolü
+    if (isRestaurant && selectedServices.length > 0) {
+      const tableCapacity = getTableCapacity(selectedServices[0]);
+      if (guestCount > tableCapacity) {
+        addToast(`Seçili masa ${tableCapacity} kişiliktir. Lütfen daha büyük masa seçin veya kişi sayısını azaltın`, 'error');
+        return;
+      }
+    }
+
+    // Normal hizmetler için fiyat kontrolü
+    if (!isRestaurant && totalPrice <= 0) {
       addToast('Lütfen hizmet seçin ve fiyat bilgisini kontrol edin', 'error');
       return;
     }
@@ -99,10 +158,14 @@ export function SlotBookingWizard() {
       return;
     }
 
-    const hasStaff = salon?.staff && salon.staff.length > 0 && salon.category !== 'restoran';
-    
-    if (hasStaff && !selectedStaffId) {
+    if (hasStaffStep && !selectedStaffId) {
       addToast('Lütfen personel seçin', 'error');
+      return;
+    }
+
+    // 🔥 Mobil hizmet için adres kontrolü
+    if (salon?.settings?.mobileService && !localAddress.trim()) {
+      addToast('Lütfen hizmet adresini girin', 'error');
       return;
     }
     
@@ -111,7 +174,8 @@ export function SlotBookingWizard() {
       phone: localPhone,
       email: localEmail,
       notes: localNotes,
-      address: localAddress
+      address: localAddress,
+      guestCount: isRestaurant ? guestCount : undefined, // 🆕 Restoran için kişi sayısı
     });
 
     try {
@@ -179,7 +243,17 @@ export function SlotBookingWizard() {
     );
   };
 
-  if (!salon) return null;
+  // 🔥 Loading state (UX iyileştirmesi)
+  if (!salon) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 size={48} className="mx-auto text-purple-500 animate-spin mb-4" />
+          <p className="text-[var(--muted-lead)]">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!salon.services || salon.services.length === 0) {
     return (
@@ -213,17 +287,17 @@ export function SlotBookingWizard() {
       icon: Scissors, 
       gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' 
     },
-    ...(salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran' ? [
+    ...(hasStaffStep ? [
       { id: 2, title: 'Personel', icon: User, gradient: 'from-amber-500 via-orange-500 to-red-500' }
     ] : []),
     { 
-      id: (salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran') ? 3 : 2, 
+      id: dateTimeStepId, 
       title: 'Tarih & Saat', 
       icon: Calendar, 
       gradient: 'from-cyan-500 via-blue-500 to-indigo-500' 
     },
     { 
-      id: (salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran') ? 4 : 3, 
+      id: contactStepId, 
       title: 'İletişim', 
       icon: Clock, 
       gradient: 'from-emerald-500 via-teal-500 to-cyan-500' 
@@ -302,9 +376,9 @@ export function SlotBookingWizard() {
                             <CheckCircle2 size={12} />
                             {step.id === 1 && salon.category === 'restoran' && `${selectedServices.length} masa seçildi`}
                             {step.id === 1 && salon.category !== 'restoran' && `${selectedServices.length} hizmet`}
-                            {step.id === 2 && salon.staff && salon.staff.length > 0 && salon.staff.find(s => s.id === selectedStaffId)?.name}
-                            {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 3 : 2) && `${selectedDate} - ${selectedTime}`}
-                            {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3) && 'Tamamlandı'}
+                            {step.id === 2 && hasStaffStep && salon.staff.find(s => s.id === selectedStaffId)?.name}
+                            {step.id === dateTimeStepId && `${selectedDate} - ${selectedTime}`}
+                            {step.id === contactStepId && 'Tamamlandı'}
                           </p>
                         )}
                       </div>
@@ -333,18 +407,19 @@ export function SlotBookingWizard() {
                             <>
                               {salon.services.map((service) => {
                                 const isTable = salon.category === 'restoran';
-                                const capacity = isTable ? (service as any).pricingRules?.maxGuests || 4 : null;
+                                const capacity = isTable ? getTableCapacity(service) : null; // 🔥 Tek kaynak
                                 
                                 return (
                                   <button
                                     key={service.id}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      // Restoranda sadece 1 masa seçilebilir
+                                      // 🔥 Restoranda sadece 1 masa seçilebilir (toast ile feedback)
                                       if (isTable && selectedServices.length > 0 && !selectedServices.some(s => s.id === service.id)) {
-                                        return; // Zaten bir masa seçili, değiştirmek için önce seçili olanı kaldır
+                                        addToast('Önce seçili masayı kaldırıp sonra yeni masa seçebilirsiniz', 'info');
+                                        return;
                                       }
-                                      toggleService(service);
+                                      handleServiceToggle(service); // 🔥 Yeni fonksiyon kullan
                                     }}
                                     className={cn(
                                       "w-full p-4 rounded-2xl border text-left transition-all duration-200",
@@ -390,12 +465,65 @@ export function SlotBookingWizard() {
                                       </div>
                                     </div>
                                   )}
+                                  
+                                  {/* 🆕 Restoran için kişi sayısı seçici */}
+                                  {isRestaurant && selectedServices.length > 0 && (
+                                    <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20">
+                                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                                        Kaç Kişilik Rezervasyon?
+                                      </h4>
+                                      <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03]">
+                                        <span className="text-sm text-[var(--chrome-white)]">Kişi Sayısı</span>
+                                        <div className="flex items-center gap-3">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setGuestCount(prev => Math.max(1, prev - 1));
+                                            }}
+                                            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-[var(--chrome-white)] font-bold transition-all active:scale-95"
+                                          >
+                                            −
+                                          </button>
+                                          <span className="w-8 text-center font-bold text-[var(--chrome-white)]">{guestCount}</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setGuestCount(prev => prev + 1);
+                                            }}
+                                            className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-[var(--chrome-white)] font-bold transition-all active:scale-95"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      </div>
+                                      {/* 🔥 Kapasite uyarısı (soft warning - submit'te hard kontrol var) */}
+                                      {selectedServices[0] && (() => {
+                                        const capacity = getTableCapacity(selectedServices[0]); // 🔥 Tek kaynak
+                                        return guestCount > capacity ? (
+                                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                                            ⚠️ Seçili masa {capacity} kişiliktir. Daha büyük masa seçmeniz önerilir.
+                                          </div>
+                                        ) : null;
+                                      })()}
+                                    </div>
+                                  )}
+                                  
+                                  {/* 🔥 UX FIX: Kapasite aşıldığında butonu devre dışı bırak */}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      // Kapasite kontrolü - kullanıcıya net feedback
+                                      if (isRestaurant && selectedServices.length > 0) {
+                                        const capacity = getTableCapacity(selectedServices[0]);
+                                        if (guestCount > capacity) {
+                                          addToast(`Seçili masa ${capacity} kişiliktir. Lütfen daha büyük masa seçin veya kişi sayısını azaltın`, 'error');
+                                          return;
+                                        }
+                                      }
                                       handleStepComplete(1);
                                     }}
-                                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                    disabled={isRestaurant && selectedServices.length > 0 && guestCount > getTableCapacity(selectedServices[0])}
+                                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                   >
                                     Devam Et
                                   </button>
@@ -404,7 +532,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === 2 && salon.staff && Array.isArray(salon.staff) && salon.staff.length > 0 && salon.category !== 'restoran' && (
+                          {step.id === 2 && hasStaffStep && (
                             <>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {salon.staff.map((staff) => {
@@ -414,7 +542,7 @@ export function SlotBookingWizard() {
                                       key={staff.id}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        selectStaff(staff.id);
+                                        handleStaffSelect(staff.id); // 🔥 Yeni fonksiyon kullan
                                         handleStepComplete(2);
                                       }}
                                       className={cn(
@@ -446,7 +574,7 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 3 : 2) && (
+                          {step.id === dateTimeStepId && (
                             <>
                               <div>
                                 <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Randevu Tarihi</h4>
@@ -509,9 +637,9 @@ export function SlotBookingWizard() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleStepComplete(salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 3 : 2);
+                                    handleStepComplete(dateTimeStepId); // 🔥 Tek kaynak kullan
                                   }}
-                                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                 >
                                   Devam Et
                                 </button>
@@ -519,33 +647,66 @@ export function SlotBookingWizard() {
                             </>
                           )}
 
-                          {step.id === (salon.staff && salon.staff.length > 0 && salon.category !== 'restoran' ? 4 : 3) && (
+                          {step.id === contactStepId && (
                             <div className="space-y-3">
-                              <input
-                                type="text"
-                                value={localName}
-                                onChange={(e) => setLocalName(e.target.value)}
-                                placeholder="Ad Soyad"
-                                className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
-                              />
-                              <input
-                                type="tel"
-                                value={localPhone}
-                                onChange={(e) => {
-                                  const cleaned = e.target.value.replace(/\D/g, '');
-                                  setLocalPhone(cleaned.slice(0, 10));
-                                }}
-                                placeholder="5XX XXX XX XX"
-                                maxLength={10}
-                                className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
-                              />
-                              <input
-                                type="email"
-                                value={localEmail}
-                                onChange={(e) => setLocalEmail(e.target.value)}
-                                placeholder="E-posta (opsiyonel)"
-                                className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
-                              />
+                              <div>
+                                <input
+                                  type="text"
+                                  value={localName}
+                                  onChange={(e) => setLocalName(e.target.value)}
+                                  onBlur={() => validateName('name', localName)}
+                                  placeholder="Ad Soyad"
+                                  className={cn(
+                                    "w-full h-12 px-4 rounded-2xl bg-white/[0.05] border text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:bg-white/[0.08] transition-all",
+                                    errors.name 
+                                      ? "border-red-500/50 focus:border-red-500/70" 
+                                      : "border-white/[0.08] focus:border-purple-500/50"
+                                  )}
+                                />
+                                {errors.name && (
+                                  <p className="text-xs text-red-400 mt-1 ml-1">{errors.name}</p>
+                                )}
+                              </div>
+                              <div>
+                                <input
+                                  type="tel"
+                                  value={localPhone}
+                                  onChange={(e) => {
+                                    const cleaned = e.target.value.replace(/\D/g, '');
+                                    setLocalPhone(cleaned.slice(0, 10));
+                                  }}
+                                  onBlur={() => validatePhone('phone', localPhone)}
+                                  placeholder="5XX XXX XX XX"
+                                  maxLength={10}
+                                  className={cn(
+                                    "w-full h-12 px-4 rounded-2xl bg-white/[0.05] border text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:bg-white/[0.08] transition-all",
+                                    errors.phone 
+                                      ? "border-red-500/50 focus:border-red-500/70" 
+                                      : "border-white/[0.08] focus:border-purple-500/50"
+                                  )}
+                                />
+                                {errors.phone && (
+                                  <p className="text-xs text-red-400 mt-1 ml-1">{errors.phone}</p>
+                                )}
+                              </div>
+                              <div>
+                                <input
+                                  type="email"
+                                  value={localEmail}
+                                  onChange={(e) => setLocalEmail(e.target.value)}
+                                  onBlur={() => localEmail && validateEmail('email', localEmail)}
+                                  placeholder="E-posta (opsiyonel)"
+                                  className={cn(
+                                    "w-full h-12 px-4 rounded-2xl bg-white/[0.05] border text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:bg-white/[0.08] transition-all",
+                                    errors.email 
+                                      ? "border-red-500/50 focus:border-red-500/70" 
+                                      : "border-white/[0.08] focus:border-purple-500/50"
+                                  )}
+                                />
+                                {errors.email && (
+                                  <p className="text-xs text-red-400 mt-1 ml-1">{errors.email}</p>
+                                )}
+                              </div>
                               
                               {/* Adres Alanı - Sadece Mobil Hizmet Varsa */}
                               {salon.settings?.mobileService && (

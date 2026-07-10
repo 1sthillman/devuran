@@ -6,16 +6,19 @@ import { useAuthStore } from './authStore';
 import { rateLimiter } from '@/utils/rateLimiter';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '@/utils/sanitize';
 
-// ✅ GÜVENLİK: Backend validation ACTIVE
+// ⚠️ GÜVENLİK: Backend validation TEMPORARILY DISABLED
 // 
-// Backend validation açıldı:
-// ✓ Client-side fiyat manipülasyonu engellendi
-// ✓ Tüm fiyatlar backend'de hesaplanıyor
-// ✓ Cloud Functions deployed ve aktif
+// CORS hatası nedeniyle geçici olarak kapatıldı.
+// Cloud Function'a CORS header'ları eklendikten sonra tekrar aktif edilecek.
 // 
-// Date: 2026-07-03
-// Issue: CRITICAL #9 - Client-side price manipulation
-const USE_BACKEND_VALIDATION = true;
+// TODO: Cloud Function'da CORS ayarları:
+// - Access-Control-Allow-Origin: production domain
+// - Access-Control-Allow-Methods: POST, OPTIONS
+// - Access-Control-Allow-Headers: Content-Type, Authorization
+// 
+// Date: 2026-07-10
+// Issue: CORS - No 'Access-Control-Allow-Origin' header
+const USE_BACKEND_VALIDATION = false; // 🔴 TEMPORARILY DISABLED
 
 interface BookingState {
   // Ortak alanlar
@@ -77,7 +80,7 @@ interface BookingState {
   toggleService: (service: Service) => void;
   selectStaff: (staffId: string | null) => void;
   selectDateTime: (date: string, time: string) => void;
-  setCustomerInfo: (info: { name: string; phone: string; email: string; notes: string; address?: string; location?: { lat: number; lng: number } }) => void;
+  setCustomerInfo: (info: { name: string; phone: string; email: string; notes: string; address?: string; location?: { lat: number; lng: number }; guestCount?: number }) => void;
   setEventDetails: (details: any) => void;
   setAccommodationDetails: (details: any) => void;
   setOrderDetails: (details: any) => void;

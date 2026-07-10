@@ -76,7 +76,8 @@ export function DailyRentalWizard() {
       );
       setPackages(pkgs);
     } catch (error) {
-      //
+      console.error('Paketler yüklenirken hata:', error);
+      addToast('Paketler yüklenirken bir hata oluştu', 'error');
     }
     setLoading(false);
   };
@@ -100,8 +101,24 @@ export function DailyRentalWizard() {
       return;
     }
 
+    // 🔥 Adım 1 verilerini kontrol et
+    if (!selectedDate || !selectedEventType) {
+      addToast('Lütfen etkinlik tarih ve tipini seçin', 'error');
+      setActiveStep(1);
+      return;
+    }
+
     if (!selectedPkg || selectedPkg.price <= 0) {
       addToast('Lütfen paket seçin', 'error');
+      setActiveStep(2);
+      return;
+    }
+
+    // 🔥 Kapasite kontrolü (varsa)
+    const capacity = (selectedPkg?.pricingRules as any)?.maxGuests;
+    if (capacity && guestCount > capacity) {
+      addToast(`Seçili paket maksimum ${capacity} kişilik etkinlikler içindir. Lütfen daha büyük bir paket seçin veya misafir sayısını azaltın`, 'error');
+      setActiveStep(2);
       return;
     }
 
@@ -366,12 +383,8 @@ export function DailyRentalWizard() {
                                 <ModernTimePicker
                                   value={eventStartTime}
                                   onChange={setEventStartTime}
-                                  workingHours={
-                                    salon?.workingHours?.start ? {
-                                      start: salon.workingHours.start.open,
-                                      end: salon.workingHours.end.close
-                                    } : undefined
-                                  }
+                                  minTime="08:00"
+                                  maxTime="23:00"
                                   intervalMinutes={30}
                                   label="Etkinlik başlangıç saati seçin"
                                 />
@@ -392,46 +405,68 @@ export function DailyRentalWizard() {
 
                           {step.id === 2 && (
                             <div className="space-y-3">
-                              {packages.map((pkg) => (
-                                <button
-                                  key={pkg.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedPkg(pkg);
-                                    handleStepComplete(2);
-                                  }}
-                                  className={cn(
-                                    "w-full p-4 rounded-2xl border text-left transition-all duration-200",
-                                    selectedPkg?.id === pkg.id
-                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
-                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
-                                  )}
-                                >
-                                  <div className="flex justify-between items-start mb-2">
-                                    <h5 className="font-heading font-bold text-base text-[var(--chrome-white)] flex-1">{pkg.name}</h5>
-                                    <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent ml-2">
-                                      {pkg.price.toLocaleString('tr-TR')}₺
-                                    </span>
-                                  </div>
-                                  {pkg.description && <p className="text-xs text-[var(--muted-lead)] mb-2">{pkg.description}</p>}
-                                  {pkg.includes && pkg.includes.length > 0 && (
-                                    <ul className="mt-2 space-y-1">
-                                      {pkg.includes.slice(0, 3).map((item, i) => (
-                                        <li key={i} className="text-xs text-[var(--silver-frost)] flex items-start gap-1">
-                                          <CheckCircle2 size={12} className="text-purple-400 mt-0.5 flex-shrink-0" />
-                                          <span>{item}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  {selectedPkg?.id === pkg.id && (
-                                    <div className="mt-3 flex items-center gap-2 text-emerald-400">
-                                      <CheckCircle2 size={16} />
-                                      <span className="text-sm font-semibold">Seçildi</span>
+                              {packages.map((pkg) => {
+                                // 🔥 Paket kapasite kontrolü (varsa)
+                                const capacity = (pkg.pricingRules as any)?.maxGuests;
+                                const isOverCapacity = capacity && guestCount > capacity;
+                                
+                                return (
+                                  <button
+                                    key={pkg.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isOverCapacity) {
+                                        addToast(`Bu paket maksimum ${capacity} kişilik etkinlikler için uygundur`, 'warning');
+                                        return;
+                                      }
+                                      setSelectedPkg(pkg);
+                                      handleStepComplete(2);
+                                    }}
+                                    className={cn(
+                                      "w-full p-4 rounded-2xl border text-left transition-all duration-200",
+                                      selectedPkg?.id === pkg.id
+                                        ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                        : isOverCapacity
+                                        ? "border-amber-500/30 bg-amber-500/5 opacity-60"
+                                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                    )}
+                                  >
+                                    <div className="flex justify-between items-start mb-2">
+                                      <h5 className="font-heading font-bold text-base text-[var(--chrome-white)] flex-1">{pkg.name}</h5>
+                                      <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent ml-2">
+                                        {pkg.price.toLocaleString('tr-TR')}₺
+                                      </span>
                                     </div>
-                                  )}
-                                </button>
-                              ))}
+                                    {capacity && (
+                                      <p className="text-xs text-[var(--muted-lead)] mb-1">
+                                        👥 Maksimum {capacity} kişi
+                                      </p>
+                                    )}
+                                    {isOverCapacity && (
+                                      <p className="text-xs text-amber-400 mb-2">
+                                        ⚠️ Misafir sayınız bu paket için fazla
+                                      </p>
+                                    )}
+                                    {pkg.description && <p className="text-xs text-[var(--muted-lead)] mb-2">{pkg.description}</p>}
+                                    {pkg.includes && pkg.includes.length > 0 && (
+                                      <ul className="mt-2 space-y-1">
+                                        {pkg.includes.slice(0, 3).map((item, i) => (
+                                          <li key={i} className="text-xs text-[var(--silver-frost)] flex items-start gap-1">
+                                            <CheckCircle2 size={12} className="text-purple-400 mt-0.5 flex-shrink-0" />
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                    {selectedPkg?.id === pkg.id && (
+                                      <div className="mt-3 flex items-center gap-2 text-emerald-400">
+                                        <CheckCircle2 size={16} />
+                                        <span className="text-sm font-semibold">Seçildi</span>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
 

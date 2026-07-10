@@ -81,7 +81,8 @@ export function ProjectBookingWizard() {
       const pkgs = services.filter(s => s.category.includes('Paket'));
       setPackages(pkgs);
     } catch (error) {
-      //
+      console.error('Paketler yüklenirken hata:', error);
+      addToast('Paketler yüklenirken bir hata oluştu', 'error');
     }
     setLoading(false);
   };
@@ -95,6 +96,19 @@ export function ProjectBookingWizard() {
     }
   };
 
+  // 🔥 Bütçe validasyonu ile adım tamamlama
+  const handleBudgetStepComplete = () => {
+    if (localBudget.min < 0 || localBudget.max < 0) {
+      addToast('Bütçe negatif olamaz', 'error');
+      return;
+    }
+    if (localBudget.min > localBudget.max) {
+      addToast('Minimum bütçe maksimumdan büyük olamaz', 'error');
+      return;
+    }
+    handleStepComplete(2);
+  };
+
   const handleSubmit = async () => {
     const nameValid = validateName('name', localName);
     const phoneValid = validatePhone('phone', localPhone);
@@ -105,8 +119,22 @@ export function ProjectBookingWizard() {
       return;
     }
 
+    // 🔥 Adım 1 ve 2 verilerini kontrol et
+    if (!localEventDate || !localEventType) {
+      addToast('Lütfen etkinlik tarih ve tipini seçin', 'error');
+      return;
+    }
+
     if (!localPackage || localPackage.price <= 0) {
       addToast('Lütfen paket seçin', 'error');
+      return;
+    }
+
+    // 🔥 Kapasite kontrolü submit anında (geri dönüp misafir artırılmışsa)
+    const capacity = (localPackage?.pricingRules as any)?.maxGuests;
+    if (capacity && localGuestCount > capacity) {
+      addToast(`Seçili paket maksimum ${capacity} kişilik etkinlikler için uygundur. Lütfen daha büyük bir paket seçin veya misafir sayısını azaltın`, 'error');
+      setActiveStep(3); // Kullanıcıyı paket seçimine geri yönlendir
       return;
     }
     
@@ -346,12 +374,8 @@ export function ProjectBookingWizard() {
                                 <ModernTimePicker
                                   value={localEventStartTime}
                                   onChange={setLocalEventStartTime}
-                                  workingHours={
-                                    salon?.workingHours?.start ? {
-                                      start: salon.workingHours.start.open,
-                                      end: salon.workingHours.end.close
-                                    } : undefined
-                                  }
+                                  minTime="08:00"
+                                  maxTime="23:00"
                                   intervalMinutes={30}
                                   label="Etkinlik başlangıç saati seçin"
                                 />
@@ -406,8 +430,9 @@ export function ProjectBookingWizard() {
                                     <label className="block text-xs text-[var(--muted-lead)] mb-1">Minimum</label>
                                     <input
                                       type="number"
+                                      min="0"
                                       value={localBudget.min}
-                                      onChange={(e) => setLocalBudget({ ...localBudget, min: parseInt(e.target.value) || 0 })}
+                                      onChange={(e) => setLocalBudget({ ...localBudget, min: Math.max(0, parseInt(e.target.value) || 0) })}
                                       className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                                     />
                                   </div>
@@ -415,19 +440,27 @@ export function ProjectBookingWizard() {
                                     <label className="block text-xs text-[var(--muted-lead)] mb-1">Maksimum</label>
                                     <input
                                       type="number"
+                                      min="0"
                                       value={localBudget.max}
-                                      onChange={(e) => setLocalBudget({ ...localBudget, max: parseInt(e.target.value) || 0 })}
+                                      onChange={(e) => setLocalBudget({ ...localBudget, max: Math.max(0, parseInt(e.target.value) || 0) })}
                                       className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                                     />
                                   </div>
                                 </div>
+                                {/* 🔥 Bütçe validasyon feedback */}
+                                {localBudget.min > localBudget.max && (
+                                  <p className="text-xs text-red-400 mt-2 ml-1">
+                                    ⚠️ Minimum bütçe maksimumdan büyük olamaz
+                                  </p>
+                                )}
                               </div>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStepComplete(2);
+                                  handleBudgetStepComplete(); // 🔥 Validasyon ekli yeni fonksiyon
                                 }}
-                                className="w-full h-12 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:shadow-2xl hover:shadow-amber-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                disabled={localBudget.min > localBudget.max || localBudget.min < 0 || localBudget.max < 0}
+                                className="w-full h-12 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:shadow-2xl hover:shadow-amber-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                               >
                                 Devam Et
                               </button>
@@ -436,46 +469,68 @@ export function ProjectBookingWizard() {
 
                           {step.id === 3 && (
                             <div className="space-y-3">
-                              {packages.map((pkg) => (
-                                <button
-                                  key={pkg.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLocalPackage(pkg);
-                                    handleStepComplete(3);
-                                  }}
-                                  className={cn(
-                                    "w-full p-4 rounded-2xl border text-left transition-all duration-200",
-                                    localPackage?.id === pkg.id
-                                      ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
-                                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
-                                  )}
-                                >
-                                  <div className="flex justify-between items-start mb-2">
-                                    <h5 className="font-heading font-bold text-base text-[var(--chrome-white)] flex-1">{pkg.name}</h5>
-                                    <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent ml-2">
-                                      {pkg.price.toLocaleString('tr-TR')}₺
-                                    </span>
-                                  </div>
-                                  {pkg.description && <p className="text-xs text-[var(--muted-lead)] mb-2">{pkg.description}</p>}
-                                  {pkg.includes && pkg.includes.length > 0 && (
-                                    <ul className="space-y-1">
-                                      {pkg.includes.slice(0, 3).map((item, i) => (
-                                        <li key={i} className="text-xs text-[var(--silver-frost)] flex items-start gap-1">
-                                          <CheckCircle2 size={12} className="text-purple-400 mt-0.5 flex-shrink-0" />
-                                          <span>{item}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  {localPackage?.id === pkg.id && (
-                                    <div className="mt-3 flex items-center gap-2 text-emerald-400">
-                                      <CheckCircle2 size={16} />
-                                      <span className="text-sm font-semibold">Seçildi</span>
+                              {packages.map((pkg) => {
+                                // 🔥 Paket kapasite kontrolü (varsa)
+                                const capacity = (pkg.pricingRules as any)?.maxGuests;
+                                const isOverCapacity = capacity && localGuestCount > capacity;
+                                
+                                return (
+                                  <button
+                                    key={pkg.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isOverCapacity) {
+                                        addToast(`Bu paket maksimum ${capacity} kişilik etkinlikler için uygundur`, 'warning');
+                                        return;
+                                      }
+                                      setLocalPackage(pkg);
+                                      handleStepComplete(3);
+                                    }}
+                                    className={cn(
+                                      "w-full p-4 rounded-2xl border text-left transition-all duration-200",
+                                      localPackage?.id === pkg.id
+                                        ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                        : isOverCapacity
+                                        ? "border-amber-500/30 bg-amber-500/5 opacity-60"
+                                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                    )}
+                                  >
+                                    <div className="flex justify-between items-start mb-2">
+                                      <h5 className="font-heading font-bold text-base text-[var(--chrome-white)] flex-1">{pkg.name}</h5>
+                                      <span className="font-bold text-lg bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent ml-2">
+                                        {pkg.price.toLocaleString('tr-TR')}₺
+                                      </span>
                                     </div>
-                                  )}
-                                </button>
-                              ))}
+                                    {capacity && (
+                                      <p className="text-xs text-[var(--muted-lead)] mb-1">
+                                        👥 Maksimum {capacity} kişi
+                                      </p>
+                                    )}
+                                    {isOverCapacity && (
+                                      <p className="text-xs text-amber-400 mb-2">
+                                        ⚠️ Misafir sayınız bu paket için fazla
+                                      </p>
+                                    )}
+                                    {pkg.description && <p className="text-xs text-[var(--muted-lead)] mb-2">{pkg.description}</p>}
+                                    {pkg.includes && pkg.includes.length > 0 && (
+                                      <ul className="space-y-1">
+                                        {pkg.includes.slice(0, 3).map((item, i) => (
+                                          <li key={i} className="text-xs text-[var(--silver-frost)] flex items-start gap-1">
+                                            <CheckCircle2 size={12} className="text-purple-400 mt-0.5 flex-shrink-0" />
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                    {localPackage?.id === pkg.id && (
+                                      <div className="mt-3 flex items-center gap-2 text-emerald-400">
+                                        <CheckCircle2 size={16} />
+                                        <span className="text-sm font-semibold">Seçildi</span>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
 

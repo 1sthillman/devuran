@@ -14,6 +14,13 @@ import { servicesService } from '@/services/firebaseService';
 import { accommodationAvailabilityService, type RoomAvailability } from '@/services/accommodationAvailabilityService';
 import type { Service } from '@/types';
 import { cn, formatDateToString } from '@/lib/utils';
+import { 
+  getExtraPriceType, 
+  calcExtraTotal, 
+  getDefaultQuantity, 
+  getPriceLabel,
+  getPriceFormula 
+} from '@/utils/extraServicePricing';
 
 export function NightlyBookingWizard() {
   const navigate = useNavigate();
@@ -41,6 +48,7 @@ export function NightlyBookingWizard() {
   const [roomTypes, setRoomTypes] = useState<Service[]>([]);
   const [extraServices, setExtraServices] = useState<Service[]>([]);
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
+  const [extraQuantities, setExtraQuantities] = useState<Record<string, number>>({}); // 🆕 Ek hizmet miktarları
   const [loading, setLoading] = useState(true);
   const [roomAvailabilities, setRoomAvailabilities] = useState<RoomAvailability[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -111,27 +119,55 @@ export function NightlyBookingWizard() {
       setRoomTypes(rooms);
       setExtraServices(extras);
     } catch (error) {
-      //
+      console.error('Hizmetler yüklenirken hata:', error);
+      addToast('Hizmetler yüklenirken bir hata oluştu', 'error');
     }
     setLoading(false);
   };
 
   const nights = checkInDate && checkOutDate ? differenceInDays(checkOutDate, checkInDate) : 0;
+  
+  // 🆕 Gelişmiş ek hizmet fiyat hesaplama (tek kaynak - yardımcı fonksiyon)
   const extrasTotal = selectedExtras.reduce((sum, extraId) => {
     const extra = extraServices.find(e => e.id === extraId);
-    return sum + (extra?.price || 0);
+    if (!extra) return sum;
+    
+    const quantity = extraQuantities[extraId] || getDefaultQuantity(extra, nights);
+    const totalGuests = guests.adults + guests.children;
+    const extraPrice = calcExtraTotal(extra, quantity, totalGuests);
+    
+    console.log(`💰 ${extra.name}: ${getPriceFormula(extra, quantity, totalGuests, extraPrice)}`);
+    
+    return sum + extraPrice;
   }, 0);
+  
   const totalPrice = selectedRoom && nights > 0 ? selectedRoom.price * nights + extrasTotal : 0;
 
   const handleCheckInSelect = (date: Date) => {
     setCheckInDate(date);
-    if (checkOutDate && date >= checkOutDate) setCheckOutDate(null);
+    if (checkOutDate && date >= checkOutDate) {
+      setCheckOutDate(null);
+    }
+    // 🔥 Tarih değiştiğinde tüm ilgili state'leri temizle
+    setRoomAvailabilities([]);
+    setSelectedRoom(null);
+    setSelectedExtras([]);
+    setExtraQuantities({});
+    // Adım 2 ve 3'ü "tamamlanmamış" yap (kullanıcı yeniden seçmeli)
+    setCompletedSteps(prev => prev.filter(s => s < 2));
     // Tarih seçildiğinde otomatik collapse yap ve check-out aç
     setTimeout(() => setActiveSubStep('checkOut'), 200);
   };
 
   const handleCheckOutSelect = (date: Date) => {
     setCheckOutDate(date);
+    // 🔥 Tarih değiştiğinde tüm ilgili state'leri temizle
+    setRoomAvailabilities([]);
+    setSelectedRoom(null);
+    setSelectedExtras([]);
+    setExtraQuantities({});
+    // Adım 2 ve 3'ü "tamamlanmamış" yap (kullanıcı yeniden seçmeli)
+    setCompletedSteps(prev => prev.filter(s => s < 2));
     // Check-out seçildiğinde otomatik collapse yap ve misafir aç
     setTimeout(() => setActiveSubStep('guests'), 200);
   };
@@ -177,13 +213,21 @@ export function NightlyBookingWizard() {
 
     setAccommodationDetails({
       checkIn: checkInDate ? formatDateToString(checkInDate) : undefined,
-      checkInTime, // 🆕 Kullanıcı tarafından seçilen check-in saati
+      checkInTime,
       checkOut: checkOutDate ? formatDateToString(checkOutDate) : undefined,
-      checkOutTime, // 🆕 Kullanıcı tarafından seçilen check-out saati
+      checkOutTime,
       guests,
       roomType: selectedRoom?.id,
       selectedPackage: selectedRoom,
-      extras: selectedExtras.map(id => extraServices.find(e => e.id === id)).filter(Boolean),
+      extras: selectedExtras.map(id => {
+        const extra = extraServices.find(e => e.id === id);
+        if (!extra) return null;
+        return {
+          ...extra,
+          quantity: extraQuantities[id] || nights, // 🆕 Miktar bilgisi
+          priceType: extra.pricingRules?.priceType || 'fixed',
+        };
+      }).filter(Boolean),
       totalPrice,
       specialRequests
     });
@@ -599,7 +643,12 @@ export function NightlyBookingWizard() {
                                         e.stopPropagation();
                                         if (isAvailable) {
                                           setSelectedRoom(room);
-                                          handleStepComplete(2);
+                                          // 🔥 Ek hizmetler için varsayılan miktarları ayarla (akıllı algılama ile)
+                                          const defaultQuantities: Record<string, number> = {};
+                                          extraServices.forEach(extra => {
+                                            defaultQuantities[extra.id] = getDefaultQuantity(extra, nights);
+                                          });
+                                          setExtraQuantities(defaultQuantities);
                                         }
                                       }}
                                       disabled={!isAvailable}
@@ -707,6 +756,207 @@ export function NightlyBookingWizard() {
                                 </div>
                               )}
                               
+                              {/* Ek Hizmetler Bölümü - Gelişmiş */}
+                              {selectedRoom && extraServices.length > 0 && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20"
+                                >
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Sparkles size={18} className="text-blue-400" />
+                                    <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                                      Ek Hizmetler (Opsiyonel)
+                                    </h4>
+                                  </div>
+                                  <p className="text-xs text-blue-300/80 mb-3">
+                                    Konaklamanızı daha özel kılacak hizmetlerimizi seçebilirsiniz
+                                  </p>
+                                  <div className="space-y-3">
+                                    {extraServices.map((extra) => {
+                                      const isSelected = selectedExtras.includes(extra.id);
+                                      const quantity = extraQuantities[extra.id] || getDefaultQuantity(extra, nights);
+                                      const totalGuests = guests.adults + guests.children;
+                                      
+                                      // 🔥 TEK KAYNAK: Yardımcı fonksiyonları kullan
+                                      const priceType = getExtraPriceType(extra);
+                                      const priceLabel = getPriceLabel(priceType);
+                                      const totalExtraPrice = calcExtraTotal(extra, quantity, totalGuests);
+                                      
+                                      return (
+                                        <div
+                                          key={extra.id}
+                                          className={cn(
+                                            "rounded-xl border transition-all duration-200",
+                                            isSelected
+                                              ? "border-blue-500/50 bg-gradient-to-br from-blue-500/10 to-indigo-500/5"
+                                              : "border-white/[0.08] bg-white/[0.02]"
+                                          )}
+                                        >
+                                          {/* Başlık ve Seçim */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedExtras(prev => 
+                                                isSelected 
+                                                  ? prev.filter(id => id !== extra.id)
+                                                  : [...prev, extra.id]
+                                              );
+                                            }}
+                                            className="w-full p-3 text-left"
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-3 flex-1">
+                                                <div className={cn(
+                                                  "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200",
+                                                  isSelected
+                                                    ? "bg-gradient-to-br from-blue-500 to-indigo-500"
+                                                    : "bg-white/[0.05]"
+                                                )}>
+                                                  {isSelected ? (
+                                                    <CheckCircle2 size={18} className="text-white" />
+                                                  ) : (
+                                                    <Sparkles size={18} className="text-blue-400/40" />
+                                                  )}
+                                                </div>
+                                                <div className="flex-1">
+                                                  <h5 className="font-heading font-bold text-sm text-[var(--chrome-white)]">
+                                                    {extra.name}
+                                                  </h5>
+                                                  {extra.description && (
+                                                    <p className="text-xs text-[var(--muted-lead)] mt-0.5">
+                                                      {extra.description}
+                                                    </p>
+                                                  )}
+                                                  <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-xs text-blue-300 font-semibold">
+                                                      {extra.price}₺{priceLabel}
+                                                    </span>
+                                                    {priceType === 'per-person' && (
+                                                      <span className="text-xs text-blue-300/60">
+                                                        • {totalGuests} kişi
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="text-right ml-3">
+                                                <div className={cn(
+                                                  "font-bold text-base",
+                                                  isSelected 
+                                                    ? "bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent"
+                                                    : "text-[var(--muted-lead)]"
+                                                )}>
+                                                  {totalExtraPrice}₺
+                                                </div>
+                                                {priceType !== 'fixed' && (
+                                                  <div className="text-xs text-blue-300/60 mt-0.5">
+                                                    {isSelected ? 'toplam' : 'tahmini'}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </button>
+
+                                          {/* Miktar Seçimi (per-night ve per-person-per-night için) */}
+                                          {isSelected && (priceType === 'per-night' || priceType === 'per-person-per-night') && (
+                                            <motion.div
+                                              initial={{ opacity: 0, height: 0 }}
+                                              animate={{ opacity: 1, height: "auto" }}
+                                              exit={{ opacity: 0, height: 0 }}
+                                              transition={{ duration: 0.2 }}
+                                              className="px-3 pb-3"
+                                            >
+                                              <div className="p-3 rounded-lg bg-white/[0.03] border border-blue-500/20">
+                                                <div className="flex items-center justify-between">
+                                                  <div>
+                                                    <h6 className="text-xs font-semibold text-[var(--chrome-white)] mb-0.5">
+                                                      {priceType === 'per-person-per-night' ? 'Kaç gün için?' : 'Miktar'}
+                                                    </h6>
+                                                    <p className="text-xs text-[var(--muted-lead)]">
+                                                      {priceType === 'per-person-per-night' 
+                                                        ? `Örn: ${nights} gün kahvaltı` 
+                                                        : 'Adet seçin'
+                                                      }
+                                                    </p>
+                                                  </div>
+                                                  <div className="flex items-center gap-2">
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setExtraQuantities(prev => ({
+                                                          ...prev,
+                                                          [extra.id]: Math.max(1, (prev[extra.id] || nights) - 1)
+                                                        }));
+                                                      }}
+                                                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-[var(--chrome-white)] font-bold transition-all active:scale-95 flex items-center justify-center"
+                                                    >
+                                                      −
+                                                    </button>
+                                                    <span className="w-10 text-center font-bold text-lg text-[var(--chrome-white)]">
+                                                      {quantity}
+                                                    </span>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setExtraQuantities(prev => ({
+                                                          ...prev,
+                                                          [extra.id]: Math.min(nights, (prev[extra.id] || nights) + 1)
+                                                        }));
+                                                      }}
+                                                      disabled={quantity >= nights}
+                                                      className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                                    >
+                                                      +
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                                {priceType === 'per-person-per-night' && (
+                                                  <div className="mt-2 pt-2 border-t border-white/10 text-xs text-blue-300/80">
+                                                    💡 {quantity} gün × {totalGuests} kişi × {extra.price}₺ = <span className="font-bold">{totalExtraPrice}₺</span>
+                                                  </div>
+                                                )}
+                                                {priceType === 'per-night' && (
+                                                  <div className="mt-2 pt-2 border-t border-white/10 text-xs text-blue-300/80">
+                                                    💡 {quantity} gece × {extra.price}₺ = <span className="font-bold">{totalExtraPrice}₺</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {selectedExtras.length > 0 && (
+                                    <div className="mt-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-blue-300 font-semibold">
+                                          {selectedExtras.length} ek hizmet seçildi
+                                        </span>
+                                        <span className="text-sm font-bold bg-gradient-to-r from-blue-300 to-indigo-300 bg-clip-text text-transparent">
+                                          +{extrasTotal}₺
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </motion.div>
+                              )}
+                              
+                              {/* 🔥 DÜZELTME: Oda seçiliyken DAIMA devam butonu göster (ek hizmet olsun/olmasın) */}
+                              {selectedRoom && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStepComplete(2);
+                                  }}
+                                  className="w-full mt-4 h-12 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98]"
+                                >
+                                  İletişim Bilgilerine Geç
+                                </button>
+                              )}
+                              
                               {/* Tüm Odalar Doluysa Sıraya Ekle */}
                               {roomAvailabilities.length > 0 && 
                                roomAvailabilities.every(a => !a.isAvailable) && 
@@ -776,9 +1026,70 @@ export function NightlyBookingWizard() {
                                 rows={2}
                                 className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
-                              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
+                              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 space-y-2">
+                                {/* Oda Ücreti */}
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-[var(--muted-lead)]">
+                                    {selectedRoom?.name} × {nights} gece
+                                  </span>
+                                  <span className="font-semibold text-[var(--chrome-white)]">
+                                    {selectedRoom && (selectedRoom.price * nights).toLocaleString('tr-TR')}₺
+                                  </span>
+                                </div>
+                                
+                                {/* Ek Hizmetler */}
+                                {selectedExtras.length > 0 && (
+                                  <>
+                                    <div className="border-t border-white/10 pt-2">
+                                      <div className="text-xs text-blue-300 font-semibold mb-1.5 flex items-center gap-1">
+                                        <Sparkles size={12} />
+                                        Ek Hizmetler
+                                      </div>
+                                      {selectedExtras.map(extraId => {
+                                        const extra = extraServices.find(e => e.id === extraId);
+                                        if (!extra) return null;
+                                        
+                                        const quantity = extraQuantities[extraId] || getDefaultQuantity(extra, nights);
+                                        const totalGuests = guests.adults + guests.children;
+                                        
+                                        // 🔥 TEK KAYNAK: Yardımcı fonksiyonları kullan
+                                        const priceType = getExtraPriceType(extra);
+                                        const extraTotal = calcExtraTotal(extra, quantity, totalGuests);
+                                        
+                                        let detailText = '';
+                                        switch (priceType) {
+                                          case 'per-night':
+                                            detailText = `${extra.price}₺ × ${quantity} gece`;
+                                            break;
+                                          case 'per-person':
+                                            detailText = `${extra.price}₺ × ${totalGuests} kişi`;
+                                            break;
+                                          case 'per-person-per-night':
+                                            detailText = `${extra.price}₺ × ${totalGuests} kişi × ${quantity} gece`;
+                                            break;
+                                          case 'fixed':
+                                          default:
+                                            detailText = `${extra.price}₺`;
+                                            break;
+                                        }
+                                        
+                                        return (
+                                          <div key={extra.id} className="flex justify-between items-start text-xs mb-1">
+                                            <div className="flex-1">
+                                              <div className="text-blue-300/80">{extra.name}</div>
+                                              <div className="text-blue-300/50 text-[10px] mt-0.5">{detailText}</div>
+                                            </div>
+                                            <span className="font-semibold text-blue-300 ml-2">+{extraTotal}₺</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Toplam */}
+                                <div className="border-t border-white/20 pt-2 flex justify-between items-center">
+                                  <span className="text-sm text-[var(--muted-lead)] font-semibold">Toplam Tutar</span>
                                   <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
                                     {totalPrice.toLocaleString('tr-TR')}₺
                                   </span>
