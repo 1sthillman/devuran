@@ -143,7 +143,7 @@ export default function About() {
                   Kullanım Koşulları
                 </button>
                 <button
-                  onClick(() => navigate('/kvkk')}
+                  onClick={() => navigate('/kvkk')}
                   className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl border border-white/10 transition-all"
                 >
                   KVKK Aydınlatma Metni
