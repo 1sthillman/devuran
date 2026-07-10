@@ -407,7 +407,7 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
               >
                 {currentStep === 1 && (
                   <CategorySelection
-                    selectedCategory={formData.category}
+                    value={formData.category}
                     onChange={(category) => updateFormData({ category })}
                   />
                 )}
@@ -425,30 +425,35 @@ export function BusinessSetupWizard({ salon, onSave, onClose }: BusinessSetupWiz
                 )}
                 {currentStep === 3 && (
                   <AddressInfo
-                    address={formData.address}
-                    onChange={(address) => updateFormData({ address })}
+                    data={formData.address}
+                    onChange={(data) => updateFormData({ address: data })}
                   />
                 )}
                 {currentStep === 4 && (
                   <MediaUpload
-                    logo={formData.logo}
-                    coverImage={formData.coverImage}
-                    galleryImages={formData.galleryImages}
-                    socialMedia={formData.socialMedia}
+                    data={{
+                      logo: formData.logo,
+                      coverImage: formData.coverImage,
+                      galleryImages: formData.galleryImages,
+                      socialMedia: formData.socialMedia,
+                    }}
                     onChange={(data) => updateFormData(data)}
                   />
                 )}
                 {currentStep === 5 && (
                   <WorkingHours
-                    workingHours={formData.workingHours}
-                    onChange={(workingHours) => updateFormData({ workingHours })}
+                    data={formData.workingHours}
+                    onChange={(data) => updateFormData({ workingHours: data })}
                   />
                 )}
                 {currentStep === 6 && (
                   <ReservationSettings
-                    settings={formData.settings}
-                    category={formData.category}
-                    onChange={(settings) => updateFormData({ settings })}
+                    data={{
+                      settings: formData.settings,
+                      bankAccount: formData.bankAccount,
+                      depositSettings: formData.depositSettings,
+                    }}
+                    onChange={(data) => updateFormData(data)}
                   />
                 )}
               </motion.div>
