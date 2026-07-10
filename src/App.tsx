@@ -23,6 +23,7 @@ const RestaurantMenu = lazy(() => import('@/pages/RestaurantMenu'));
 const Migration = lazy(() => import('@/pages/Migration').then(m => ({ default: m.Migration })));
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy').then(m => ({ default: m.default })));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService').then(m => ({ default: m.default })));
+const KVKKPolicy = lazy(() => import('@/pages/KVKKPolicy').then(m => ({ default: m.default })));
 
 // Loading component
 function PageLoader() {
@@ -199,6 +200,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <TermsOfService />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/kvkk"
+              element={
+                <AnimatedRoute>
+                  <KVKKPolicy />
                 </AnimatedRoute>
               }
             />

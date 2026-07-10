@@ -36,12 +36,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a 
-                  href="mailto:adistoww@gmail.com" 
+                <Link 
+                  to="/kvkk" 
                   className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
                 >
-                  KVKK Başvurusu
-                </a>
+                  KVKK Aydınlatma Metni
+                </Link>
               </li>
             </ul>
           </div>
