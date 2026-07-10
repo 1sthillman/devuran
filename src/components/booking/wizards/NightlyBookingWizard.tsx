@@ -224,8 +224,8 @@ export function NightlyBookingWizard() {
         if (!extra) return null;
         return {
           ...extra,
-          quantity: extraQuantities[id] || nights, // 🆕 Miktar bilgisi
-          priceType: extra.pricingRules?.priceType || 'fixed',
+          quantity: extraQuantities[id] || nights,
+          priceType: getExtraPriceType(extra), // Use helper function instead of direct access
         };
       }).filter(Boolean),
       totalPrice,

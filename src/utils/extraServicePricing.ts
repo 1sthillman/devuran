@@ -8,8 +8,8 @@ export type ExtraPriceType = 'fixed' | 'per-night' | 'per-person' | 'per-person-
  */
 export function getExtraPriceType(extra: Service): ExtraPriceType {
   // Önce explicit pricingRules'a bak
-  if (extra.pricingRules?.priceType) {
-    return extra.pricingRules.priceType as ExtraPriceType;
+  if (extra.pricingRules && 'priceType' in extra.pricingRules && extra.pricingRules.priceType) {
+    return extra.pricingRules.priceType;
   }
   
   // İsimden akıllı tahmin
