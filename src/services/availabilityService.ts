@@ -168,7 +168,7 @@ class AvailabilityService {
     let currentTime = this.timeToMinutes(workingHours.open);
     const endTime = this.timeToMinutes(workingHours.close);
 
-    // 🔥 BUGÜN İÇİN ÖZEL KONTROL
+    // BUGÜN İÇİN ÖZEL KONTROL
     const now = new Date();
     const isToday = this.isSameDay(date, now);
     
@@ -177,17 +177,14 @@ class AvailabilityService {
       // En az 30 dakika sonrası için slot göster
       const minStartTime = currentMinutes + 30;
       
-      // 🔥 DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan
+      // DÜZELTME: Eğer minStartTime çalışma saatinden büyükse onu kullan
       if (minStartTime > currentTime) {
         currentTime = Math.ceil(minStartTime / 15) * 15; // 15'in katına yuvarla
       }
-      
-      console.log(`🕐 BUGÜN SLOT BAŞLANGIÇ: ${this.minutesToTime(currentTime)} (şimdi: ${this.minutesToTime(currentMinutes)}, çalışma başlangıcı: ${workingHours.open})`);
     }
 
-    // 🔥 KONTROL: currentTime endTime'dan büyükse boş array döndür
+    // KONTROL: currentTime endTime'dan büyükse boş array döndür
     if (currentTime >= endTime) {
-      console.log(`⚠️ Bugün için tüm slotlar geçmiş (${this.minutesToTime(currentTime)} >= ${this.minutesToTime(endTime)})`);
       return [];
     }
 
@@ -213,7 +210,6 @@ class AvailabilityService {
       currentTime += 15; // 15 dakika aralıklarla
     }
 
-    console.log(`✅ ${slots.length} slot oluşturuldu (available: ${slots.filter(s => s.available).length})`);
     return slots;
   }
 

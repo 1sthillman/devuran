@@ -585,12 +585,14 @@ export function SlotBookingWizard() {
                                     selectDateTime(dateStr, selectedTime || '');
                                   }}
                                   minDate={(() => {
-                                    // 🔥 KRİTİK: minDate bugünün başlangıcı olmalı
                                     const today = new Date();
                                     today.setHours(0, 0, 0, 0);
                                     return today;
                                   })()}
                                   workingHours={salon.workingHours}
+                                  businessId={salon.id}
+                                  serviceDuration={totalDuration}
+                                  staffId={selectedStaffId}
                                 />
                               </div>
                               <div>

@@ -51,18 +51,8 @@ export function ModernCalendar({
   // Availability kontrolü - sadece businessId varsa çalışır
   useEffect(() => {
     if (businessId && workingHours) {
-      console.log('📅 Availability kontrolü başlatılıyor:', {
-        currentMonth,
-        currentYear,
-        businessId
-      });
       checkMonthAvailability();
     } else {
-      // BusinessId yoksa availability kontrolü yapma
-      console.log('⚠️ Availability kontrolü YAPILMAYACAK:', {
-        businessId: !!businessId,
-        workingHours: !!workingHours
-      });
       setAvailabilityMap(new Map());
     }
   }, [currentMonth, currentYear, businessId, serviceDuration, workingHours, staff]);
@@ -87,9 +77,8 @@ export function ModernCalendar({
       const dateObj = new Date(currentYear, currentMonth, d);
       dateObj.setHours(0, 0, 0, 0);
       
-      // 🔥 Geçmiş tarihler için kontrol yapma (bugün dahil DEĞİL - bugün kontrol edilmeli)
+      // Geçmiş tarihler için kontrol yapma (bugün dahil DEĞİL - bugün kontrol edilmeli)
       if (dateObj.getTime() < todayStart.getTime()) {
-        console.log(`⏭️ ${d} Haziran - geçmiş, atlanıyor`);
         continue;
       }
       
@@ -107,7 +96,6 @@ export function ModernCalendar({
         }).then(slots => {
           const hasSlots = slots.length > 0;
           newMap.set(dateKey, hasSlots);
-          console.log(`📅 ${dateKey}: ${hasSlots ? '✅ Slotlar var' : '❌ Slot yok'} (${slots.length} slot)`);
         }).catch(error => {
           console.warn(`❌ ${dateKey}: Error checking availability`, error);
           newMap.set(dateKey, false);
@@ -186,32 +174,17 @@ export function ModernCalendar({
       
       const isClosed = isDayClosed(dateObj);
       
-      // 🔥 BUGÜN ASLA PAST OLAMAZ
+      // BUGÜN ASLA PAST OLAMAZ
       const isPast = isToday ? false : dateObj.getTime() < todayStart.getTime();
       
       const isBeforeMin = minDate ? dateObj < minDate : false;
       const isAfterMax = maxDate ? dateObj > maxDate : false;
       
-      // Debug log - sadece bugün için
-      if (isToday) {
-        console.log('📅 BUGÜN (30 HAZİRAN) KONTROLÜ:', {
-          date: d,
-          isToday,
-          isPast,
-          isClosed,
-          isBeforeMin,
-          isAfterMax,
-          dateObjTime: dateObj.getTime(),
-          todayStartTime: todayStart.getTime(),
-          systemTime: new Date().toISOString()
-        });
-      }
-      
       // Timezone-safe date key
       const dateKey = formatDateToString(dateObj);
       const hasAvailability = availabilityMap.get(dateKey) ?? true; // Default true if not checked yet
       
-      // 🔥 BUGÜN İÇİN ÖZEL: isPast kontrolünü atla
+      // BUGÜN İÇİN ÖZEL: isPast kontrolünü atla
       const isDisabled = isToday ? (isClosed || isBeforeMin || isAfterMax) : (isPast || isBeforeMin || isAfterMax || isClosed);
       
       days.push({
@@ -332,7 +305,6 @@ export function ModernCalendar({
                 e.preventDefault();
                 e.stopPropagation();
                 if (!day.isDisabled) {
-                  console.log('📅 Gün seçildi:', day.dateObj);
                   onSelect(day.dateObj);
                 }
               }}
