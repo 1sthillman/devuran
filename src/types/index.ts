@@ -14,11 +14,12 @@ export interface Service {
   requiresDeposit?: boolean; // 🆕 Bu hizmet için kapora gerekli mi?
   includes?: string[]; // Paket içeriği (paket hizmetleri için)
   
-  // Gelişmiş Fiyatlandırma
+  // Gelişmiş Fiyatlandırma (Ana Hizmet için - Oda fiyatı gibi)
   pricingRules?: {
     basePrice: number; // Temel fiyat
     perPerson?: number; // Kişi başı ek ücret (örn: +50₺/kişi)
     perNight?: number; // Gece başı ek ücret (konaklama için)
+    priceType?: 'fixed' | 'per-person' | 'per-night' | 'per-person-per-night'; // Ana hizmet fiyat tipi
     minGuests?: number; // Minimum kişi sayısı
     maxGuests?: number; // Maksimum kişi sayısı
     seasonalPricing?: {
@@ -36,11 +37,17 @@ export interface ServiceAddOn {
   name: string;
   description?: string;
   price: number;
-  priceType: 'fixed' | 'per-person' | 'per-night'; // Sabit, kişi başı, gece başı
+  priceType: 'fixed' | 'per-person' | 'per-night' | 'per-person-per-night'; // Fiyatlandırma mantığı
   icon?: string; // Icon adı (lucide-react)
   isActive: boolean;
   isRequired?: boolean; // Zorunlu mu?
-  maxQuantity?: number; // Maksimum adet (örn: max 2 ekstra yatak)
+  maxQuantity?: number; // Maksimum adet/gün (örn: max 2 ekstra yatak, max 7 gün kahvaltı)
+  minQuantity?: number; // Minimum adet/gün (örn: min 1 gün kahvaltı)
+  
+  // Fiyat Hesaplama İçin Meta
+  calculatePerGuest?: boolean; // Her misafir için ayrı mı hesaplanır?
+  multiplyByNights?: boolean; // Gece sayısı ile çarpılır mı?
+  allowPartialDays?: boolean; // Kısmi günler seçilebilir mi? (örn: 2 gece için sadece 1 gün kahvaltı)
 }
 
 export interface Staff {
