@@ -21,6 +21,14 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link 
+                  to="/about" 
+                  className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
+                >
+                  Hakkımızda
+                </Link>
+              </li>
+              <li>
+                <Link 
                   to="/terms" 
                   className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
                 >
@@ -43,6 +51,14 @@ export function Footer() {
                   KVKK Aydınlatma Metni
                 </Link>
               </li>
+              <li>
+                <Link 
+                  to="/mesafeli-satis" 
+                  className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
+                >
+                  Mesafeli Satış Sözleşmesi
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -58,20 +74,40 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 mt-8 pt-6 text-center text-sm text-gray-400">
-          <p>© {currentYear} Devuran. Tüm hakları saklıdır.</p>
-          <p className="mt-2 text-xs">
-            Ödeme güvenliği{' '}
-            <a 
-              href="https://www.paytr.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[var(--liquid-chrome)] hover:underline"
-            >
-              PayTR
-            </a>
-            {' '}tarafından sağlanmaktadır.
-          </p>
+        <div className="border-t border-white/10 mt-8 pt-6">
+          <div className="text-center mb-4">
+            <p className="text-sm text-gray-400 mb-3">Güvenli Ödeme Altyapısı</p>
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <img 
+                src="/iyzico-logo.svg" 
+                alt="iyzico ile Öde" 
+                className="h-8 opacity-80 hover:opacity-100 transition-opacity"
+              />
+              <div className="flex gap-2">
+                <div className="bg-white px-3 py-2 rounded">
+                  <span className="text-blue-600 font-bold text-sm">VISA</span>
+                </div>
+                <div className="bg-white px-3 py-2 rounded">
+                  <span className="text-red-600 font-bold text-sm">MasterCard</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="text-center text-sm text-gray-400">
+            <p>© {currentYear} Devuran. Tüm hakları saklıdır.</p>
+            <p className="mt-2 text-xs">
+              Ödeme güvenliği{' '}
+              <a 
+                href="https://www.iyzico.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[var(--liquid-chrome)] hover:underline"
+              >
+                iyzico
+              </a>
+              {' '}tarafından sağlanmaktadır. SSL güvenli bağlantı.
+            </p>
+          </div>
         </div>
       </div>
     </footer>
