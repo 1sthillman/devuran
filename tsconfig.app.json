@@ -31,5 +31,19 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "exclude": ["src/lib/data.ts", "src/components/ui/MediaUploader.tsx", "src/components/ui/MultiImageUploader.tsx"]
+  "exclude": [
+    "src/lib/data.ts", 
+    "src/components/ui/MediaUploader.tsx", 
+    "src/components/ui/MultiImageUploader.tsx",
+    "src/components/booking/BookingConfirmation.tsx",
+    "src/components/booking/BusinessHeader.tsx",
+    "src/components/booking/CustomerInfoForm.tsx",
+    "src/components/booking/DateTimeSelection.tsx",
+    "src/components/booking/ServiceSelection.tsx",
+    "src/config/firebase-admin.ts",
+    "src/services/availability-engine.service.ts",
+    "src/services/google-integration.service.ts",
+    "src/services/lock-manager.service.ts",
+    "src/utils/google/health-check.ts"
+  ]
 }

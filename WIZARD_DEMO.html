@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧙 Wizard Engine Test Paneli</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .status {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status h2 {
+            color: #155724;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+        
+        .status li {
+            color: #155724;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status li:before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .url-box {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .url-box code {
+            color: #667eea;
+            flex: 1;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-copy {
+            background: #6c757d;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+        
+        .btn-copy:hover {
+            background: #5a6268;
+        }
+        
+        .steps {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .steps h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+        
+        .steps ol {
+            padding-left: 20px;
+        }
+        
+        .steps li {
+            color: #856404;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .feature {
+            background: #e7f3ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .feature h4 {
+            color: #667eea;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .feature p {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        .todo {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .todo h3 {
+            color: #721c24;
+            margin-bottom: 15px;
+        }
+        
+        .todo ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+        
+        .todo li {
+            color: #721c24;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .todo li:before {
+            content: "□";
+            font-size: 1.2rem;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .url-box {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧙 Wizard Engine v2.0</h1>
+            <p>Schema-Driven Multi-Vertical Booking System</p>
+        </div>
+        
+        <div class="status">
+            <h2>✅ Server Durumu</h2>
+            <ul>
+                <li>Vite Development Server: ÇALIŞIYOR</li>
+                <li>Port: 5173</li>
+                <li>Wizard Engine: ENTEGRE EDİLDİ</li>
+                <li>Mevcut Sistem: KORUNDU</li>
+            </ul>
+        </div>
+        
+        <div class="steps">
+            <h3>📝 Test Adımları</h3>
+            <ol>
+                <li>Ana sayfaya git ve herhangi bir salon seç</li>
+                <li>Salon detay sayfasındaki URL'den ID'yi kopyala</li>
+                <li>Wizard test URL'ine ID'yi yapıştır</li>
+                <li>Yeni wizard akışını test et</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <h3>🌐 Erişim URL'leri</h3>
+            
+            <div class="url-box">
+                <code>http://localhost:5173/</code>
+                <button class="btn btn-copy" onclick="copy('http://localhost:5173/')">Kopyala</button>
+            </div>
+            
+            <div class="url-box">
+                <code>http://localhost:5173/wizard-test/SALON_ID</code>
+                <button class="btn btn-copy" onclick="copy('http://localhost:5173/wizard-test/')">Kopyala</button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="http://localhost:5173/" class="btn" target="_blank">Ana Sayfayı Aç →</a>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>✨ Çalışan Özellikler</h3>
+            <div class="features">
+                <div class="feature">
+                    <h4>Hizmet Seçimi</h4>
+                    <p>Çoklu/tekli seçim</p>
+                </div>
+                <div class="feature">
+                    <h4>Personel Seçimi</h4>
+                    <p>"Farketmez" opsiyonu</p>
+                </div>
+                <div class="feature">
+                    <h4>Kapasite</h4>
+                    <p>Kişi sayısı seçimi</p>
+                </div>
+                <div class="feature">
+                    <h4>Progress Bar</h4>
+                    <p>Adım takibi</p>
+                </div>
+                <div class="feature">
+                    <h4>Animations</h4>
+                    <p>Framer Motion</p>
+                </div>
+                <div class="feature">
+                    <h4>Responsive</h4>
+                    <p>Mobile-first</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="todo">
+            <h3>🚧 Sonraki Adımlar</h3>
+            <ul>
+                <li>DateTimeSlotPrimitive (en kritik)</li>
+                <li>PaymentPrimitive (PayTr integration)</li>
+                <li>ReviewConfirmPrimitive</li>
+                <li>Firestore config migration</li>
+                <li>Wedding Hall & Hotel configs</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        function copy(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('📋 Kopyalandı: ' + text);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { LiquidNav } from './LiquidNav';
+import { Footer } from './Footer';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 
 interface AppShellProps {
@@ -13,6 +14,7 @@ export function AppShell({ children }: AppShellProps) {
       <main className="flex-1">
         {children}
       </main>
+      <Footer />
       <ToastContainer />
     </div>
   );

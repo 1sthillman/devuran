@@ -215,9 +215,7 @@ export function Login() {
                     <p className="font-body text-sm text-[var(--chrome-white)]">
                       <button
                         type="button"
-                        onClick={() => {
-                          addToast('Kullanım koşulları sayfası yakında eklenecektir', 'info');
-                        }}
+                        onClick={() => navigate('/terms')}
                         className="text-[var(--liquid-chrome)] hover:underline"
                       >
                         Kullanım Koşulları
@@ -225,9 +223,7 @@ export function Login() {
                       {' '}ve{' '}
                       <button
                         type="button"
-                        onClick={() => {
-                          addToast('Gizlilik politikası sayfası yakında eklenecektir', 'info');
-                        }}
+                        onClick={() => navigate('/privacy')}
                         className="text-[var(--liquid-chrome)] hover:underline"
                       >
                         Gizlilik Politikası

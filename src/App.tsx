@@ -21,6 +21,8 @@ const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Pro
 const SuperAdminDashboard = lazy(() => import('@/pages/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 const RestaurantMenu = lazy(() => import('@/pages/RestaurantMenu'));
 const Migration = lazy(() => import('@/pages/Migration').then(m => ({ default: m.Migration })));
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy').then(m => ({ default: m.default })));
+const TermsOfService = lazy(() => import('@/pages/TermsOfService').then(m => ({ default: m.default })));
 
 // Loading component
 function PageLoader() {
@@ -181,6 +183,22 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <RestaurantMenu />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/privacy"
+              element={
+                <AnimatedRoute>
+                  <PrivacyPolicy />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <AnimatedRoute>
+                  <TermsOfService />
                 </AnimatedRoute>
               }
             />

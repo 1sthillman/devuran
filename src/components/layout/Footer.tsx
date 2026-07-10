@@ -1,0 +1,78 @@
+import { Link } from 'react-router-dom';
+
+export function Footer() {
+  const currentYear = new Date().getFullYear();
+
+  return (
+    <footer className="bg-white/5 backdrop-blur-xl border-t border-white/10 py-8 mt-auto">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Logo ve Hakkında */}
+          <div>
+            <h3 className="font-bold text-lg text-white mb-3">Devuran</h3>
+            <p className="text-sm text-gray-400">
+              Online randevu ve rezervasyon sistemi ile işletmenizi dijitalleştirin.
+            </p>
+          </div>
+
+          {/* Yasal */}
+          <div>
+            <h4 className="font-semibold text-white mb-3">Yasal</h4>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link 
+                  to="/terms" 
+                  className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
+                >
+                  Kullanım Koşulları
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/privacy" 
+                  className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
+                >
+                  Gizlilik Politikası
+                </Link>
+              </li>
+              <li>
+                <a 
+                  href="mailto:info@devuran.com" 
+                  className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
+                >
+                  KVKK Başvurusu
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* İletişim */}
+          <div>
+            <h4 className="font-semibold text-white mb-3">İletişim</h4>
+            <ul className="space-y-2 text-sm text-gray-400">
+              <li>E-posta: info@devuran.com</li>
+              <li>Telefon: +90 232 XXX XX XX</li>
+              <li>Destek: Pazartesi-Cuma 09:00-18:00</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 mt-8 pt-6 text-center text-sm text-gray-400">
+          <p>© {currentYear} Devuran. Tüm hakları saklıdır.</p>
+          <p className="mt-2 text-xs">
+            Ödeme güvenliği{' '}
+            <a 
+              href="https://www.paytr.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[var(--liquid-chrome)] hover:underline"
+            >
+              PayTR
+            </a>
+            {' '}tarafından sağlanmaktadır.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Redis for caching and distributed locking
+  redis:
+    image: redis:7-alpine
+    container_name: google-integration-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Backend API (optional - for containerized development)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: google-integration-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./node_modules:/app/node_modules
+    restart: unless-stopped
+    command: npm run dev
+
+volumes:
+  redis-data:
+    driver: local
