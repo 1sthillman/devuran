@@ -35,8 +35,8 @@ export default function TermsOfService() {
                 <div className="bg-white/5 p-4 rounded-xl">
                   <p className="font-semibold mb-2">Platform Sahibi:</p>
                   <p>Devuran</p>
-                  <p>E-posta: info@devuran.com</p>
-                  <p>Telefon: +90 232 XXX XX XX</p>
+                  <p>E-posta: adistoww@gmail.com</p>
+                  <p>Telefon: +90 543 926 96 70</p>
                 </div>
                 <div className="bg-white/5 p-4 rounded-xl">
                   <p className="font-semibold mb-2">Kullanıcılar:</p>
@@ -89,7 +89,7 @@ export default function TermsOfService() {
                 <li>Kredi kartı bilgileri Platform sunucularında saklanmaz (PCI-DSS uyumlu)</li>
                 <li>Tüm ödemeler 3D Secure ile güvence altındadır</li>
                 <li>İşlem onayından sonra iptal/iade işlemleri işletme politikalarına tabidir</li>
-                <li>Hatalı ödeme durumunda info@devuran.com ile iletişime geçin</li>
+                <li>Hatalı ödeme durumunda adistoww@gmail.com ile iletişime geçin</li>
                 <li>Fiyatlar işletmeler tarafından belirlenir ve güncellenebilir</li>
               </ul>
             </section>
@@ -205,9 +205,9 @@ export default function TermsOfService() {
                 Kullanım koşulları hakkında sorularınız için bizimle iletişime geçebilirsiniz:
               </p>
               <div className="bg-white/5 p-4 rounded-xl">
-                <p><strong>E-posta:</strong> info@devuran.com</p>
-                <p><strong>Telefon:</strong> +90 232 XXX XX XX</p>
-                <p><strong>Adres:</strong> [Şirket Adresi]</p>
+                <p><strong>E-posta:</strong> adistoww@gmail.com</p>
+                <p><strong>Telefon:</strong> +90 543 926 96 70</p>
+                <p><strong>Adres:</strong> Maslak, İstanbul</p>
                 <p><strong>Destek:</strong> Pazartesi-Cuma 09:00-18:00</p>
               </div>
             </section>

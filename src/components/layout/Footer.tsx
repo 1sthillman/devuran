@@ -37,7 +37,7 @@ export function Footer() {
               </li>
               <li>
                 <a 
-                  href="mailto:info@devuran.com" 
+                  href="mailto:adistoww@gmail.com" 
                   className="text-gray-400 hover:text-[var(--liquid-chrome)] transition-colors"
                 >
                   KVKK Başvurusu
@@ -50,8 +50,9 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-3">İletişim</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li>E-posta: info@devuran.com</li>
-              <li>Telefon: +90 232 XXX XX XX</li>
+              <li>E-posta: adistoww@gmail.com</li>
+              <li>Telefon: +90 543 926 96 70</li>
+              <li>Adres: Maslak, İstanbul</li>
               <li>Destek: Pazartesi-Cuma 09:00-18:00</li>
             </ul>
           </div>

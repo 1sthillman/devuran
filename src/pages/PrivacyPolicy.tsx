@@ -36,8 +36,8 @@ export default function PrivacyPolicy() {
                 Kişisel verilerinizin işlenmesinden sorumlu veri sorumlusu Devuran'dır.
               </p>
               <div className="bg-white/5 p-4 rounded-xl">
-                <p><strong>İletişim:</strong> info@devuran.com</p>
-                <p><strong>Telefon:</strong> +90 232 XXX XX XX</p>
+                <p><strong>İletişim:</strong> adistoww@gmail.com</p>
+                <p><strong>Telefon:</strong> +90 543 926 96 70</p>
               </div>
             </section>
 
@@ -114,7 +114,7 @@ export default function PrivacyPolicy() {
                 <li>Kanuna aykırı olarak işlenmesi sebebiyle zarara uğramanız hâlinde zararın giderilmesini talep etme</li>
               </ul>
               <p className="mt-4 bg-white/5 p-4 rounded-xl">
-                <strong>Başvuru:</strong> Haklarınızı kullanmak için info@devuran.com adresine yazılı olarak 
+                <strong>Başvuru:</strong> Haklarınızı kullanmak için adistoww@gmail.com adresine yazılı olarak 
                 başvurabilirsiniz. Başvurularınız 30 gün içinde yanıtlanacaktır.
               </p>
             </section>
@@ -142,9 +142,9 @@ export default function PrivacyPolicy() {
                 Gizlilik politikamız hakkında sorularınız için bizimle iletişime geçebilirsiniz:
               </p>
               <div className="bg-white/5 p-4 rounded-xl mt-3">
-                <p><strong>E-posta:</strong> info@devuran.com</p>
-                <p><strong>Telefon:</strong> +90 232 XXX XX XX</p>
-                <p><strong>Adres:</strong> [Şirket Adresi]</p>
+                <p><strong>E-posta:</strong> adistoww@gmail.com</p>
+                <p><strong>Telefon:</strong> +90 543 926 96 70</p>
+                <p><strong>Adres:</strong> Maslak, İstanbul</p>
               </div>
             </section>
           </div>
