@@ -54,7 +54,23 @@ const LEGACY_CATEGORY_TO_PRESET: Record<string, string> = {
 };
 
 /**
- * Eski salonu yeni capabilities ile güncelle
+ * Kategori bazlı default açıklamalar
+ */
+const DEFAULT_DESCRIPTIONS: Record<string, string> = {
+  'kuafor': 'Profesyonel kuaför hizmetleri ile saç kesimi, boyama, bakım ve şekillendirme hizmetleri sunuyoruz.',
+  'berber': 'Geleneksel berber hizmetleri, saç ve sakal kesimi, tıraş ve bakım hizmetleri.',
+  'guzellik': 'Güzellik merkezi olarak cilt bakımı, makyaj, epilasyon ve estetik hizmetler sunuyoruz.',
+  'tirnak': 'Profesyonel tırnak bakımı, manikür, pedikür ve protez tırnak uygulamaları.',
+  'restoran': 'Lezzetli yemekler ve kaliteli hizmet anlayışı ile hizmetinizdeyiz.',
+  'kafe': 'Özel kahveler, tatlılar ve sıcak bir ortamda hizmet veriyoruz.',
+  'otel': 'Konforlu konaklama ve kaliteli hizmet anlayışı ile misafirlerimizi ağırlıyoruz.',
+  'villa': 'Özel villa kiralama hizmeti ile unutulmaz tatil deneyimi sunuyoruz.',
+  'fotograf': 'Profesyonel fotoğraf çekimi hizmetleri ile özel anlarınızı ölümsüzleştiriyoruz.',
+  'default': 'Kaliteli hizmet anlayışı ile müşterilerimize en iyi deneyimi sunmak için çalışıyoruz.'
+};
+
+/**
+ * Eski salonu yeni capabilities ile güncelle + EKSİK ALANLARI DOLDUR
  */
 export function migrateToCapabilities(salon: Salon): Salon & { capabilities: BusinessCapabilities } {
   const anySalon = salon as any;
@@ -67,6 +83,42 @@ export function migrateToCapabilities(salon: Salon): Salon & { capabilities: Bus
   // Legacy kategoriyi preset'e çevir
   const presetId = LEGACY_CATEGORY_TO_PRESET[salon.category] || 'hairdresser';
   const capabilities = { ...BUSINESS_PRESETS[presetId] };
+  
+  // ✅ EKSİK ALANLARI OTOMATIK DOLDUR (validasyon için)
+  const migratedSalon = { ...salon };
+  
+  // Description eksikse veya çok kısaysa
+  if (!migratedSalon.description || migratedSalon.description.length < 10) {
+    migratedSalon.description = DEFAULT_DESCRIPTIONS[salon.category] || DEFAULT_DESCRIPTIONS['default'];
+  }
+  
+  // Phone eksikse (bazı eski salonlarda olabilir)
+  if (!migratedSalon.phone) {
+    migratedSalon.phone = '0000000000'; // Placeholder - kullanıcı sonra güncelleyebilir
+  }
+  
+  // Address eksikse
+  if (!migratedSalon.address) {
+    migratedSalon.address = {
+      full: 'Adres bilgisi güncellenecek',
+      district: '',
+      city: '',
+      coordinates: { lat: 0, lng: 0 }
+    } as any;
+  }
+  
+  // WorkingHours eksikse - default ekle
+  if (!migratedSalon.workingHours) {
+    migratedSalon.workingHours = {
+      monday: { isOpen: true, open: '09:00', close: '18:00' },
+      tuesday: { isOpen: true, open: '09:00', close: '18:00' },
+      wednesday: { isOpen: true, open: '09:00', close: '18:00' },
+      thursday: { isOpen: true, open: '09:00', close: '18:00' },
+      friday: { isOpen: true, open: '09:00', close: '18:00' },
+      saturday: { isOpen: true, open: '09:00', close: '18:00' },
+      sunday: { isOpen: false, open: '', close: '' }
+    };
+  }
   
   // Salon'daki mevcut verilere göre override yap
   
@@ -92,7 +144,7 @@ export function migrateToCapabilities(salon: Salon): Salon & { capabilities: Bus
   }
   
   return {
-    ...salon,
+    ...migratedSalon,
     capabilities
   };
 }

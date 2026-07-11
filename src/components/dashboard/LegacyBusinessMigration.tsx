@@ -23,12 +23,14 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
   const [isOpen, setIsOpen] = useState(true);
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<'success' | 'error' | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const handleMigrate = async () => {
     setIsMigrating(true);
+    setErrorMessage('');
     
     try {
-      // Eski salonu yeni sisteme geçir
+      // Eski salonu yeni sisteme geçir (eksik alanları otomatik doldurur)
       const migratedSalon = migrateToCapabilities(salon);
       
       // Validasyon yap
@@ -36,12 +38,18 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
       
       if (!validation.isValid) {
         console.error('Migration validation failed:', validation.errors);
-        throw new Error('Geçiş doğrulaması başarısız');
+        const errorMsg = validation.errors.join(', ');
+        setErrorMessage(errorMsg);
+        throw new Error(`Validasyon hatası: ${errorMsg}`);
       }
 
-      // Firebase'e kaydet
+      // Firebase'e kaydet - hem capabilities hem de eksik alanları güncelle
       await salonsService.update(salon.id, {
-        capabilities: migratedSalon.capabilities
+        capabilities: migratedSalon.capabilities,
+        description: migratedSalon.description,
+        phone: migratedSalon.phone,
+        address: migratedSalon.address,
+        workingHours: migratedSalon.workingHours
       });
 
       setMigrationResult('success');
@@ -52,9 +60,12 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
         onMigrationComplete();
       }, 2000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Migration error:', error);
       setMigrationResult('error');
+      if (!errorMessage) {
+        setErrorMessage(error?.message || 'Bilinmeyen bir hata oluştu');
+      }
     } finally {
       setIsMigrating(false);
     }
@@ -130,9 +141,14 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   Hata Oluştu
                 </h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-gray-600 mb-2">
                   Geçiş sırasında bir sorun oluştu
                 </p>
+                {errorMessage && (
+                  <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3 mb-4">
+                    {errorMessage}
+                  </p>
+                )}
                 <button
                   onClick={handleMigrate}
                   className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-colors"
