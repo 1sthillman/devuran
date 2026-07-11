@@ -5,6 +5,7 @@ import { reservationServiceBackend } from '@/services/reservationServiceBackend'
 import { useAuthStore } from './authStore';
 import { rateLimiter } from '@/utils/rateLimiter';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '@/utils/sanitize';
+import { determineBookingType, getBookingTypeFromCategory } from '@/utils/bookingTypeResolver';
 
 // ⚠️ GÜVENLİK: Backend validation TEMPORARILY DISABLED
 // 
@@ -97,32 +98,20 @@ const calculateTotals = (services: Service[]) => ({
   totalDuration: services.reduce((sum, s) => sum + s.duration, 0),
 });
 
-const getBookingType = (category: string): 'slot' | 'daily' | 'nightly' | 'project' | 'order' => {
-  // Restoran masa rezervasyonu - slot olarak işle
-  if (category === 'restoran' || category === 'kafe') {
-    return 'slot';
+/**
+ * AKILLI BOOKING TYPE BELİRLEME
+ * Önce capabilities varsa onu kullan, yoksa legacy category mapping'e düş
+ */
+const getBookingType = (salon: Salon): 'slot' | 'daily' | 'nightly' | 'project' | 'order' => {
+  // Yeni sistem: capabilities bazlı
+  const anySalon = salon as any;
+  if (anySalon.capabilities) {
+    const typeInfo = determineBookingType(anySalon.capabilities);
+    return typeInfo.primary;
   }
-  // Slot bazlı kategoriler
-  if (['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(category)) {
-    return 'slot';
-  }
-  // Günlük kiralama
-  if (['dugun-salonu', 'etkinlik-alani'].includes(category)) {
-    return 'daily';
-  }
-  // Gecelik konaklama
-  if (['otel', 'villa', 'bungalov', 'kamp-alani'].includes(category)) {
-    return 'nightly';
-  }
-  // Proje bazlı
-  if (['dugun-organizasyon', 'nisan-organizasyon', 'evlilik-teklifi', 'dogum-gunu', 'kurumsal-etkinlik'].includes(category)) {
-    return 'project';
-  }
-  // Sipariş bazlı
-  if (['catering', 'pasta-tatli', 'kahve-ikram'].includes(category)) {
-    return 'order';
-  }
-  return 'slot'; // Varsayılan
+  
+  // Legacy sistem: category bazlı (geriye uyumluluk)
+  return getBookingTypeFromCategory(salon.category);
 };
 
 export const useBookingStore = create<BookingState>()(
@@ -232,7 +221,7 @@ export const useBookingStore = create<BookingState>()(
   setStep: (step) => set({ step }),
 
   init: (salonId, salon) => {
-    const bookingType = getBookingType(salon.category);
+    const bookingType = getBookingType(salon);
     set({
       salonId,
       salon,

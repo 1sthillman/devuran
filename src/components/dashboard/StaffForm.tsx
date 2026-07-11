@@ -89,7 +89,10 @@ export function StaffForm({ staff, salonId, onSave, onDelete, onClose }: StaffFo
 
         // Plan özelliklerini al (hem restoran hem normal planlar için)
         let plan;
-        if (salon.category === 'restoran' || salon.category === 'kafe') {
+        const anySalon = salon as any;
+        const isRestaurantType = anySalon.capabilities?.hasTables || salon.category === 'restoran' || salon.category === 'kafe';
+        
+        if (isRestaurantType) {
           plan = subscription.customFeatures || 
             (await import('@/config/restaurantSubscriptionPlans')).RESTAURANT_SUBSCRIPTION_PLANS.find(p => p.id === subscription.planType)?.features;
         } else {

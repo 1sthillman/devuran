@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useUIStore } from '@/store/uiStore';
+import { getDashboardModules, getBookingTerminology } from '@/utils/bookingTypeResolver';
+import type { BusinessCapabilities } from '@/types/businessCapabilities';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -48,6 +50,7 @@ import { MultiImageUploader } from '@/components/ui/MultiImageUploader';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { FloatingNavMenu } from '@/components/dashboard/FloatingNavMenu';
+import { BusinessInfoCard } from '@/components/dashboard/BusinessInfoCard';
 import { toast } from 'sonner';
 import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus';
 import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
@@ -108,6 +111,42 @@ export function OwnerDashboard() {
   const [showBusinessLink, setShowBusinessLink] = useState(false); // Default: KAPALI
   const [showSubscriptionCard, setShowSubscriptionCard] = useState(false); // Default: KAPALI
   const [showQRCodes, setShowQRCodes] = useState(false); // QR codes collapsible
+
+  // Akıllı dashboard modules - capabilities bazlı
+  const dashboardModules = useMemo(() => {
+    if (!salon) return null;
+    const anySalon = salon as any;
+    return getDashboardModules(anySalon.capabilities);
+  }, [salon]);
+
+  // Terminoloji - capabilities'e göre dinamik
+  const terminology = useMemo(() => {
+    if (!salon) return { singular: 'Randevu', plural: 'Randevular' };
+    const anySalon = salon as any;
+    return getBookingTerminology(anySalon.capabilities);
+  }, [salon]);
+
+  // Dinamik sidebar items - capabilities'e göre filtrelenir VE isimleri değişir
+  const visibleSidebarItems = useMemo(() => {
+    if (!dashboardModules) return sidebarItems;
+    
+    return sidebarItems.filter(item => {
+      switch (item.key) {
+        case 'staff':
+          return dashboardModules.showStaff;
+        case 'restaurant':
+          return dashboardModules.showRestaurant;
+        default:
+          return true;
+      }
+    }).map(item => {
+      // Appointments sekmesinin adını terminolojiye göre değiştir
+      if (item.key === 'appointments') {
+        return { ...item, label: terminology.plural };
+      }
+      return item;
+    });
+  }, [dashboardModules, terminology]);
 
   // QR Styles - Minimal and professional
   const qrStyles = [
@@ -260,9 +299,10 @@ export function OwnerDashboard() {
       appointmentsService.getQueue(user.salonId).then(queue => {
         setQueueCount(queue.length);
       });
-    } else if (user) {
-      // User is owner but has no salon yet
+    } else if (user && user.role === 'owner') {
+      // User is owner but has no salon yet - auto-open wizard
       setLoading(false);
+      setShowSalonSetup(true); // Automatically open the wizard
     }
   }, [user?.salonId, user]);
 
@@ -499,9 +539,11 @@ export function OwnerDashboard() {
     return (
       <>
       {/* Salon Setup/Edit Modal */}
-      {showSalonSetup && (
+      {showSalonSetup && user && (
         <BusinessSetupWizard
           salon={salon || undefined}
+          currentUserId={user.uid}
+          userBusinessCategory={user.businessCategory}
           onSave={async (salonData) => {
             if (salon) {
               // Edit mode - update existing salon
@@ -880,9 +922,11 @@ export function OwnerDashboard() {
     <div className="min-h-screen pb-0">
       <div className="flex flex-col lg:flex-row gap-6">
       {/* Salon Setup/Edit Modal */}
-      {showSalonSetup && (
+      {showSalonSetup && user && (
         <BusinessSetupWizard
           salon={salon || undefined}
+          currentUserId={user.uid}
+          userBusinessCategory={user.businessCategory}
           onSave={async (salonData) => {
             if (salon) {
               // Edit mode - update existing salon
@@ -1166,10 +1210,28 @@ export function OwnerDashboard() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <h1 className="font-display font-bold text-2xl text-[var(--chrome-white)]">
-              {sidebarItems.find((i) => i.key === activeTab)?.label}
+              {visibleSidebarItems.find((i) => i.key === activeTab)?.label}
             </h1>
             {/* Floating Navigation Menu Button - Hidden when BusinessSetupWizard or Restaurant panel is open */}
-            {!showSalonSetup && activeTab !== 'restaurant' && <FloatingNavMenu activeTab={activeTab} onTabChange={setActiveTab} />}
+            {!showSalonSetup && activeTab !== 'restaurant' && (
+              <FloatingNavMenu 
+                activeTab={activeTab} 
+                onTabChange={setActiveTab}
+                items={visibleSidebarItems.map(item => ({
+                  key: item.key,
+                  label: item.label,
+                  icon: item.icon,
+                  color: item.key === 'overview' ? '#8B5CF6' : 
+                         item.key === 'appointments' ? '#EC4899' : 
+                         item.key === 'analytics' ? '#3B82F6' : 
+                         item.key === 'customers' ? '#10B981' : 
+                         item.key === 'reviews' ? '#F59E0B' : 
+                         item.key === 'services' ? '#06B6D4' : 
+                         item.key === 'staff' ? '#8B5CF6' : 
+                         item.key === 'restaurant' ? '#F97316' : '#6B7280'
+                }))}
+              />
+            )}
           </div>
           {salon && (
             <p className="font-body text-sm text-[var(--muted-lead)] truncate max-w-[200px]">
@@ -1181,6 +1243,11 @@ export function OwnerDashboard() {
         {/* OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            {/* ✨ İŞLETME ÖZELLİKLERİ - YENİ */}
+            {salon && (
+              <BusinessInfoCard salon={salon} />
+            )}
+            
             {/* ⚠️ PENDING SUBSCRIPTION UYARISI */}
             {subscription?.status === 'pending' && (
               <motion.div
@@ -1537,8 +1604,8 @@ export function OwnerDashboard() {
               </motion.div>
             )}
 
-            {/* RESTORAN PANELİ KARTI */}
-            {salon && (salon.category === 'restoran' || salon.category === 'kafe') && (
+            {/* RESTORAN/ÖZEL PANELİ KARTI - Capability-based */}
+            {salon && dashboardModules?.showRestaurant && (
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1554,10 +1621,10 @@ export function OwnerDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <h3 className="font-heading font-bold text-lg text-[var(--chrome-white)] mb-1">
-                      Restoran Paneli
+                      {terminology.capacityUnitLabel} Paneli
                     </h3>
                     <p className="text-xs text-[var(--muted-lead)] mt-0.5">
-                      Mutfak, Garson, Kasiyer, Menü ve Masa Yönetimi
+                      Mutfak, Garson, Kasiyer, Menü ve {terminology.capacityUnitLabel} Yönetimi
                     </p>
                   </div>
                   <ChevronDown className="w-5 h-5 text-[var(--muted-lead)] -rotate-90 group-hover:translate-x-1 transition-transform" />
@@ -1575,7 +1642,7 @@ export function OwnerDashboard() {
                   <Plus size={20} className="text-[#2DC24E]" strokeWidth={2.5} />
                 </div>
                 <span className="font-heading font-semibold text-sm text-[var(--chrome-white)]">
-                  Randevu Yönet
+                  {terminology.bookingUnitPlural} Yönet
                 </span>
               </button>
 
@@ -1649,18 +1716,18 @@ export function OwnerDashboard() {
         {/* SERVICES */}
         {activeTab === 'services' && (
           <div className="space-y-4">
-            {/* 🍽️ Restoran için özel bilgilendirme */}
-            {salon && (salon.category === 'restoran' || (salon as any).category === 'restaurant') && (
+            {/* 🍽️ Table-based businesses için özel bilgilendirme */}
+            {salon && dashboardModules?.showTables && (
               <div className="obsidian-card p-4 border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-pink-500/10">
                 <div className="flex items-start gap-3">
                   <ChefHat className="w-6 h-6 text-purple-400 flex-shrink-0 mt-1" />
                   <div className="flex-1">
                     <h4 className="font-heading font-bold text-[var(--chrome-white)] mb-2">
-                      🍽️ Masa Rezervasyon Sistemi
+                      🍽️ {terminology.capacityUnitLabel} Rezervasyon Sistemi
                     </h4>
                     <p className="text-sm text-[var(--muted-lead)] mb-3">
-                      Masalarınız otomatik olarak rezervasyon hizmeti olarak ekleniyor. 
-                      Müşteriler "Randevu Al" butonundan masalarınıza rezervasyon yapabilir.
+                      {terminology.capacityUnitLabel}larınız otomatik olarak rezervasyon hizmeti olarak ekleniyor. 
+                      Müşteriler "{terminology.actionVerb}" butonundan {terminology.capacityUnitLabel.toLowerCase()}larınıza rezervasyon yapabilir.
                     </p>
                     <div className="flex items-center gap-2 text-xs text-purple-400">
                       <span className="flex items-center gap-1">
@@ -1686,28 +1753,28 @@ export function OwnerDashboard() {
               className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-heading font-bold text-sm shadow-lg shadow-purple-500/30 transition-all flex items-center justify-center gap-2.5"
             >
               <Plus size={20} strokeWidth={2.5} />
-              <span>Yeni Hizmet Ekle</span>
+              <span>Yeni {terminology.serviceUnitLabel} Ekle</span>
             </motion.button>
 
-            {services.length === 0 && salon && (salon.category === 'restoran' || (salon as any).category === 'restaurant') ? (
+            {services.length === 0 && salon && dashboardModules?.showTables ? (
               <div className="obsidian-card p-8 text-center">
                 <ChefHat className="w-16 h-16 mx-auto mb-4 text-orange-500/50" />
                 <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)] mb-2">
-                  Masalarınızı Ekleyin
+                  {terminology.capacityUnitLabel}larınızı Ekleyin
                 </h3>
                 <p className="text-[var(--muted-lead)] mb-4">
-                  "Restoran Dashboard" → "Masalar" bölümünden masalarınızı ekleyin.
-                  Masalar otomatik olarak rezervasyon hizmeti olarak burada görünecek.
+                  "{terminology.capacityUnitLabel} Dashboard" → "{terminology.capacityUnitLabel}lar" bölümünden {terminology.capacityUnitLabel.toLowerCase()}larınızı ekleyin.
+                  {terminology.capacityUnitLabel}lar otomatik olarak rezervasyon hizmeti olarak burada görünecek.
                 </p>
               </div>
             ) : services.length === 0 ? (
               <div className="obsidian-card p-8 text-center">
                 <Scissors className="w-16 h-16 mx-auto mb-4 text-purple-500/50" />
                 <h3 className="font-heading font-bold text-xl text-[var(--chrome-white)] mb-2">
-                  Henüz Hizmet Yok
+                  Henüz {terminology.serviceUnitLabel} Yok
                 </h3>
                 <p className="text-[var(--muted-lead)]">
-                  İlk hizmetinizi ekleyerek başlayın
+                  İlk {terminology.serviceUnitLabel.toLowerCase()}inizi ekleyerek başlayın
                 </p>
               </div>
             ) : (
@@ -2330,9 +2397,11 @@ export function OwnerDashboard() {
       )}
 
       {/* Salon Setup/Edit Modal */}
-      {showSalonSetup && (
+      {showSalonSetup && user && (
         <BusinessSetupWizard
           salon={salon || undefined}
+          currentUserId={user.uid}
+          userBusinessCategory={user.businessCategory}
           onSave={async (salonData) => {
             if (salon) {
               // Edit mode - update existing salon
@@ -2399,7 +2468,7 @@ export function OwnerDashboard() {
       {/* Subscription Modal */}
       {showSubscriptionModal && salon && (
         <>
-          {(salon.businessType === 'restaurant' || salon.businessType === 'cafe' || salon.category === 'restoran' || salon.category === 'kafe') ? (
+          {dashboardModules?.showRestaurant ? (
             <RestaurantSubscriptionModal
               isOpen={showSubscriptionModal}
               onClose={() => setShowSubscriptionModal(false)}

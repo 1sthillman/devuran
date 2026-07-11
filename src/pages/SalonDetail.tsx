@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { useThemeStore } from '@/store/themeStore';
 import { cn } from '@/lib/utils';
+import { getSalonTerminology, getBookingActionText } from '@/utils/businessHelpers';
 
 const categoryLabels: Record<string, string> = {
   kuafor: 'Kuaför',
@@ -161,26 +162,28 @@ export function SalonDetail() {
   }
 
   const handleBook = () => {
-    // ✅ Abonelik kontrolü - Aktif abonelik yoksa randevu alınamaz
+    const terminology = salon ? getSalonTerminology(salon) : { singular: 'Randevu', plural: 'Randevular' };
+    
+    // ✅ Abonelik kontrolü - Aktif abonelik yoksa rezervasyon alınamaz
     if (!subscriptionStatus?.hasActiveSubscription) {
       if (subscriptionStatus?.isPending) {
-        addToast('Bu işletme abonelik onayı bekliyor. Şu anda randevu alınamaz.', 'warning');
+        addToast(`Bu işletme abonelik onayı bekliyor. Şu anda ${terminology.singular.toLowerCase()} alınamaz.`, 'warning');
       } else if (subscriptionStatus?.isExpired) {
-        addToast('Bu işletmenin aboneliği sona ermiş. Randevu alınamaz.', 'error');
+        addToast(`Bu işletmenin aboneliği sona ermiş. ${terminology.singular} alınamaz.`, 'error');
       } else {
-        addToast('Bu işletme şu anda randevu kabul etmemektedir.', 'error');
+        addToast(`Bu işletme şu anda ${terminology.singular.toLowerCase()} kabul etmemektedir.`, 'error');
       }
       return;
     }
     
     // Check if user is blocked or banned
     if (isBlocked) {
-      addToast('Bu işletmeyi engellediniz. Randevu almak için engeli kaldırın.', 'error');
+      addToast(`Bu işletmeyi engellediniz. ${terminology.singular} almak için engeli kaldırın.`, 'error');
       return;
     }
     
     if (isBanned) {
-      addToast('Bu işletme tarafından engellendiniz. Randevu alamazsınız.', 'error');
+      addToast(`Bu işletme tarafından engellendiniz. ${terminology.singular} alamazsınız.`, 'error');
       return;
     }
 
@@ -317,11 +320,11 @@ export function SalonDetail() {
             </div>
             <div className="flex-1">
               <h3 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-0.5">
-                {salon.category === 'restoran' ? 'Masa Rezervasyonu' : 'Randevu Oluştur'}
+                {getBookingActionText(salon)}
               </h3>
               <p className="font-body text-[11px] text-[var(--muted-lead)] leading-relaxed">
                 {subscriptionStatus?.hasActiveSubscription 
-                  ? (salon.category === 'restoran' ? 'Müsait masaları görüntüleyin' : 'Müsait saatleri görüntüleyin')
+                  ? `Müsait ${getSalonTerminology(salon).capacityUnitLabel.toLowerCase()}ları görüntüleyin`
                   : 'Randevu alınamaz'}
               </p>
             </div>
@@ -341,7 +344,7 @@ export function SalonDetail() {
               <Calendar size={16} strokeWidth={2.5} />
               <span>
                 {subscriptionStatus?.hasActiveSubscription 
-                  ? (salon.category === 'restoran' ? 'Rezervasyon Al' : 'Randevu Al')
+                  ? getBookingActionText(salon)
                   : 'Kapalı'}
               </span>
             </button>
@@ -647,7 +650,7 @@ export function SalonDetail() {
             <Calendar size={18} />
             <span>
               {subscriptionStatus?.hasActiveSubscription 
-                ? (salon.category === 'restoran' ? 'Rezervasyon Al' : 'Randevu Al')
+                ? getBookingActionText(salon)
                 : 'Kapalı'}
             </span>
           </button>

@@ -11,7 +11,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string, phone: string, role: 'customer' | 'owner') => Promise<boolean>;
   googleSignIn: () => Promise<{ success: boolean; needsOnboarding?: boolean; user?: any; pending?: boolean }>;
-  completeOnboarding: (phone: string, role: 'customer' | 'owner') => Promise<boolean>;
+  completeOnboarding: (phone: string, role: 'customer' | 'owner', businessCategory?: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -28,6 +28,7 @@ const mapProfileToUser = (profile: UserProfile): User => ({
   photoURL: profile.photoURL,
   phone: profile.phone || '',
   onboardingCompleted: profile.onboardingCompleted ?? true,
+  businessCategory: profile.businessCategory,
 });
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -111,17 +112,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  completeOnboarding: async (phone: string, role: 'customer' | 'owner') => {
+  completeOnboarding: async (phone: string, role: 'customer' | 'owner', businessCategory?: string) => {
     try {
       set({ isLoading: true, error: null });
       const currentFirebaseUser = authService.getCurrentUser();
       if (!currentFirebaseUser) throw new Error('No user logged in');
 
-      await authService.updateUserProfile(currentFirebaseUser.uid, { 
+      const profileUpdates: any = { 
         phone, 
         role,
         onboardingCompleted: true 
-      });
+      };
+
+      // İşletme sahibi ise ve kategori seçildiyse, kategoriyi kaydet
+      if (role === 'owner' && businessCategory) {
+        profileUpdates.businessCategory = businessCategory;
+      }
+
+      await authService.updateUserProfile(currentFirebaseUser.uid, profileUpdates);
 
       const profile = await authService.getUserProfile(currentFirebaseUser.uid);
       if (!profile) throw new Error('Failed to fetch profile');

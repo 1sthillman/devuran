@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 interface FloatingNavMenuProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  items?: Array<{ key: string; label: string; icon: any; color: string }>; // Dinamik items
 }
 
 const menuItems = [
@@ -31,8 +32,20 @@ const menuItems = [
   { key: 'settings', label: 'Ayarlar', icon: Settings, color: '#6B7280' },
 ];
 
-export function FloatingNavMenu({ activeTab, onTabChange }: FloatingNavMenuProps) {
+export function FloatingNavMenu({ activeTab, onTabChange, items }: FloatingNavMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Kullanılan items (props'tan gelirse onu kullan, yoksa default)
+  const menuItems = items || [
+    { key: 'overview', label: 'Genel', icon: LayoutDashboard, color: '#8B5CF6' },
+    { key: 'appointments', label: 'Randevular', icon: Calendar, color: '#EC4899' },
+    { key: 'analytics', label: 'Analitik', icon: BarChart3, color: '#3B82F6' },
+    { key: 'customers', label: 'Müşteriler', icon: UserCheck, color: '#10B981' },
+    { key: 'reviews', label: 'Yorumlar', icon: Star, color: '#F59E0B' },
+    { key: 'services', label: 'Hizmetler', icon: Scissors, color: '#06B6D4' },
+    { key: 'staff', label: 'Personel', icon: Users, color: '#8B5CF6' },
+    { key: 'settings', label: 'Ayarlar', icon: Settings, color: '#6B7280' },
+  ];
 
   const toggleMenu = () => setIsOpen(!isOpen);
 

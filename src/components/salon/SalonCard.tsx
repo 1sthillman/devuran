@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapPin, Star } from 'lucide-react';
 import { memo } from 'react';
 import { useThemeStore } from '@/store/themeStore';
+import { getBookingButtonText } from '@/utils/salonHelpers';
 import type { Salon } from '@/types';
 
 interface SalonCardProps {
@@ -12,6 +13,9 @@ interface SalonCardProps {
 export const SalonCard = memo(function SalonCard({ salon, index = 0 }: SalonCardProps) {
   const navigate = useNavigate();
   const { actualTheme } = useThemeStore();
+  
+  // Akıllı buton metni - capabilities'e göre
+  const bookingButtonText = getBookingButtonText(salon);
 
   const handleClick = () => {
     navigate(`/salon/${salon.id}`);
@@ -117,7 +121,7 @@ export const SalonCard = memo(function SalonCard({ salon, index = 0 }: SalonCard
               onClick={handleBooking}
               className="flex-1 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 font-heading font-semibold text-sm text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all"
             >
-              Randevu Al
+              {bookingButtonText}
             </button>
           </div>
         </div>

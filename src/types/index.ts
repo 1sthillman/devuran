@@ -111,6 +111,13 @@ export interface Salon {
   name: string;
   slug: string;
   businessType?: 'salon' | 'restaurant' | 'cafe' | 'hotel' | 'venue'; // İşletme tipi
+  
+  // ✅ Yeni: Capability-driven sistem
+  categoryId?: string; // Preset ID veya custom-{slug}
+  categoryLabel?: string; // Gösterim adı ("Kuaför", "Yat Charter", vs.)
+  capabilities?: import('./businessCapabilities').BusinessCapabilities; // İşletmenin yetenekleri
+  
+  // ⚠️ Legacy: Geriye dönük uyumluluk için
   category: 
     | 'kuafor' | 'berber' | 'guzellik' | 'tirnak'
     | 'dugun-organizasyon' | 'nisan-organizasyon' | 'evlilik-teklifi'
@@ -119,7 +126,7 @@ export interface Salon {
     | 'bungalov' | 'otel' | 'villa' | 'kamp-alani'
     | 'fotograf' | 'video-produksiyon' | 'drone-cekim'
     | 'catering' | 'pasta-tatli' | 'kahve-ikram'
-    | 'restoran' | 'kafe';
+    | 'restoran' | 'kafe' | string;
   description: string;
   phone: string;
   whatsappNumber: string;
@@ -511,6 +518,7 @@ export interface User {
   role: 'customer' | 'owner' | 'admin';
   salonId?: string;
   onboardingCompleted?: boolean;
+  businessCategory?: string;
 }
 
 export interface Toast {

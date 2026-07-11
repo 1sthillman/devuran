@@ -73,16 +73,17 @@ class ReservationService {
     // İptal politikası
     const cancellationPolicy = this.getCancellationPolicy(sanitizedData);
 
-    // Kategori bazlı otomatik onay kontrolü
-    // Kuaför, berber gibi slot-based kategorilerde otomatik onay
-    const autoApproveCategories = ['kuafor', 'berber', 'guzellik', 'tirnak'];
+    // ✅ AKILLI OTOMATIK ONAY: Capabilities bazlı
     let initialStatus: 'pending' | 'confirmed' = 'pending';
     
-    // Eğer slot rezervasyonu ise ve kategori otomatik onay listesindeyse
-    if (sanitizedData.type === 'slot') {
-      // businessCategory'yi data'dan al (bookingStore'dan gönderilmeli)
+    if (salonSettings?.capabilities) {
+      // Yeni sistem: autoConfirmDefault ayarına göre
+      initialStatus = salonSettings.capabilities.autoConfirmDefault ? 'confirmed' : 'pending';
+    } else {
+      // Legacy: kategori bazlı kontrol (geriye uyumluluk)
+      const autoApproveCategories = ['kuafor', 'berber', 'guzellik', 'tirnak'];
       const businessCategory = (sanitizedData as any).businessCategory;
-      if (businessCategory && autoApproveCategories.includes(businessCategory)) {
+      if (sanitizedData.type === 'slot' && businessCategory && autoApproveCategories.includes(businessCategory)) {
         initialStatus = 'confirmed';
       }
     }

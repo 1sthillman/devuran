@@ -25,6 +25,7 @@ export interface UserProfile {
   role: 'customer' | 'owner' | 'admin';
   salonId?: string;
   onboardingCompleted?: boolean;
+  businessCategory?: string;
   createdAt: string;
   updatedAt: string;
 }

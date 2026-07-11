@@ -90,13 +90,19 @@ export function Login() {
   const handleOnboardingComplete = async (data: {
     phone: string;
     role: 'customer' | 'owner';
+    businessCategory?: string;
     acceptedTerms: boolean;
   }) => {
     setLoading(true);
-    const success = await completeOnboarding(data.phone, data.role);
+    const success = await completeOnboarding(data.phone, data.role, data.businessCategory);
     if (success) {
       setShowOnboarding(false);
-      navigate(from, { replace: true });
+      // İşletme sahibi ise ve kategori seçtiyse, doğrudan işletme oluşturma ekranına yönlendir
+      if (data.role === 'owner' && data.businessCategory) {
+        navigate('/owner-dashboard', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
     setLoading(false);
   };

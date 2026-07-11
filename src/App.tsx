@@ -26,6 +26,7 @@ const TermsOfService = lazy(() => import('@/pages/TermsOfService').then(m => ({ 
 const KVKKPolicy = lazy(() => import('@/pages/KVKKPolicy').then(m => ({ default: m.default })));
 const About = lazy(() => import('@/pages/About').then(m => ({ default: m.default })));
 const DistanceSalesAgreement = lazy(() => import('@/pages/DistanceSalesAgreement').then(m => ({ default: m.default })));
+const BusinessSetup = lazy(() => import('@/pages/BusinessSetup').then(m => ({ default: m.BusinessSetup })));
 
 // Loading component
 function PageLoader() {
@@ -226,6 +227,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <DistanceSalesAgreement />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/business/setup"
+              element={
+                <AnimatedRoute>
+                  <BusinessSetup />
                 </AnimatedRoute>
               }
             />

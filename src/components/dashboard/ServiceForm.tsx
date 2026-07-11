@@ -13,15 +13,33 @@ import type { Service } from '@/types';
 interface ServiceFormProps {
   service?: Service;
   salonId: string;
-  category: CategoryId;
+  category: string; // Changed from CategoryId to string for flexibility
   onSave: (service: Omit<Service, 'id'>) => Promise<void>;
   onDelete?: (serviceId: string) => Promise<void>;
   onClose: () => void;
 }
 
 export function ServiceForm({ service, salonId, category, onSave, onDelete, onClose }: ServiceFormProps) {
-  const categoryInfo = getCategoryById(category);
-  const templates = getServiceTemplates(category);
+  // Try to get category info, use fallback for unknown categories
+  let categoryInfo = getCategoryById(category as CategoryId);
+  
+  // Fallback for custom categories
+  if (!categoryInfo) {
+    categoryInfo = { 
+      id: category, 
+      name: category, 
+      icon: Scissors, 
+      groupId: 'other' as any,
+      labels: {
+        business: 'İşletme',
+        service: 'Hizmet',
+        duration: category.includes('otel') || category.includes('villa') ? 'Gece' : 'Dakika',
+        price: 'Fiyat'
+      }
+    };
+  }
+  
+  const templates = getServiceTemplates(category as CategoryId);
   
   const [showTemplates, setShowTemplates] = useState(!service && templates.length > 0);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -32,16 +50,17 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
     duration: service?.duration || 30,
     price: service?.price || 0,
     gender: service?.gender || 'all',
+    staffIds: service?.staffIds || [],
     image: service?.image || '',
     isActive: service?.isActive ?? true,
-    requiresDeposit: service?.requiresDeposit ?? false, // 🆕 Kapora gerekli mi?
+    requiresDeposit: service?.requiresDeposit ?? false,
     pricingRules: service?.pricingRules,
     addOns: service?.addOns || [],
   });
   const [loading, setLoading] = useState(false);
   const modalContentRef = useRef<HTMLDivElement>(null);
 
-  const hasAdvancedPricing = needsAdvancedPricing(category);
+  const hasAdvancedPricing = needsAdvancedPricing(category as CategoryId);
   
   // Kategori tipini belirle
   const getCategoryType = (): 'accommodation' | 'event' | 'catering' | 'other' => {

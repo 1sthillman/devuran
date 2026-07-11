@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { Service } from '@/types';
 import { Check } from 'lucide-react';
+import { isSalonTableBased } from '@/utils/businessHelpers';
 
 interface ServiceCardProps {
   service: Service;
@@ -10,6 +11,7 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, selected, onToggle, salonCategory }: ServiceCardProps) {
+  // Legacy check - slot-based kategoriler için dakika göster
   const showDuration = salonCategory && ['kuafor', 'berber', 'guzellik', 'tirnak', 'fotograf', 'video-produksiyon', 'drone-cekim'].includes(salonCategory);
   
   return (

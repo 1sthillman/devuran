@@ -143,7 +143,8 @@ export function Home() {
   const filteredSalons = useMemo(() => {
     let filtered = salons.filter((salon) => {
       const matchesCategory = activeCategory === 'all' || salon.category === activeCategory;
-      const matchesGroup = activeGroup === 'all' || getCategoryById(salon.category).groupId === activeGroup;
+      const categoryInfo = getCategoryById(salon.category as CategoryId);
+      const matchesGroup = activeGroup === 'all' || (categoryInfo && categoryInfo.groupId === activeGroup);
       const query = searchQuery.toLowerCase();
       
       const isAvailable = salon.isActive && salon.isAcceptingBookings !== false;

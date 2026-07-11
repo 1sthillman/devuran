@@ -5,7 +5,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch';
 import { SupportMenu } from '@/components/support/SupportMenu';
 import { cn } from '@/lib/utils';
-import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star, Shield, LifeBuoy } from 'lucide-react';
+import { Search, CalendarDays, Menu, X, LogOut, LayoutDashboard, Scissors, Users, Settings, Calendar as CalendarIcon, BarChart3, UserCheck, Star, Shield, LifeBuoy, Plus, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [
@@ -30,10 +30,12 @@ export function LiquidNav() {
   const [supportMenuOpen, setSupportMenuOpen] = useState(false);
 
   const isOwner = user?.role === 'owner' || user?.role === 'admin';
+  const hasSalon = !!user?.salonId; // Check if user has a salon
+  const canAccessDashboard = isOwner; // İşletme sahibiyse panele erişsin (salon olsun veya olmasın)
   const isSuperAdmin = user?.email === 'minifinise@gmail.com';
   const isOnDashboard = location.pathname === '/dashboard';
 
-  const allLinks = isOwner
+  const allLinks = canAccessDashboard
     ? [...navLinks, { label: 'Panel', path: '/dashboard', icon: LayoutDashboard }]
     : navLinks;
 
@@ -112,7 +114,7 @@ export function LiquidNav() {
             </button>
 
             {/* Dashboard Menu Button - Only on dashboard page, mobile only */}
-            {isOwner && isOnDashboard && (
+            {canAccessDashboard && isOnDashboard && (
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="lg:hidden obsidian-card p-2.5 rounded-full hover:bg-white/5 transition-all active:scale-95"
@@ -136,7 +138,7 @@ export function LiquidNav() {
                   </div>
                   
                   {/* Owner Dashboard Menu - Only on dashboard page */}
-                  {isOwner && isOnDashboard && (
+                  {canAccessDashboard && isOnDashboard && (
                     <>
                       <div className="px-3 py-1 mb-2">
                         <p className="font-heading font-semibold text-xs text-[var(--muted-lead)] uppercase tracking-wider">
@@ -178,6 +180,17 @@ export function LiquidNav() {
                     Randevularim
                   </Link>
                   
+                  {canAccessDashboard && !hasSalon && (
+                    <Link
+                      to="/business/setup"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 transition-all font-semibold"
+                    >
+                      <Plus size={16} strokeWidth={2.5} />
+                      İşletme Oluştur
+                    </Link>
+                  )}
+                  
                   <button
                     onClick={() => {
                       setMenuOpen(false);
@@ -189,14 +202,14 @@ export function LiquidNav() {
                     Yardım Merkezi
                   </button>
                   
-                  {isOwner && !isOnDashboard && (
+                  {canAccessDashboard && !isOnDashboard && (
                     <Link
                       to="/dashboard"
                       onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm text-[var(--silver-frost)] hover:bg-white/5 transition-colors"
                     >
                       <LayoutDashboard size={16} />
-                      Isletme Paneli
+                      İşletme Paneli
                     </Link>
                   )}
                   
@@ -281,7 +294,7 @@ export function LiquidNav() {
           onClose={() => setSupportMenuOpen(false)}
           businessId={user?.salonId}
           businessName={user?.displayName || undefined}
-          userType={isOwner ? 'owner' : 'customer'}
+          userType={canAccessDashboard ? 'owner' : 'customer'}
         />
       )}
     </div>

@@ -10,6 +10,7 @@ import { ModernTimePicker } from '../ModernTimePicker';
 import { useAuthStore } from '@/store/authStore';
 import { getStaffAvatarUrl } from '@/utils/avatarHelpers';
 import { cn, formatDateToString } from '@/lib/utils';
+import { isSalonTableBased, getSalonTerminology, getServiceStepTitle } from '@/utils/businessHelpers';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
@@ -280,10 +281,14 @@ export function SlotBookingWizard() {
     );
   }
 
+  // Terminology'yi al
+  const terminology = getSalonTerminology(salon);
+  const isTableBased = isSalonTableBased(salon);
+
   const steps = [
     { 
       id: 1, 
-      title: salon.category === 'restoran' ? 'Masa Seçimi' : 'Hizmet Seçimi', 
+      title: getServiceStepTitle(salon), 
       icon: Scissors, 
       gradient: 'from-purple-500 via-pink-500 to-fuchsia-500' 
     },
@@ -310,14 +315,14 @@ export function SlotBookingWizard() {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
           <Sparkles size={16} className="text-purple-400" />
           <span className="text-sm font-semibold text-purple-300">
-            {salon.category === 'restoran' ? 'Masa Rezervasyonu' : 'Randevu'}
+            {terminology.bookingUnit}
           </span>
         </div>
         <h1 className="font-display font-bold text-2xl bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-1">
           {salon.name}
         </h1>
         <p className="text-sm text-[var(--muted-lead)]">
-          {salon.category === 'restoran' ? 'Masa rezervasyonu yapın' : 'Premium rezervasyon deneyimi'}
+          {terminology.actionVerb}
         </p>
       </div>
 
@@ -374,8 +379,8 @@ export function SlotBookingWizard() {
                         {isCompleted && !isActive && (
                           <p className="text-xs text-emerald-400/80 mt-0.5 flex items-center gap-1">
                             <CheckCircle2 size={12} />
-                            {step.id === 1 && salon.category === 'restoran' && `${selectedServices.length} masa seçildi`}
-                            {step.id === 1 && salon.category !== 'restoran' && `${selectedServices.length} hizmet`}
+                            {step.id === 1 && isTableBased && `${selectedServices.length} ${terminology.capacityUnitLabel.toLowerCase()} seçildi`}
+                            {step.id === 1 && !isTableBased && `${selectedServices.length} hizmet`}
                             {step.id === 2 && hasStaffStep && salon.staff.find(s => s.id === selectedStaffId)?.name}
                             {step.id === dateTimeStepId && `${selectedDate} - ${selectedTime}`}
                             {step.id === contactStepId && 'Tamamlandı'}
@@ -406,8 +411,8 @@ export function SlotBookingWizard() {
                           {step.id === 1 && (
                             <>
                               {salon.services.map((service) => {
-                                const isTable = salon.category === 'restoran';
-                                const capacity = isTable ? getTableCapacity(service) : null; // 🔥 Tek kaynak
+                                
+                                const capacity = isTableBased ? getTableCapacity(service) : null; // 🔥 Tek kaynak
                                 
                                 return (
                                   <button
@@ -415,7 +420,7 @@ export function SlotBookingWizard() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       // 🔥 Restoranda sadece 1 masa seçilebilir (toast ile feedback)
-                                      if (isTable && selectedServices.length > 0 && !selectedServices.some(s => s.id === service.id)) {
+                                      if (isTableBased && selectedServices.length > 0 && !selectedServices.some(s => s.id === service.id)) {
                                         addToast('Önce seçili masayı kaldırıp sonra yeni masa seçebilirsiniz', 'info');
                                         return;
                                       }
@@ -434,7 +439,7 @@ export function SlotBookingWizard() {
                                           {service.name}
                                         </h4>
                                         <p className="text-xs text-[var(--muted-lead)]">
-                                          {isTable 
+                                          {isTableBased 
                                             ? `${capacity} kişilik masa` 
                                             : `${service.duration} dakika`}
                                         </p>
@@ -778,7 +783,7 @@ export function SlotBookingWizard() {
                                     <span>Oluşturuluyor...</span>
                                   </div>
                                 ) : (
-                                  salon.category === 'restoran' ? 'Rezervasyon Oluştur' : 'Randevu Oluştur'
+                                  terminology.actionVerb
                                 )}
                               </button>
                             </div>
