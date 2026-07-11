@@ -182,6 +182,7 @@ export function generateCapabilitiesFromCategory(category: string): BusinessCapa
     hasMultipleLocations: template.hasMultipleLocations ?? false,
     requiresDeposit: template.requiresDeposit ?? false,
     isSubscriptionBased: template.isSubscriptionBased ?? false,
+    autoConfirmDefault: template.autoConfirmDefault ?? true,
   };
 }
 

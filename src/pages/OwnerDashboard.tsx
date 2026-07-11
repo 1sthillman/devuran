@@ -6,6 +6,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useUIStore } from '@/store/uiStore';
 import { getDashboardModules, getBookingTerminology } from '@/utils/bookingTypeResolver';
+import { getSalonTerminology } from '@/utils/businessHelpers';
 import type { BusinessCapabilities } from '@/types/businessCapabilities';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -121,9 +122,17 @@ export function OwnerDashboard() {
 
   // Terminoloji - capabilities'e göre dinamik
   const terminology = useMemo(() => {
-    if (!salon) return { singular: 'Randevu', plural: 'Randevular' };
-    const anySalon = salon as any;
-    return getBookingTerminology(anySalon.capabilities);
+    if (!salon) return { 
+      singular: 'Randevu', 
+      plural: 'Randevular',
+      action: 'Randevu Al',
+      unit: 'saat',
+      capacityUnitLabel: 'Personel',
+      serviceUnitLabel: 'Hizmet',
+      bookingUnitPlural: 'Randevular',
+      actionVerb: 'Randevu Al'
+    };
+    return getSalonTerminology(salon);
   }, [salon]);
 
   // Dinamik sidebar items - capabilities'e göre filtrelenir VE isimleri değişir

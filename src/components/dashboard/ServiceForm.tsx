@@ -26,15 +26,20 @@ export function ServiceForm({ service, salonId, category, onSave, onDelete, onCl
   // Fallback for custom categories
   if (!categoryInfo) {
     categoryInfo = { 
-      id: category, 
+      id: category as any, 
       name: category, 
       icon: Scissors, 
       groupId: 'other' as any,
+      description: 'Özel kategori',
+      color: '#9333ea',
+      gradient: 'from-purple-500 to-pink-500',
+      keywords: [category],
       labels: {
         business: 'İşletme',
         service: 'Hizmet',
         duration: category.includes('otel') || category.includes('villa') ? 'Gece' : 'Dakika',
-        price: 'Fiyat'
+        staff: 'Personel',
+        appointment: 'Randevu'
       }
     };
   }
