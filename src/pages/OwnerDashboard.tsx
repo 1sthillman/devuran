@@ -52,6 +52,7 @@ import { ChromaticButton } from '@/components/ui/ChromaticButton';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { FloatingNavMenu } from '@/components/dashboard/FloatingNavMenu';
 import { BusinessInfoCard } from '@/components/dashboard/BusinessInfoCard';
+import { LegacyBusinessMigration } from '@/components/dashboard/LegacyBusinessMigration';
 import { toast } from 'sonner';
 import { SubscriptionStatus } from '@/components/subscription/SubscriptionStatus';
 import { SubscriptionModal } from '@/components/subscription/SubscriptionModal';
@@ -112,6 +113,7 @@ export function OwnerDashboard() {
   const [showBusinessLink, setShowBusinessLink] = useState(false); // Default: KAPALI
   const [showSubscriptionCard, setShowSubscriptionCard] = useState(false); // Default: KAPALI
   const [showQRCodes, setShowQRCodes] = useState(false); // QR codes collapsible
+  const [showMigrationModal, setShowMigrationModal] = useState(false); // Legacy migration modal
 
   // Akıllı dashboard modules - capabilities bazlı
   const dashboardModules = useMemo(() => {
@@ -314,6 +316,28 @@ export function OwnerDashboard() {
       setShowSalonSetup(true); // Automatically open the wizard
     }
   }, [user?.salonId, user]);
+
+  // Check if salon needs migration to capabilities system
+  useEffect(() => {
+    if (salon && !(salon as any).capabilities) {
+      // Check if migration was skipped today
+      const skipped = sessionStorage.getItem(`migration_skipped_${salon.id}`);
+      if (skipped) {
+        const skippedDate = new Date(parseInt(skipped));
+        const today = new Date();
+        const skippedToday = 
+          skippedDate.getDate() === today.getDate() &&
+          skippedDate.getMonth() === today.getMonth() &&
+          skippedDate.getFullYear() === today.getFullYear();
+        
+        if (!skippedToday) {
+          setShowMigrationModal(true);
+        }
+      } else {
+        setShowMigrationModal(true);
+      }
+    }
+  }, [salon]);
 
   const loadSubscription = async () => {
     if (!user?.salonId) {
@@ -928,6 +952,17 @@ export function OwnerDashboard() {
 
   return (
     <>
+    {/* Legacy Business Migration Modal */}
+    {showMigrationModal && salon && (
+      <LegacyBusinessMigration
+        salon={salon}
+        onMigrationComplete={() => {
+          setShowMigrationModal(false);
+          window.location.reload();
+        }}
+      />
+    )}
+    
     <div className="min-h-screen pb-0">
       <div className="flex flex-col lg:flex-row gap-6">
       {/* Salon Setup/Edit Modal */}

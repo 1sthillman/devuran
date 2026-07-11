@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * AKILLI İŞLETME OLUŞTURMA WIZARD - V2
+ * AKILLI İŞLETME OLUŞTURMA WIZARD - V2 (MOBİL OPTİMİZE)
  * ============================================================================
  * 
  * TÜM İŞLETME TÜRLERİ İÇİN DİNAMİK, KULLANICI DOSTU, MÜKEMMELİYETÇİ SETUP AKIŞI
@@ -9,14 +9,20 @@
  * - Akıllı form validasyonu
  * - Real-time öneriler
  * - Otomatik kaydetme
- * - Smooth animasyonlar
+ * - Smooth animasyonlar (mobil optimize)
  * - Hata yönetimi
  * - Accessibility uyumlu
+ * 
+ * 🔧 MOBİL OPTİMİZASYON:
+ * - GPU acceleration
+ * - Will-change optimizasyonu
+ * - Transform-only animasyonlar
+ * - Reduced motion support
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -40,6 +46,7 @@ export function BusinessSetupWizard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { addToast } = useUIStore();
+  const shouldReduceMotion = useReducedMotion();
 
   const {
     state,
@@ -63,6 +70,24 @@ export function BusinessSetupWizard() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+
+  // 🔧 MOBİL OPTİMİZE: Animasyon varyantları
+  const pageVariants = shouldReduceMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 }
+      }
+    : {
+        initial: { opacity: 0, x: 20 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: -20 }
+      };
+
+  const pageTransition = {
+    duration: shouldReduceMotion ? 0.2 : 0.3,
+    ease: [0.4, 0, 0.2, 1] as const // easeOut cubic-bezier
+  };
 
   /**
    * Klavye navigasyonu
@@ -169,20 +194,29 @@ export function BusinessSetupWizard() {
           onStepClick={goToStep}
         />
 
-        {/* Main Card */}
+        {/* Main Card - GPU Accelerated */}
         <motion.div
           layout
           className="bg-white rounded-2xl shadow-2xl overflow-hidden"
+          style={{
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            transform: 'translateZ(0)'
+          }}
         >
           {/* Question Section */}
           <div className="p-6 lg:p-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={state.currentStep}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={pageTransition}
+                style={{
+                  willChange: shouldReduceMotion ? 'opacity' : 'opacity, transform'
+                }}
               >
                 <div className="space-y-6">
                   {activeQuestions.map(question => (
@@ -229,19 +263,19 @@ export function BusinessSetupWizard() {
           </div>
 
           {/* Navigation Footer */}
-          <div className="bg-gray-50 border-t border-gray-200 p-6 flex items-center justify-between gap-4">
+          <div className="bg-gray-50 border-t border-gray-200 p-4 lg:p-6 flex items-center justify-between gap-3 lg:gap-4">
             <button
               onClick={goToPrevStep}
               disabled={!canGoBack}
-              className="px-5 py-2.5 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
+              className="px-4 lg:px-5 py-2 lg:py-2.5 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm text-sm lg:text-base"
             >
-              <ChevronLeft className="w-5 h-5" />
-              Geri
+              <ChevronLeft className="w-4 h-4 lg:w-5 lg:h-5" />
+              <span className="hidden sm:inline">Geri</span>
             </button>
 
             <div className="flex-1 text-center">
-              <p className="text-sm text-gray-600">
-                Adım <span className="font-bold">{state.currentStep}</span> / {totalSteps}
+              <p className="text-xs lg:text-sm text-gray-600">
+                <span className="font-bold">{state.currentStep}</span> / {totalSteps}
               </p>
               <div className="w-full max-w-xs mx-auto mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
@@ -257,26 +291,27 @@ export function BusinessSetupWizard() {
               <button
                 onClick={goToNextStep}
                 disabled={!isCurrentStepComplete}
-                className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                className="px-4 lg:px-6 py-2 lg:py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg text-sm lg:text-base"
               >
-                İleri
-                <ChevronRight className="w-5 h-5" />
+                <span className="hidden sm:inline">İleri</span>
+                <ChevronRight className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !isCurrentStepComplete}
-                className="px-8 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                className="px-5 lg:px-8 py-2 lg:py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg text-sm lg:text-base"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Oluşturuluyor...
+                    <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 animate-spin" />
+                    <span className="hidden sm:inline">Oluşturuluyor...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-5 h-5" />
-                    İşletmeyi Oluştur
+                    <Sparkles className="w-4 h-4 lg:w-5 lg:h-5" />
+                    <span className="hidden sm:inline">Oluştur</span>
+                    <span className="sm:hidden">✓</span>
                   </>
                 )}
               </button>
@@ -284,8 +319,8 @@ export function BusinessSetupWizard() {
           </div>
         </motion.div>
 
-        {/* Helper Text */}
-        <p className="text-center text-white/80 text-sm mt-4">
+        {/* Helper Text - Sadece desktop */}
+        <p className="hidden lg:block text-center text-white/80 text-sm mt-4">
           ⌨️ <span className="font-semibold">Enter</span> ile ilerle • <span className="font-semibold">Backspace</span> ile geri dön
         </p>
       </div>
