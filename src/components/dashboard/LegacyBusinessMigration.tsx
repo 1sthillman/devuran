@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw, CheckCircle2, AlertTriangle, Loader2, X } from 'lucide-react';
 import { migrateToCapabilities } from '@/utils/capabilitiesUpdater';
 import { validateSalon } from '@/utils/businessSetupValidator';
-import { salonsService } from '@/services/firebaseService';
+import { salonsService, servicesService } from '@/services/firebaseService';
 import type { Salon } from '@/types';
 
 interface Props {
@@ -41,6 +41,42 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
         const errorMsg = validation.errors.join(', ');
         setErrorMessage(errorMsg);
         throw new Error(`Validasyon hatası: ${errorMsg}`);
+      }
+
+      // ✅ HİZMETLERİ MİGRATE ET (salon.services array -> services collection)
+      const anySalon = salon as any;
+      let servicesMigrated = 0;
+      
+      if (anySalon.services && Array.isArray(anySalon.services) && anySalon.services.length > 0) {
+        console.log(`📦 ${anySalon.services.length} hizmet services collection'a taşınıyor...`);
+        
+        // Önce services collection'da zaten varlar mı kontrol et
+        const existingServices = await servicesService.getBySalon(salon.id);
+        const existingIds = new Set(existingServices.map(s => s.id));
+        
+        for (const service of anySalon.services) {
+          // Eğer bu hizmet zaten collection'da varsa atla
+          if (existingIds.has(service.id)) {
+            console.log(`⏭️ Hizmet zaten var, atlanıyor: ${service.name}`);
+            continue;
+          }
+          
+          try {
+            // Service'i collection'a ekle
+            await servicesService.create({
+              ...service,
+              salonId: salon.id,
+              isActive: service.isActive !== false // Default true
+            });
+            servicesMigrated++;
+            console.log(`✅ Hizmet taşındı: ${service.name}`);
+          } catch (serviceError) {
+            console.error(`❌ Hizmet taşınırken hata (${service.name}):`, serviceError);
+            // Tek bir hizmetin hatası tüm migration'ı durdurmasın
+          }
+        }
+        
+        console.log(`✅ Toplam ${servicesMigrated} hizmet başarıyla taşındı`);
       }
 
       // Firebase'e kaydet - hem capabilities hem de eksik alanları güncelle
@@ -188,9 +224,9 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
                       <CheckCircle2 className="w-4 h-4 text-purple-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Hiçbir Veri Kaybı Yok</p>
+                      <p className="font-semibold text-gray-900">Hizmetleriniz Korunuyor</p>
                       <p className="text-sm text-gray-600">
-                        Tüm verileriniz güvenli bir şekilde korunacak
+                        Tüm hizmet, masa ve ürünleriniz otomatik taşınacak
                       </p>
                     </div>
                   </div>
