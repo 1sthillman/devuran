@@ -24,6 +24,7 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<'success' | 'error' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [migrationStats, setMigrationStats] = useState({ migrated: 0, skipped: 0, failed: 0 });
 
   const handleMigrate = async () => {
     setIsMigrating(true);
@@ -46,37 +47,66 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
       // ✅ HİZMETLERİ MİGRATE ET (salon.services array -> services collection)
       const anySalon = salon as any;
       let servicesMigrated = 0;
+      let servicesSkipped = 0;
+      let servicesFailed = 0;
       
       if (anySalon.services && Array.isArray(anySalon.services) && anySalon.services.length > 0) {
-        console.log(`📦 ${anySalon.services.length} hizmet services collection'a taşınıyor...`);
+        console.log(`📦 Migration başlıyor: ${anySalon.services.length} hizmet/masa services collection'a taşınacak...`);
         
         // Önce services collection'da zaten varlar mı kontrol et
         const existingServices = await servicesService.getBySalon(salon.id);
         const existingIds = new Set(existingServices.map(s => s.id));
         
+        console.log(`📊 Mevcut durum: Collection'da ${existingServices.length} hizmet var`);
+        
         for (const service of anySalon.services) {
           // Eğer bu hizmet zaten collection'da varsa atla
           if (existingIds.has(service.id)) {
-            console.log(`⏭️ Hizmet zaten var, atlanıyor: ${service.name}`);
+            console.log(`⏭️ Hizmet zaten var, atlanıyor: ${service.name} (ID: ${service.id})`);
+            servicesSkipped++;
             continue;
           }
           
           try {
+            console.log(`🔄 Taşınıyor: ${service.name} (ID: ${service.id}, Kategori: ${service.category})`);
+            
             // Service'i collection'a ekle
             await servicesService.create({
               ...service,
               salonId: salon.id,
               isActive: service.isActive !== false // Default true
             });
+            
             servicesMigrated++;
-            console.log(`✅ Hizmet taşındı: ${service.name}`);
-          } catch (serviceError) {
+            console.log(`✅ Başarıyla taşındı: ${service.name}`);
+          } catch (serviceError: any) {
+            servicesFailed++;
             console.error(`❌ Hizmet taşınırken hata (${service.name}):`, serviceError);
+            console.error('Service data:', service);
             // Tek bir hizmetin hatası tüm migration'ı durdurmasın
           }
         }
         
-        console.log(`✅ Toplam ${servicesMigrated} hizmet başarıyla taşındı`);
+        console.log(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 MİGRATION RAPORU
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Başarılı: ${servicesMigrated}
+⏭️ Atlandı: ${servicesSkipped}
+❌ Hatalı: ${servicesFailed}
+📊 Toplam: ${anySalon.services.length}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        `);
+        
+        // Eğer hiçbir hizmet taşınmadıysa ve hepsi hatalıysa, hata fırlat
+        if (servicesMigrated === 0 && servicesFailed > 0) {
+          throw new Error(`Hizmetler taşınamadı! ${servicesFailed} hizmet hata verdi.`);
+        }
+        
+        // Stats'ı kaydet
+        setMigrationStats({ migrated: servicesMigrated, skipped: servicesSkipped, failed: servicesFailed });
+      } else {
+        console.log('ℹ️ Bu salonda taşınacak hizmet/masa yok (salon.services boş veya undefined)');
       }
 
       // Firebase'e kaydet - hem capabilities hem de eksik alanları güncelle
@@ -90,11 +120,11 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
 
       setMigrationResult('success');
       
-      // 2 saniye sonra modal'ı kapat ve sayfayı yenile
+      // 4 saniye bekle - Firebase sync için + kullanıcının success mesajını görmesi için
       setTimeout(() => {
         setIsOpen(false);
         onMigrationComplete();
-      }, 2000);
+      }, 4000);
       
     } catch (error: any) {
       console.error('Migration error:', error);
@@ -165,8 +195,23 @@ export function LegacyBusinessMigration({ salon, onMigrationComplete }: Props) {
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   Başarılı! 🎉
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-3">
                   İşletmeniz yeni sisteme geçirildi
+                </p>
+                {migrationStats.migrated > 0 && (
+                  <div className="bg-green-50 rounded-lg p-3 text-sm">
+                    <p className="text-green-800 font-semibold">
+                      ✅ {migrationStats.migrated} hizmet/masa taşındı
+                    </p>
+                    {migrationStats.skipped > 0 && (
+                      <p className="text-gray-600 text-xs mt-1">
+                        {migrationStats.skipped} hizmet zaten mevcuttu
+                      </p>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-3">
+                  Sayfa otomatik yenilenecek...
                 </p>
               </motion.div>
             ) : migrationResult === 'error' ? (
