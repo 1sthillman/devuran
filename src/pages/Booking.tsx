@@ -1,4 +1,4 @@
-import { useParams, Navigate, Link } from 'react-router-dom';
+import { useParams, Navigate, Link, useNavigate } from 'react-router-dom';
 import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { BookingWizardRouter } from '@/components/booking/BookingWizardRouter';
@@ -13,6 +13,7 @@ export function Booking() {
   const { init } = useBookingStore();
   const [salon, setSalon] = useState<Salon | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (salonId) {
@@ -22,44 +23,61 @@ export function Booking() {
 
   const loadSalon = async () => {
     try {
+      console.log(`🔍 Booking.tsx: Salon yükleniyor... ID: ${salonId}`);
+      
       const salonData = await salonsService.getById(salonId!);
+      
       if (salonData) {
-        // Load services and staff separately
-        const [services, staff] = await Promise.all([
+        console.log(`✅ Salon bulundu: ${salonData.name}`);
+        console.log(`📊 RAW salon.services:`, {
+          exists: !!(salonData as any).services,
+          isArray: Array.isArray((salonData as any).services),
+          length: ((salonData as any).services || []).length,
+          data: (salonData as any).services
+        });
+        
+        // 🔥 DUAL SOURCE: Hem collection hem array'den çek
+        const [collectionServices, staffData] = await Promise.all([
           servicesService.getBySalon(salonId!),
           staffService.getBySalon(salonId!)
         ]);
         
-        // 🍽️ RESTORAN İÇİN: Salon.services array'inden de hizmetleri al (masa rezervasyonları)
-        let allServices = [...services];
-        if (salonData.category === 'restoran' && salonData.services && Array.isArray(salonData.services) && salonData.services.length > 0) {
-          const salonServices = salonData.services.filter((s: any) => s.isActive !== false);
-          allServices = [...allServices, ...salonServices];
-          
-          // Duplicate kontrolü
-          const uniqueServices = allServices.reduce((acc: any[], curr: any) => {
-            if (!acc.find(s => s.id === curr.id)) {
-              acc.push(curr);
-            }
-            return acc;
-          }, []);
-          allServices = uniqueServices;
-          
-          console.log(`🍽️ Booking wizard: ${salonServices.length} masa hizmeti yüklendi`);
+        console.log(`📦 Collection'dan: ${collectionServices.length} hizmet`);
+        
+        // 🔥 FALLBACK: Collection boşsa array'den al
+        let finalServices = collectionServices;
+        
+        if (collectionServices.length === 0) {
+          const salonServices = (salonData as any).services;
+          if (salonServices && Array.isArray(salonServices) && salonServices.length > 0) {
+            finalServices = salonServices.filter((s: any) => s.isActive !== false);
+            console.log(`⚠️  FALLBACK: Array'den ${finalServices.length} hizmet yüklendi`);
+          }
         }
         
-        // Merge services and staff into salon object
+        // Merge into salon object
         const completeSalon = {
           ...salonData,
-          services: allServices,
-          staff
+          services: finalServices,
+          staff: staffData
         };
         
-        setSalon(completeSalon);
+        console.log(`✅ FINAL completeSalon:`, {
+          name: completeSalon.name,
+          servicesCount: completeSalon.services?.length || 0,
+          servicesIsArray: Array.isArray(completeSalon.services),
+          firstServiceName: completeSalon.services?.[0]?.name
+        });
+        
+        // 🔥 CRITICAL: bookingStore'u önce init et, SONRA local state'i güncelle
+        // Bu sayede wizard render olduğunda doğru veriyi görür
         init(salonId!, completeSalon);
+        setSalon(completeSalon);
+      } else {
+        console.error('❌ Salon bulunamadı:', salonId);
       }
     } catch (error) {
-      console.error('Salon yüklenemedi:', error);
+      console.error('❌ Salon yüklenirken hata:', error);
     }
     setLoading(false);
   };
@@ -110,6 +128,15 @@ export function Booking() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  // 🔍 DEBUG: Diagnostic tool (development only)
+  if (import.meta.env.DEV) {
+    return (
+      <>
+        <BookingWizardRouter />
+      </>
     );
   }
 

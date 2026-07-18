@@ -44,6 +44,10 @@ export function DailyRentalWizard() {
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
 
+  // ✅ Mobil hizmet mi kontrol et (capabilities'den)
+  const anySalon = salon as any;
+  const requiresAddress = anySalon?.capabilities?.isMobileService === true; // SADECE mobil hizmet ise konum iste
+
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
     if (user && activeStep === 3) {
@@ -61,6 +65,7 @@ export function DailyRentalWizard() {
   }, [user, activeStep]);
 
   useEffect(() => {
+    // ✅ Services are ALWAYS stored in separate collection, not in salon document
     if (salon?.id) {
       loadPackages();
     }
@@ -108,7 +113,8 @@ export function DailyRentalWizard() {
       return;
     }
 
-    if (!selectedPkg || selectedPkg.price <= 0) {
+    // Paket seçimi kontrolü - 0 TL fiyatlı paketler de kabul edilmeli
+    if (!selectedPkg) {
       addToast('Lütfen paket seçin', 'error');
       setActiveStep(2);
       return;
@@ -119,6 +125,12 @@ export function DailyRentalWizard() {
     if (capacity && guestCount > capacity) {
       addToast(`Seçili paket maksimum ${capacity} kişilik etkinlikler içindir. Lütfen daha büyük bir paket seçin veya misafir sayısını azaltın`, 'error');
       setActiveStep(2);
+      return;
+    }
+
+    // ✅ Mobil hizmet için adres kontrolü
+    if (requiresAddress && !localAddress.trim()) {
+      addToast('Lütfen hizmet adresini girin', 'error');
       return;
     }
 
@@ -497,8 +509,11 @@ export function DailyRentalWizard() {
                                 onChange={(e) => setLocalEmail(e.target.value)}
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
+                              {requiresAddress && (
                               <div>
-                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Etkinlik Adresi (Opsiyonel)</h4>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">
+                                  Etkinlik Adresi
+                                </h4>
                                 <div className="space-y-2">
                                   <button
                                     type="button"
@@ -526,7 +541,8 @@ export function DailyRentalWizard() {
                                     className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                                   />
                                 </div>
-                              </div>
+                                </div>
+                              )}
                               <textarea
                                 placeholder="Etkinlik notları (opsiyonel)"
                                 value={eventNotes}

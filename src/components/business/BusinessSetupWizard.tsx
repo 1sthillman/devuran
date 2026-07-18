@@ -41,6 +41,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { salonsService } from '@/services/firebaseService';
 import { validateCapabilities } from '@/utils/businessSetupValidator';
+import { cn } from '@/lib/utils';
 
 export function BusinessSetupWizard() {
   const navigate = useNavigate();
@@ -184,8 +185,8 @@ export function BusinessSetupWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--primary)] via-[var(--accent)] to-[var(--primary)] p-4 flex items-center justify-center">
-      <div className="w-full max-w-4xl">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--primary)] via-[var(--accent)] to-[var(--primary)] p-4 pb-24 flex items-center justify-center">
+      <div className="w-full max-w-4xl mb-20">
         {/* Progress */}
         <BusinessSetupProgress
           steps={BUSINESS_SETUP_STEPS}
@@ -197,7 +198,7 @@ export function BusinessSetupWizard() {
         {/* Main Card - GPU Accelerated */}
         <motion.div
           layout
-          className="bg-white rounded-2xl shadow-2xl overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl overflow-visible"
           style={{
             willChange: 'transform',
             backfaceVisibility: 'hidden',
@@ -262,22 +263,23 @@ export function BusinessSetupWizard() {
             )}
           </div>
 
-          {/* Navigation Footer */}
-          <div className="bg-gray-50 border-t border-gray-200 p-4 lg:p-6 flex items-center justify-between gap-3 lg:gap-4">
+          {/* Navigation Footer - MOBİL OPTİMİZE: FIXED bottom - HER ZAMAN GÖRÜNÜR */}
+          <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-gray-50/95 backdrop-blur-xl border-t border-gray-200 p-3 sm:p-4 lg:p-6 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4 shadow-[0_-4px_24px_rgba(0,0,0,0.15)]"
+               style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
             <button
               onClick={goToPrevStep}
               disabled={!canGoBack}
-              className="px-4 lg:px-5 py-2 lg:py-2.5 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm text-sm lg:text-base"
+              className="flex-shrink-0 px-3 sm:px-4 lg:px-5 py-2.5 sm:py-3 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 sm:gap-2 shadow-sm text-sm lg:text-base"
             >
-              <ChevronLeft className="w-4 h-4 lg:w-5 lg:h-5" />
-              <span className="hidden sm:inline">Geri</span>
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">Geri</span>
             </button>
 
-            <div className="flex-1 text-center">
-              <p className="text-xs lg:text-sm text-gray-600">
-                <span className="font-bold">{state.currentStep}</span> / {totalSteps}
+            <div className="flex-1 text-center min-w-0">
+              <p className="text-xs sm:text-sm text-gray-600 mb-1 font-semibold">
+                <span className="font-bold text-purple-600">{state.currentStep}</span> / {totalSteps}
               </p>
-              <div className="w-full max-w-xs mx-auto mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-full max-w-[180px] sm:max-w-xs mx-auto h-2 bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
                   initial={{ width: 0 }}
@@ -290,28 +292,40 @@ export function BusinessSetupWizard() {
             {!isLastStep ? (
               <button
                 onClick={goToNextStep}
-                disabled={!isCurrentStepComplete}
-                className="px-4 lg:px-6 py-2 lg:py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg text-sm lg:text-base"
+                disabled={isSubmitting}
+                className={cn(
+                  "flex-shrink-0 px-4 sm:px-5 lg:px-6 py-2.5 sm:py-3 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 shadow-lg text-sm lg:text-base active:scale-95",
+                  isCurrentStepComplete
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                    : "bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-pointer hover:from-gray-500 hover:to-gray-600"
+                )}
               >
-                <span className="hidden sm:inline">İleri</span>
-                <ChevronRight className="w-4 h-4 lg:w-5 lg:h-5" />
+                <span className="hidden xs:inline font-bold">{isCurrentStepComplete ? 'İleri' : 'Devam'}</span>
+                <span className="xs:hidden text-lg">→</span>
+                <ChevronRight className="hidden xs:block w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !isCurrentStepComplete}
-                className="px-5 lg:px-8 py-2 lg:py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg text-sm lg:text-base"
+                disabled={isSubmitting}
+                className={cn(
+                  "flex-shrink-0 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 shadow-lg text-sm lg:text-base active:scale-95",
+                  isCurrentStepComplete
+                    ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                    : "bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-pointer hover:from-gray-500 hover:to-gray-600",
+                  isSubmitting && "opacity-50 cursor-not-allowed"
+                )}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 animate-spin" />
-                    <span className="hidden sm:inline">Oluşturuluyor...</span>
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                    <span className="hidden xs:inline">Oluşturuluyor...</span>
+                    <span className="xs:hidden">...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 lg:w-5 lg:h-5" />
-                    <span className="hidden sm:inline">Oluştur</span>
-                    <span className="sm:hidden">✓</span>
+                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="font-bold">Oluştur</span>
                   </>
                 )}
               </button>

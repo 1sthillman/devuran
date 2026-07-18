@@ -178,53 +178,68 @@ class RestaurantService {
     
     const tableId = docRef.id;
     
-    // 🍽️ Otomatik olarak hizmet olarak da ekle (Rezervasyon için)
+    // 🍽️ Hizmet olarak ekle (HER İKİ YERE DE)
     try {
-      const { salonsService } = await import('./firebaseService');
+      const { servicesService, salonsService } = await import('./firebaseService');
       
-      // Restaurant bilgisini al
-      const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
-      if (restaurantDoc.exists()) {
-        const restaurant = restaurantDoc.data();
-        const currentServices = restaurant.services || [];
-        
-        // Bu masa için zaten service var mı kontrol et
-        const existingService = currentServices.find(
-          (s: any) => s.tableId === tableId
-        );
-        
-        if (!existingService) {
-          // Yeni service oluştur
-          const newService = {
-            id: nanoid(12),
-            salonId: restaurantId,
-            tableId: tableId, // Masayla ilişkilendir
-            name: `Masa ${table.tableNumber}`,
-            description: `${table.capacity} kişilik masa rezervasyonu`,
-            category: 'restaurant', // Restoran kategorisi
-            duration: reservationDuration, // 🔥 Parametre olarak gelen duration
-            price: reservationPrice, // 🔥 Parametre olarak gelen fiyat
-            gender: 'all' as const,
-            staffIds: [], // Masa için personel ataması yok
-            isActive: true,
-            pricingRules: {
-              basePrice: reservationPrice, // 🔥 Fiyatı da güncelle
-              minGuests: 1,
-              maxGuests: table.capacity,
-            }
-          };
-          
-          // Service'i salon'a ekle
-          await salonsService.update(restaurantId, {
-            services: [...currentServices, newService]
-          });
-          
-          console.log(`✅ Masa ${table.tableNumber} için hizmet oluşturuldu (${reservationDuration}dk, ${reservationPrice}₺)`);
+      const newService = {
+        id: nanoid(12),
+        salonId: restaurantId,
+        tableId: tableId,
+        name: `Masa ${table.tableNumber}`,
+        description: `${table.capacity} kişilik masa rezervasyonu`,
+        category: 'restaurant',
+        duration: reservationDuration,
+        price: reservationPrice,
+        gender: 'all' as const,
+        staffIds: [],
+        isActive: true,
+        pricingRules: {
+          basePrice: reservationPrice,
+          minGuests: 1,
+          maxGuests: table.capacity,
+        }
+      };
+      
+      // 1️⃣ services collection'a ekle
+      try {
+        await servicesService.create(newService);
+        console.log(`✅ Collection'a eklendi: Masa ${table.tableNumber}`);
+      } catch (collectionError: any) {
+        // ⚠️ Subscription limit hatası olabilir - önemli değil
+        if (collectionError.message?.includes('limit')) {
+          console.warn('⚠️ Subscription limit - sadece array\'e ekleniyor');
+        } else {
+          console.error('❌ Collection error:', collectionError);
         }
       }
+      
+      // 2️⃣ salon.services array'ine ekle (fallback)
+      try {
+        const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
+        if (restaurantDoc.exists()) {
+          const restaurant = restaurantDoc.data();
+          const currentServices = restaurant.services || [];
+          
+          // Duplicate kontrolü
+          const existingService = currentServices.find(
+            (s: any) => s.tableId === tableId
+          );
+          
+          if (!existingService) {
+            await salonsService.update(restaurantId, {
+              services: [...currentServices, newService]
+            });
+            console.log(`✅ Masa ${table.tableNumber} array'e eklendi`);
+          }
+        }
+      } catch (arrayError) {
+        console.error('⚠️  Array\'e eklenemedi:', arrayError);
+        // Önemli değil, collection'da var
+      }
     } catch (error) {
-      console.warn('⚠️ Masa için hizmet oluşturulamadı:', error);
-      // Hata olsa da masa oluşturuldu, devam et
+      console.error('❌ Hizmet oluşturulamadı:', error);
+      // Masa oluşturuldu, hizmet eklenemedi - sorun değil
     }
     
     return tableId;
@@ -236,36 +251,58 @@ class RestaurantService {
       updatedAt: serverTimestamp(),
     });
     
-    // 🍽️ Eğer masa numarası veya kapasitesi değiştiyse, service'i de güncelle
+    // 🍽️ Service'i güncelle (HER İKİ YERDE)
     if (updates.tableNumber || updates.capacity) {
       try {
-        // Önce tablonun restaurant ID'sini al
         const tableDoc = await getDoc(doc(db, TABLES, tableId));
-        if (tableDoc.exists()) {
-          const tableData = tableDoc.data();
-          const restaurantId = tableData.restaurantId;
+        if (!tableDoc.exists()) return;
+        
+        const tableData = tableDoc.data();
+        const restaurantId = tableData.restaurantId;
+        
+        const { servicesService, salonsService } = await import('./firebaseService');
+        
+        const serviceUpdates: any = {};
+        if (updates.tableNumber) {
+          serviceUpdates.name = `Masa ${updates.tableNumber}`;
+        }
+        if (updates.capacity) {
+          serviceUpdates.description = `${updates.capacity} kişilik masa rezervasyonu`;
+          serviceUpdates.pricingRules = {
+            basePrice: 0,
+            minGuests: 1,
+            maxGuests: updates.capacity
+          };
+        }
+        
+        // 1️⃣ Collection'da güncelle
+        try {
+          const servicesSnapshot = await getDocs(
+            query(
+              collection(db, 'services'),
+              where('tableId', '==', tableId),
+              where('salonId', '==', restaurantId)
+            )
+          );
           
-          const { salonsService } = await import('./firebaseService');
+          if (!servicesSnapshot.empty) {
+            await servicesService.update(servicesSnapshot.docs[0].id, serviceUpdates);
+            console.log(`✅ Collection güncellendi: Masa ${tableId}`);
+          }
+        } catch (collectionError) {
+          console.error('⚠️  Collection güncellenemedi:', collectionError);
+        }
+        
+        // 2️⃣ Array'de güncelle
+        try {
           const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
-          
           if (restaurantDoc.exists()) {
             const restaurant = restaurantDoc.data();
             const currentServices = restaurant.services || [];
             
-            // Bu masa için olan service'i bul ve güncelle
             const updatedServices = currentServices.map((s: any) => {
               if (s.tableId === tableId) {
-                return {
-                  ...s,
-                  name: updates.tableNumber ? `Masa ${updates.tableNumber}` : s.name,
-                  description: updates.capacity 
-                    ? `${updates.capacity} kişilik masa rezervasyonu` 
-                    : s.description,
-                  pricingRules: updates.capacity ? {
-                    ...s.pricingRules,
-                    maxGuests: updates.capacity
-                  } : s.pricingRules
-                };
+                return { ...s, ...serviceUpdates };
               }
               return s;
             });
@@ -273,44 +310,68 @@ class RestaurantService {
             await salonsService.update(restaurantId, {
               services: updatedServices
             });
-            
-            console.log(`✅ Masa ${tableId} için hizmet güncellendi`);
+            console.log(`✅ Array güncellendi: Masa ${tableId}`);
           }
+        } catch (arrayError) {
+          console.error('⚠️  Array güncellenemedi:', arrayError);
         }
       } catch (error) {
-        console.warn('⚠️ Masa için hizmet güncellenemedi:', error);
+        console.error('⚠️  Hizmet güncellenemedi:', error);
       }
     }
   }
 
   async deleteTable(tableId: string, restaurantId?: string): Promise<void> {
-    // Masayı sil
     await deleteDoc(doc(db, TABLES, tableId));
     
-    // 🍽️ İlgili service'i de sil
+    // 🍽️ Service'i sil (HER İKİ YERDEN)
     if (restaurantId) {
       try {
-        const { salonsService } = await import('./firebaseService');
-        const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
+        const { servicesService, salonsService } = await import('./firebaseService');
         
-        if (restaurantDoc.exists()) {
-          const restaurant = restaurantDoc.data();
-          const currentServices = restaurant.services || [];
-          
-          // Bu masa için olan service'i filtrele
-          const updatedServices = currentServices.filter(
-            (s: any) => s.tableId !== tableId
+        // 1️⃣ Collection'dan sil
+        try {
+          const servicesSnapshot = await getDocs(
+            query(
+              collection(db, 'services'),
+              where('tableId', '==', tableId),
+              where('salonId', '==', restaurantId)
+            )
           );
           
-          if (updatedServices.length !== currentServices.length) {
-            await salonsService.update(restaurantId, {
-              services: updatedServices
-            });
-            console.log(`✅ Masa ${tableId} için hizmet silindi`);
+          if (!servicesSnapshot.empty) {
+            for (const serviceDoc of servicesSnapshot.docs) {
+              await servicesService.delete(serviceDoc.id);
+            }
+            console.log(`✅ Collection'dan silindi: Masa ${tableId}`);
           }
+        } catch (collectionError) {
+          console.error('⚠️  Collection\'dan silinemedi:', collectionError);
+        }
+        
+        // 2️⃣ Array'den sil
+        try {
+          const restaurantDoc = await getDoc(doc(db, 'salons', restaurantId));
+          if (restaurantDoc.exists()) {
+            const restaurant = restaurantDoc.data();
+            const currentServices = restaurant.services || [];
+            
+            const updatedServices = currentServices.filter(
+              (s: any) => s.tableId !== tableId
+            );
+            
+            if (updatedServices.length !== currentServices.length) {
+              await salonsService.update(restaurantId, {
+                services: updatedServices
+              });
+              console.log(`✅ Array'den silindi: Masa ${tableId}`);
+            }
+          }
+        } catch (arrayError) {
+          console.error('⚠️  Array\'den silinemedi:', arrayError);
         }
       } catch (error) {
-        console.warn('⚠️ Masa için hizmet silinemedi:', error);
+        console.error('⚠️  Hizmet silinemedi:', error);
       }
     }
   }

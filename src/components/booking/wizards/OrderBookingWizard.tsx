@@ -47,6 +47,10 @@ export function OrderBookingWizard() {
   const { addToast } = useUIStore();
   const { user } = useAuthStore();
 
+  // ✅ Teslimat gerekli mi kontrol et (capabilities'den)
+  const anySalon = salon as any;
+  const requiresDeliveryAddress = anySalon?.capabilities?.hasDelivery !== false; // Default true (sipariş wizard'ı)
+
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
     if (user && activeStep === 4) {
@@ -64,6 +68,8 @@ export function OrderBookingWizard() {
   }, [user, activeStep]);
 
   useEffect(() => {
+    // ✅ Services her zaman Firebase'den yüklenmeli (salon objesinde değiller)
+    console.log('📦 OrderBookingWizard: Services Firebase\'den yükleniyor...');
     if (salon?.id) {
       loadMenuItems();
     }
@@ -133,13 +139,15 @@ export function OrderBookingWizard() {
       return;
     }
 
-    if (localDeliveryAddress.trim().length < 10) {
+    // Adres kontrolü - SADECE teslimat varsa
+    if (requiresDeliveryAddress && localDeliveryAddress.trim().length < 10) {
       addToast('Lütfen geçerli bir teslimat adresi girin (en az 10 karakter)', 'error');
       setActiveStep(2);
       return;
     }
 
-    if (localItems.length === 0 || totalPrice <= 0) {
+    // Ürün seçimi kontrolü - 0 TL fiyatlı ürünler de kabul edilmeli (promosyon vs)
+    if (localItems.length === 0) {
       addToast('Lütfen en az bir ürün seçin', 'error');
       setActiveStep(1);
       return;
@@ -458,37 +466,43 @@ export function OrderBookingWizard() {
                                   </p>
                                 )}
                               </div>
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Adresi</h4>
-                                <div className="space-y-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleGetLocation}
-                                    disabled={gettingLocation}
-                                    className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 text-blue-300 font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                                  >
-                                    {gettingLocation ? (
-                                      <>
-                                        <Loader2 size={18} className="animate-spin" />
-                                        <span>Konum alınıyor...</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <MapPin size={18} />
-                                        <span>Konumumu Al</span>
-                                      </>
-                                    )}
-                                  </button>
-                                  <textarea
-                                    value={localDeliveryAddress}
-                                    onChange={(e) => setLocalDeliveryAddress(e.target.value)}
-                                    placeholder="Tam adres (en az 10 karakter)..."
-                                    rows={3}
-                                    className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
-                                  />
+                              
+                              {/* ✅ Teslimat Adresi - SADECE hasDelivery: true ise göster */}
+                              {requiresDeliveryAddress && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Teslimat Adresi</h4>
+                                  <div className="space-y-2">
+                                    <button
+                                      type="button"
+                                      onClick={handleGetLocation}
+                                      disabled={gettingLocation}
+                                      className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 hover:border-blue-500/50 text-blue-300 font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                      {gettingLocation ? (
+                                        <>
+                                          <Loader2 size={18} className="animate-spin" />
+                                          <span>Konum alınıyor...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <MapPin size={18} />
+                                          <span>Konumumu Al</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <textarea
+                                      value={localDeliveryAddress}
+                                      onChange={(e) => setLocalDeliveryAddress(e.target.value)}
+                                      placeholder="Tam adres (en az 10 karakter)..."
+                                      rows={3}
+                                      className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                              {localDeliveryDate && localDeliveryTime && localDeliveryAddress.length >= 10 && (
+                              )}
+                              
+                              {/* Devam butonu - Teslimat yoksa adres kontrolü yapmadan geç */}
+                              {localDeliveryDate && localDeliveryTime && (!requiresDeliveryAddress || localDeliveryAddress.length >= 10) && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

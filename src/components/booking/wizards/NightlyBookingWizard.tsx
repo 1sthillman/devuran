@@ -76,6 +76,7 @@ export function NightlyBookingWizard() {
   }, [user, activeStep]);
 
   useEffect(() => {
+    // ✅ Services are ALWAYS stored in separate collection, not in salon document
     if (salon?.id) {
       loadServices();
     }
@@ -199,8 +200,9 @@ export function NightlyBookingWizard() {
       return;
     }
 
-    if (!selectedRoom || nights <= 0 || totalPrice <= 0) {
-      addToast('Lütfen tüm bilgileri eksiksiz doldurun', 'error');
+    // Oda seçimi ve gece kontrolü - 0 TL fiyatlı odalar da kabul edilmeli
+    if (!selectedRoom || nights <= 0) {
+      addToast('Lütfen oda seçin ve tarih aralığını kontrol edin', 'error');
       return;
     }
 

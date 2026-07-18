@@ -93,15 +93,15 @@ export const BUSINESS_PRESETS: Record<string, BusinessCapabilities> = {
     isDurationBased: true,
     isDateRangeBased: false,
     hasPhysicalLocation: true,
-    isMobileService: false,
+    isMobileService: false, // ✅ Müşteri RESTORANA gelir, restoran müşteriye gitmez
     hasMultipleLocations: false,
-    hasStaff: false,
+    hasStaff: false, // ✅ Masa rezervasyonu personel bazlı değil
     hasTables: true,
     tableTerminology: 'Masa',
     hasProductCatalog: true, // Menü
-    hasDelivery: true,
+    hasDelivery: true, // ✅ Sipariş varsa teslimat olabilir (order booking model)
     hasQueue: true,
-    requiresDeposit: false,
+    requiresDeposit: false, // ✅ Masa rezervasyonu ücretsiz olabilir
     isSubscriptionBased: false,
     autoConfirmDefault: true
   },
@@ -112,13 +112,13 @@ export const BUSINESS_PRESETS: Record<string, BusinessCapabilities> = {
     isDurationBased: false,
     isDateRangeBased: false,
     hasPhysicalLocation: true,
-    isMobileService: false,
+    isMobileService: false, // ✅ Müşteri kafeye gelir
     hasMultipleLocations: false,
-    hasStaff: false,
+    hasStaff: false, // ✅ Masa rezervasyonu personel bazlı değil
     hasTables: true,
     tableTerminology: 'Masa',
     hasProductCatalog: false,
-    hasDelivery: false,
+    hasDelivery: false, // ✅ Kafede genelde teslimat yok
     hasQueue: true,
     requiresDeposit: false,
     isSubscriptionBased: false,
@@ -130,17 +130,17 @@ export const BUSINESS_PRESETS: Record<string, BusinessCapabilities> = {
     bookingModels: ['reservation'],
     capacityUnit: 'table',
     isDurationBased: false,
-    isDateRangeBased: true, // Check-in / Check-out
+    isDateRangeBased: true, // ✅ Check-in / Check-out
     hasPhysicalLocation: true,
-    isMobileService: false,
+    isMobileService: false, // ✅ Müşteri otele gelir
     hasMultipleLocations: false,
-    hasStaff: false,
+    hasStaff: false, // ✅ Oda rezervasyonu personel bazlı değil
     hasTables: true,
     tableTerminology: 'Oda',
     hasProductCatalog: false,
-    hasDelivery: false,
+    hasDelivery: false, // ✅ Otelde teslimat mantıklı değil
     hasQueue: false,
-    requiresDeposit: true,
+    requiresDeposit: true, // ✅ Otel rezervasyonu genelde kapora ister
     isSubscriptionBased: false,
     autoConfirmDefault: false
   },

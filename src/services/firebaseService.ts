@@ -654,7 +654,13 @@ export const salonsService = {
       const docRef = doc(db, COLLECTIONS.SALONS, salonId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Salon;
+        const rawData = docSnap.data();
+        console.log(`🔍 salonsService.getById("${salonId}") RAW Firestore data:`, rawData);
+        console.log(`📋 rawData.services:`, rawData.services);
+        console.log(`📋 rawData.services type:`, typeof rawData.services);
+        console.log(`📋 rawData.services isArray:`, Array.isArray(rawData.services));
+        
+        return { id: docSnap.id, ...rawData } as Salon;
       }
       return null;
     } catch (error) {
@@ -681,15 +687,78 @@ export const salonsService = {
   // Update salon
   async update(salonId: string, updates: Partial<Salon>) {
     try {
-      // ✅ GÜVENLİK: Korumalı alanları değiştirme
-      const protectedFields = ['ownerId', 'id', 'stats', 'createdAt'];
-      const attemptedProtectedUpdates = Object.keys(updates).filter(
-        key => protectedFields.includes(key)
+      // ============================================
+      // 1. KRİTİK KORUNMALI ALANLAR
+      // ============================================
+      const immutableFields = [
+        'id',           // Asla değişmez
+        'ownerId',      // Sahiplik korunur
+        'stats',        // Sistem tarafından yönetilir
+        'createdAt',    // Oluşturulma zamanı değişmez
+        'services',     // Ayrı koleksiyonda (services/{id})
+        'staff',        // Ayrı koleksiyonda (staff/{id})
+      ];
+      
+      // ============================================
+      // 2. KISITLI DEĞİŞTİRİLEBİLİR ALANLAR
+      // ============================================
+      // Sadece ilk oluşturulduğunda set edilir, sonra değiştirilemez
+      const onceSetFields = [
+        'categoryId',     // Kategori bir kere seçilir
+        'category',       // Legacy kategori
+      ];
+      
+      // Hangi alanlar değiştirilmeye çalışılıyor?
+      const attemptedImmutableUpdates = Object.keys(updates).filter(
+        key => immutableFields.includes(key)
       );
       
-      if (attemptedProtectedUpdates.length > 0) {
-        console.error('Attempt to modify protected fields:', attemptedProtectedUpdates);
-        throw new Error(`Korumalı alanlar değiştirilemez: ${attemptedProtectedUpdates.join(', ')}`);
+      const attemptedOnceSetUpdates = Object.keys(updates).filter(
+        key => onceSetFields.includes(key)
+      );
+      
+      // ============================================
+      // 3. IMMUTABLE ALANLAR KONTROLÜ
+      // ============================================
+      if (attemptedImmutableUpdates.length > 0) {
+        console.error('⛔ Immutable alanlar değiştirilemez:', attemptedImmutableUpdates);
+        
+        // services ve staff için özel mesaj
+        if (attemptedImmutableUpdates.includes('services') || attemptedImmutableUpdates.includes('staff')) {
+          console.error('💡 Hizmet/Personel değişiklikleri için servicesService/staffService kullanın');
+        }
+        
+        throw new Error(
+          `Bu alanlar değiştirilemez: ${attemptedImmutableUpdates.join(', ')}. ` +
+          `Bunlar sistem tarafından korunmaktadır.`
+        );
+      }
+      
+      // ============================================
+      // 4. ONCE-SET ALANLAR KONTROLÜ
+      // ============================================
+      if (attemptedOnceSetUpdates.length > 0) {
+        // Mevcut salon verisini al
+        const currentSalon = await getDoc(doc(db, COLLECTIONS.SALONS, salonId));
+        
+        if (currentSalon.exists()) {
+          const currentData = currentSalon.data();
+          
+          // categoryId zaten set edilmişse değiştirilemez
+          if (currentData.categoryId && attemptedOnceSetUpdates.includes('categoryId')) {
+            console.error('⛔ Kategori zaten set edilmiş, değiştirilemez');
+            throw new Error(
+              'İşletme kategorisi bir kere seçilir ve değiştirilemez. ' +
+              'Kategori değiştirmek için yeni işletme oluşturmanız gerekir.'
+            );
+          }
+          
+          // Legacy category kontrolü (geriye dönük uyumluluk)
+          if (currentData.category && attemptedOnceSetUpdates.includes('category') && !currentData.categoryId) {
+            console.error('⛔ Legacy kategori zaten set edilmiş');
+            throw new Error('İşletme kategorisi değiştirilemez.');
+          }
+        }
       }
       
       // ✅ GÜVENLİK: Salon varlık kontrolü
@@ -735,6 +804,9 @@ export const salonsService = {
       // ✅ Debug: Update edilecek veriyi logla
       console.log('💾 Updating salon with data:', {
         salonId,
+        keys: Object.keys(cleanUpdates),
+        hasServices: 'services' in cleanUpdates,
+        hasStaff: 'staff' in cleanUpdates,
         galleryImages: cleanUpdates.galleryImages,
         galleryImagesLength: cleanUpdates.galleryImages?.length || 0,
         hasGalleryImages: 'galleryImages' in cleanUpdates,
@@ -771,12 +843,31 @@ export const servicesService = {
   // Get services by salon
   async getBySalon(salonId: string) {
     try {
+      console.log(`🔍 servicesService.getBySalon called with salonId: "${salonId}"`);
+      
       const q = query(
         collection(db, COLLECTIONS.SERVICES),
         where('salonId', '==', salonId)
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Service));
+      const services = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Service));
+      
+      console.log(`📦 Found ${services.length} services for salonId "${salonId}"`);
+      
+      // Debug: Eğer hizmet yoksa, tüm services'i çek ve salonId'leri göster
+      if (services.length === 0) {
+        console.warn('⚠️ No services found! Checking all services in database...');
+        const allSnapshot = await getDocs(collection(db, COLLECTIONS.SERVICES));
+        const allServices = allSnapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          name: (doc.data() as any).name,
+          salonId: (doc.data() as any).salonId 
+        }));
+        console.table(allServices);
+        console.log(`🔎 Are you looking for one of these? Expected: "${salonId}"`);
+      }
+      
+      return services;
     } catch (error) {
       console.error('Error fetching services:', error);
       throw error;

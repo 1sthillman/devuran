@@ -16,7 +16,7 @@ import type { Salon } from '@/types';
 interface BusinessSetupWizardProps {
   salon?: Salon;
   currentUserId: string;
-  userBusinessCategory?: string; // Kullanıcının onboarding'de seçtiği kategori
+  userBusinessCategory?: string;
   onSave: (salonData: Omit<Salon, 'id' | 'stats' | 'isPremium' | 'isActive' | 'isAcceptingBookings'>) => Promise<void>;
   onClose: () => void;
 }
@@ -61,8 +61,8 @@ export interface BusinessFormData {
     autoConfirmQueue: boolean;
     mobileService?: boolean;
   };
-  staff: any[];
-  services: any[];
+  // ❌ KALDIRILDI: staff ve services wizard'da düzenlenmiyor
+  // Ayrı koleksiyonlarda yönetilir, wizard bunları silmemeli
   bankAccount?: {
     bankName: string;
     iban: string;
@@ -86,7 +86,6 @@ function resolveInitialCategory(salon?: Salon, userBusinessCategory?: string): C
     };
   }
 
-  // Kullanıcı onboarding'de kategori seçtiyse, onu kullan
   if (userBusinessCategory && !salon) {
     const userPreset = getPresetById(userBusinessCategory);
     if (userPreset) {
@@ -120,14 +119,15 @@ const STEP_META = [
   { id: 3, title: 'Adres', subtitle: 'Konum bilgileri' },
   { id: 4, title: 'Görseller', subtitle: 'Logo & fotoğraflar' },
   { id: 5, title: 'Çalışma', subtitle: 'Açılış saatleri' },
-  { id: 6, title: 'Ayarlar', subtitle: 'Kurallar' },
 ];
 
 export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory, onSave, onClose }: BusinessSetupWizardProps) {
-  // Kullanıcı yeni işletme oluşturuyorsa ve onboarding'de kategori seçtiyse, adım 2'den başla
-  const initialStep = !salon && userBusinessCategory ? 2 : 1;
+  // ✅ Edit mode'da kategori adımını atla (1. adım), direkt 2. adımdan başla
+  const initialStep = salon ? 2 : (!salon && userBusinessCategory ? 2 : 1);
   const [currentStep, setCurrentStep] = useState(initialStep);
-  const [completedSteps, setCompletedSteps] = useState<number[]>(userBusinessCategory && !salon ? [1] : []);
+  const [completedSteps, setCompletedSteps] = useState<number[]>(
+    salon ? [1] : (userBusinessCategory && !salon ? [1] : [])
+  );
   const [loading, setLoading] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
 
@@ -175,22 +175,16 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
       autoConfirmQueue: salon?.settings?.autoConfirmQueue ?? true,
       mobileService: salon?.settings?.mobileService ?? false,
     },
-    staff: salon?.staff || [],
-    services: salon?.services || [],
+    // ❌ KALDIRILDI: staff ve services wizard'da düzenlenmiyor
+    // Bunlar ayrı koleksiyonlarda (services/{id}, staff/{id}) tutulur
   });
 
   const terminology = useMemo(() => deriveTerminology(formData.capabilities), [formData.capabilities]);
 
-  const steps = useMemo(
-    () =>
-      STEP_META.map((s) =>
-        s.id === 6 ? { ...s, title: 'Ayarlar', subtitle: `${terminology.bookingUnit} kuralları` } : s
-      ),
-    [terminology]
-  );
+  // ✅ Artık 5 adım var - terminoloji gerek yok
+  const steps = STEP_META;
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'unset';
@@ -207,15 +201,16 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
       case 1:
         return !!formData.categoryId && !!formData.categoryLabel;
       case 2:
-        return !!(formData.name && formData.phone.length === 10);
+        // ✅ Telefon validasyonu: rakamları temizle ve 10 hane kontrolü
+        const cleanPhone = formData.phone.replace(/\D/g, '');
+        return !!(formData.name && cleanPhone.length === 10);
       case 3:
         return !!(formData.address.full && formData.address.district && formData.address.city);
       case 4:
-        return !!formData.coverImage;
+        // ✅ Kapak görseli opsiyonel - logo varsa da geçerli
+        return !!(formData.coverImage || formData.logo);
       case 5:
         return Object.values(formData.workingHours).some((day) => day.isOpen);
-      case 6:
-        return true;
       default:
         return false;
     }
@@ -230,7 +225,7 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
       case 3:
         return 'Şehir, ilçe ve tam adres alanlarını doldurmalısınız.';
       case 4:
-        return 'Devam etmek için en az bir kapak görseli yüklemelisiniz.';
+        return 'Devam etmek için en az bir logo veya kapak görseli yüklemelisiniz.';
       case 5:
         return 'En az bir gün açık olarak işaretlenmelidir.';
       default:
@@ -239,6 +234,10 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
   };
 
   const handleNext = () => {
+    console.log('🔵 İLERİ butonu tıklandı - Step:', currentStep);
+    console.log('🔵 Validasyon:', validateStep(currentStep));
+    console.log('🔵 FormData:', formData);
+    
     if (!validateStep(currentStep)) {
       setStepError(getStepErrorMessage(currentStep));
       return;
@@ -247,16 +246,21 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
     if (!completedSteps.includes(currentStep)) {
       setCompletedSteps([...completedSteps, currentStep]);
     }
-    if (currentStep < 6) setCurrentStep(currentStep + 1);
+    if (currentStep < 6) {
+      setCurrentStep(currentStep + 1);
+      console.log('✅ Yeni step:', currentStep + 1);
+    }
   };
 
   const handleBack = () => {
+    console.log('🔙 GERİ butonu tıklandı');
     setStepError(null);
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
   const handleSubmit = async () => {
-    for (let step = 1; step <= 6; step++) {
+    // ✅ Sadece 5 adım var artık
+    for (let step = 1; step <= 5; step++) {
       if (!validateStep(step)) {
         setStepError(`Lütfen ${steps[step - 1].title} adımını tamamlayın.`);
         setCurrentStep(step);
@@ -284,11 +288,15 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
         socialMedia: formData.socialMedia,
         workingHours: formData.workingHours,
         settings: formData.settings,
-        staff: formData.staff,
-        services: formData.services,
-        ownerId: salon?.ownerId || currentUserId,
+        // ❌ KALDIRILDI: staff ve services wizard'da düzenlenmiyor
+        // Bunlar ayrı koleksiyonlarda tutulur, wizard onları silmemeli
         slug: slugify(formData.name),
       };
+
+      // ✅ ownerId sadece yeni işletme oluştururken eklenir (edit mode'da korumalı alan)
+      if (!salon) {
+        salonData.ownerId = currentUserId;
+      }
 
       if (formData.bankAccount?.iban) {
         salonData.bankAccount = formData.bankAccount;
@@ -305,7 +313,8 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
     }
   };
 
-  const isLastStep = currentStep === 6;
+  const isLastStep = currentStep === 5; // ✅ Artık 5 adım var
+  const isStepValid = validateStep(currentStep);
 
   return (
     <div className="fixed inset-0 z-[99999] bg-[var(--void)]">
@@ -370,7 +379,7 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 pb-32">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -379,14 +388,18 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
-              {currentStep === 1 && (
+              {/* Edit mode'da kategori adımı gösterilmez - değiştirilemez */}
+              {currentStep === 1 && !salon && (
                 <CategorySelection
                   value={{
                     categoryId: formData.categoryId,
                     categoryLabel: formData.categoryLabel,
                     capabilities: formData.capabilities,
                   }}
-                  onChange={(value) => updateFormData(value)}
+                  onChange={(value) => {
+                    console.log('📝 CategorySelection onChange:', value);
+                    updateFormData(value);
+                  }}
                 />
               )}
               {currentStep === 2 && (
@@ -418,16 +431,6 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
               {currentStep === 5 && (
                 <WorkingHours data={formData.workingHours} onChange={(data) => updateFormData({ workingHours: data })} />
               )}
-              {currentStep === 6 && (
-                <ReservationSettings
-                  data={{
-                    settings: formData.settings,
-                    bankAccount: formData.bankAccount,
-                    depositSettings: formData.depositSettings,
-                  }}
-                  onChange={(data) => updateFormData(data)}
-                />
-              )}
             </motion.div>
           </AnimatePresence>
 
@@ -446,42 +449,62 @@ export function BusinessSetupWizard({ salon, currentUserId, userBusinessCategory
           </AnimatePresence>
         </div>
 
-        {/* Footer */}
-        <div className="px-4 sm:px-8 py-4 border-t border-white/[0.08] flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
+        {/* Footer - STICKY BOTTOM - HER ZAMAN GÖRÜNÜR */}
+        <div 
+          className="sticky bottom-0 left-0 right-0 z-50 px-4 sm:px-8 py-4 sm:py-5 border-t border-white/[0.08] bg-[var(--void)] flex-shrink-0"
+          style={{ 
+            paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.3)'
+          }}
+        >
+          <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
             <button
+              type="button"
               onClick={handleBack}
               disabled={currentStep === 1}
-              className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-heading font-semibold text-sm text-white flex items-center gap-2"
+              className="flex-shrink-0 px-5 sm:px-7 py-3 sm:py-3.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-heading font-semibold text-sm text-white flex items-center gap-2 active:scale-95 min-w-[100px] justify-center"
             >
               <ChevronLeft size={18} />
-              Geri
+              <span>Geri</span>
             </button>
+
+            <div className="flex-1 text-center px-2">
+              <div className="text-xs text-purple-300 font-bold mb-1">
+                Adım {currentStep} / {steps.length}
+              </div>
+              {!isStepValid && (
+                <div className="text-xs text-orange-400">
+                  Devam etmek için formu doldurun
+                </div>
+              )}
+            </div>
 
             {isLastStep ? (
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-heading font-bold text-sm text-white flex items-center gap-2 shadow-lg shadow-emerald-500/30"
+                className="flex-shrink-0 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-heading font-bold text-sm text-white flex items-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95 min-w-[120px] justify-center"
               >
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Kaydediliyor...
+                    <span>Kaydediliyor...</span>
                   </>
                 ) : (
                   <>
                     <Check size={18} strokeWidth={2.5} />
-                    Tamamla
+                    <span className="font-bold">Tamamla</span>
                   </>
                 )}
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleNext}
-                className="px-8 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all font-heading font-bold text-sm text-white flex items-center gap-2 shadow-lg shadow-purple-500/30"
+                className="flex-shrink-0 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all font-heading font-bold text-sm text-white flex items-center gap-2 shadow-lg shadow-purple-500/30 active:scale-95 min-w-[120px] justify-center"
               >
-                İleri
+                <span className="font-bold">İleri</span>
                 <ChevronRight size={18} strokeWidth={2.5} />
               </button>
             )}

@@ -35,6 +35,15 @@ export function SlotBookingWizard() {
     isSubmitting
   } = useBookingStore();
 
+  console.log('🔍 SlotBookingWizard render:', {
+    salonExists: !!salon,
+    salonName: salon?.name,
+    servicesCount: salon?.services?.length || 0,
+    servicesArray: salon?.services,
+    servicesType: typeof salon?.services,
+    isArray: Array.isArray(salon?.services)
+  });
+
   // 🔥 TEK KAYNAK: Step ID hesaplaması (tutarsızlık önlemi)
   const hasStaffStep = Boolean(
     salon?.staff && 
@@ -63,6 +72,10 @@ export function SlotBookingWizard() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const { errors, validatePhone, validateEmail, validateName } = useFormValidation();
   const { addToast } = useUIStore();
+
+  // ✅ Mobil hizmet mi kontrol et (capabilities'den)
+  const anySalon = salon as any;
+  const requiresAddress = anySalon?.capabilities?.isMobileService === true; // SADECE mobil hizmet ise konum iste
 
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
@@ -148,9 +161,10 @@ export function SlotBookingWizard() {
       }
     }
 
-    // Normal hizmetler için fiyat kontrolü
-    if (!isRestaurant && totalPrice <= 0) {
-      addToast('Lütfen hizmet seçin ve fiyat bilgisini kontrol edin', 'error');
+    // Normal hizmetler için fiyat kontrolü - SADECE hizmet seçilmediyse hata ver
+    // 0 TL fiyatlı hizmetler/rezervasyonlar kabul edilmeli (ücretsiz masa rezervasyonu vs)
+    if (!isRestaurant && selectedServices.length === 0) {
+      addToast('Lütfen en az bir hizmet seçin', 'error');
       return;
     }
 
@@ -164,8 +178,8 @@ export function SlotBookingWizard() {
       return;
     }
 
-    // 🔥 Mobil hizmet için adres kontrolü
-    if (salon?.settings?.mobileService && !localAddress.trim()) {
+    // ✅ Mobil hizmet için adres kontrolü
+    if (requiresAddress && !localAddress.trim()) {
       addToast('Lütfen hizmet adresini girin', 'error');
       return;
     }
@@ -256,7 +270,12 @@ export function SlotBookingWizard() {
     );
   }
 
+  // ✅ Services kontrolü - Booking.tsx'ten merge edilmiş olmalı
   if (!salon.services || salon.services.length === 0) {
+    console.error('❌ SlotBookingWizard: Hizmet bulunamadı!');
+    console.error('Salon object:', salon);
+    console.error('Services array:', salon.services);
+    
     return (
       <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
         <div className="mb-6 text-center">
@@ -716,7 +735,7 @@ export function SlotBookingWizard() {
                               </div>
                               
                               {/* Adres Alanı - Sadece Mobil Hizmet Varsa */}
-                              {salon.settings?.mobileService && (
+                              {requiresAddress && (
                                 <div>
                                   <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">
                                     Hizmet Adresi

@@ -53,6 +53,10 @@ export function ProjectBookingWizard() {
   const { addToast } = useUIStore();
   const { user } = useAuthStore();
 
+  // ✅ Mobil hizmet mi kontrol et (capabilities'den)
+  const anySalon = salon as any;
+  const requiresAddress = anySalon?.capabilities?.isMobileService === true; // SADECE mobil hizmet ise konum iste
+
   // Kullanıcı bilgilerini otomatik doldur
   useEffect(() => {
     if (user && activeStep === 4) {
@@ -70,6 +74,7 @@ export function ProjectBookingWizard() {
   }, [user, activeStep]);
 
   useEffect(() => {
+    // ✅ Services are ALWAYS stored in separate collection, not in salon document
     if (salon?.id) {
       loadPackages();
     }
@@ -125,7 +130,8 @@ export function ProjectBookingWizard() {
       return;
     }
 
-    if (!localPackage || localPackage.price <= 0) {
+    // Paket seçimi kontrolü - 0 TL fiyatlı paketler de kabul edilmeli
+    if (!localPackage) {
       addToast('Lütfen paket seçin', 'error');
       return;
     }
@@ -135,6 +141,12 @@ export function ProjectBookingWizard() {
     if (capacity && localGuestCount > capacity) {
       addToast(`Seçili paket maksimum ${capacity} kişilik etkinlikler için uygundur. Lütfen daha büyük bir paket seçin veya misafir sayısını azaltın`, 'error');
       setActiveStep(3); // Kullanıcıyı paket seçimine geri yönlendir
+      return;
+    }
+
+    // ✅ Mobil hizmet için adres kontrolü
+    if (requiresAddress && !localAddress.trim()) {
+      addToast('Lütfen hizmet adresini girin', 'error');
       return;
     }
     
@@ -561,8 +573,11 @@ export function ProjectBookingWizard() {
                                 placeholder="E-posta (opsiyonel)"
                                 className="w-full h-12 px-4 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all"
                               />
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">Etkinlik Adresi (Opsiyonel)</h4>
+                              {requiresAddress && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--chrome-white)] mb-2">
+                                    Etkinlik Adresi {requiresAddress ? '' : '(Opsiyonel)'}
+                                  </h4>
                                 <div className="space-y-2">
                                   <button
                                     type="button"
@@ -590,7 +605,8 @@ export function ProjectBookingWizard() {
                                     className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                                   />
                                 </div>
-                              </div>
+                                </div>
+                              )}
                               <textarea
                                 value={localNotes}
                                 onChange={(e) => setLocalNotes(e.target.value)}

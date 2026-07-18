@@ -24,7 +24,7 @@ export function MediaUpload({ data, onChange }: MediaUploadProps) {
       {/* Info Badge */}
       <div className="p-4 rounded-3xl bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-500/20">
         <p className="text-sm text-[var(--silver-frost)] text-center">
-          Görseller işletmenizin ilk izlenimini oluşturur. En az kapak görseli ekleyin.
+          İşletmenizin görsellerini ekleyin. Logo veya kapak görseli yeterli, istediğiniz zaman düzenleyebilirsiniz.
         </p>
       </div>
 
@@ -56,7 +56,7 @@ export function MediaUpload({ data, onChange }: MediaUploadProps) {
           <div>
             <label className="block font-heading font-semibold text-sm text-[var(--chrome-white)] mb-2 flex items-center gap-2">
               <Image size={16} className="text-pink-400" />
-              Kapak Görseli *
+              Kapak Görseli
             </label>
             <ImageUploader
               label=""
@@ -66,7 +66,7 @@ export function MediaUpload({ data, onChange }: MediaUploadProps) {
               useCloudStorage={true}
             />
             <p className="text-xs text-[var(--muted-lead)] mt-2 ml-1">
-              Zorunlu - Ana sayfa görseli (en az 1200x600px önerilir)
+              Opsiyonel - Ana sayfa görseli (Logo yoksa kapak görseli önerilir)
             </p>
           </div>
 

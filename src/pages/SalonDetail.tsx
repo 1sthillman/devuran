@@ -81,32 +81,26 @@ export function SalonDetail() {
         return;
       }
       
-      const [servicesData, staffData] = await Promise.all([
+      const [collectionServices, staffData] = await Promise.all([
         servicesService.getBySalon(salonData.id),
         staffService.getBySalon(salonData.id),
       ]);
       
-      // 🍽️ RESTORAN İÇİN: Salon.services array'inden de hizmetleri al
-      let allServices = [...servicesData];
-      if (salonData.services && Array.isArray(salonData.services) && salonData.services.length > 0) {
-        // Salon array'indeki hizmetleri ekle (masa rezervasyonları için)
-        const salonServices = salonData.services.filter((s: any) => s.isActive !== false);
-        allServices = [...allServices, ...salonServices];
-        
-        // Duplicate kontrolü (aynı ID'ye sahip hizmetler varsa bir tane al)
-        const uniqueServices = allServices.reduce((acc: Service[], curr: Service) => {
-          if (!acc.find(s => s.id === curr.id)) {
-            acc.push(curr);
-          }
-          return acc;
-        }, []);
-        allServices = uniqueServices;
-        
-        console.log(`🍽️ Salon services array'inden ${salonServices.length} hizmet eklendi`);
+      console.log(`📦 Collection'dan: ${collectionServices.length} hizmet`);
+      
+      // 🔥 FALLBACK: Collection boşsa array'den al
+      let finalServices = collectionServices;
+      
+      if (collectionServices.length === 0) {
+        const salonServices = (salonData as any).services;
+        if (salonServices && Array.isArray(salonServices) && salonServices.length > 0) {
+          finalServices = salonServices.filter((s: any) => s.isActive !== false);
+          console.log(`⚠️  FALLBACK: Array'den ${finalServices.length} hizmet yüklendi`);
+        }
       }
       
       setSalon(salonData);
-      setServices(allServices);
+      setServices(finalServices);
       setStaff(staffData);
       
       // ✅ Salon belgesindeki subscriptionActive alanını kontrol et (subscriptions koleksyonunu okumaya gerek yok)
