@@ -11,7 +11,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string, phone: string, role: 'customer' | 'owner') => Promise<boolean>;
   googleSignIn: () => Promise<{ success: boolean; needsOnboarding?: boolean; user?: any; pending?: boolean }>;
-  completeOnboarding: (phone: string, role: 'customer' | 'owner', businessCategory?: string) => Promise<boolean>;
+  completeOnboarding: (phone: string, role: 'customer' | 'owner') => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -112,7 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  completeOnboarding: async (phone: string, role: 'customer' | 'owner', businessCategory?: string) => {
+  completeOnboarding: async (phone: string, role: 'customer' | 'owner') => {
     try {
       set({ isLoading: true, error: null });
       const currentFirebaseUser = authService.getCurrentUser();
@@ -123,11 +123,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role,
         onboardingCompleted: true 
       };
-
-      // İşletme sahibi ise ve kategori seçildiyse, kategoriyi kaydet
-      if (role === 'owner' && businessCategory) {
-        profileUpdates.businessCategory = businessCategory;
-      }
 
       await authService.updateUserProfile(currentFirebaseUser.uid, profileUpdates);
 

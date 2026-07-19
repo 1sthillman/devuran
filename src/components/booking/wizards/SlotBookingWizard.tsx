@@ -3,14 +3,16 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useNavigate } from 'react-router-dom';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useUIStore } from '@/store/uiStore';
-import { Calendar, Clock, User, CheckCircle2, ChevronDown, Sparkles, Scissors, Loader2, MapPin } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, Clock, User, CheckCircle2, Sparkles, Scissors, Loader2, MapPin } from 'lucide-react';
 import { ModernCalendar } from '../ModernCalendar';
 import { ModernTimePicker } from '../ModernTimePicker';
 import { useAuthStore } from '@/store/authStore';
 import { getStaffAvatarUrl } from '@/utils/avatarHelpers';
 import { cn, formatDateToString } from '@/lib/utils';
 import { isSalonTableBased, getSalonTerminology, getServiceStepTitle } from '@/utils/businessHelpers';
+import { WizardContainer } from '@/components/wizard/WizardContainer';
+import { WizardStep } from '@/components/wizard/WizardStep';
+import { WizardButton } from '@/components/wizard/WizardButton';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
@@ -329,104 +331,42 @@ export function SlotBookingWizard() {
   ];
 
   return (
-    <div className="max-w-lg md:max-w-xl lg:max-w-2xl mx-auto pb-24 px-4 md:px-6 py-6">
-      <div className="mb-6 text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 mb-3">
-          <Sparkles size={16} className="text-purple-400" />
-          <span className="text-sm font-semibold text-purple-300">
-            {terminology.bookingUnit}
-          </span>
-        </div>
-        <h1 className="font-display font-bold text-2xl bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-1">
-          {salon.name}
-        </h1>
-        <p className="text-sm text-[var(--muted-lead)]">
-          {terminology.actionVerb}
-        </p>
-      </div>
+    <WizardContainer
+      title={salon.name}
+      subtitle={terminology.actionVerb}
+      badge={terminology.bookingUnit}
+      maxWidth="lg"
+    >
+      {steps.map((step) => {
+        const Icon = step.icon;
+        const isActive = activeStep === step.id;
+        const isCompleted = completedSteps.includes(step.id);
+        const canAccess = step.id === 1 || completedSteps.includes(step.id - 1);
+        
+        // Subtitle for completed steps
+        let subtitle = '';
+        if (isCompleted && !isActive) {
+          if (step.id === 1 && isTableBased) subtitle = `${selectedServices.length} ${terminology.capacityUnitLabel.toLowerCase()} seçildi`;
+          else if (step.id === 1 && !isTableBased) subtitle = `${selectedServices.length} hizmet`;
+          else if (step.id === 2 && hasStaffStep) subtitle = salon.staff.find(s => s.id === selectedStaffId)?.name || '';
+          else if (step.id === dateTimeStepId) subtitle = `${selectedDate} - ${selectedTime}`;
+          else if (step.id === contactStepId) subtitle = 'Tamamlandı';
+        }
 
-      <div className="space-y-3">
-        {steps.map((step) => {
-          const Icon = step.icon;
-          const isActive = activeStep === step.id;
-          const isCompleted = completedSteps.includes(step.id);
-          const canAccess = step.id === 1 || completedSteps.includes(step.id - 1);
-
-          return (
-            <div key={step.id}>
-              <div className={cn(
-                "relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300",
-                isActive 
-                  ? "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-2xl shadow-purple-500/20"
-                  : isCompleted 
-                  ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent" 
-                  : "border-white/[0.08] bg-white/[0.02]",
-                !canAccess && "opacity-40 pointer-events-none"
-              )}>
-                {isActive && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                )}
-                
-                <button
-                  onClick={() => canAccess && setActiveStep(step.id)}
-                  disabled={!canAccess}
-                  className="w-full text-left relative z-10"
-                >
-                  <div className="relative flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
-                        isCompleted 
-                          ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30" 
-                          : isActive
-                          ? `bg-gradient-to-br ${step.gradient} shadow-lg shadow-purple-500/30`
-                          : "bg-white/5"
-                      )}>
-                        {isCompleted ? (
-                          <CheckCircle2 size={24} className="text-[var(--chrome-white)]" />
-                        ) : (
-                          <Icon size={24} className={isActive ? "text-white" : "text-white/40"} />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className={cn(
-                          "font-heading font-bold text-base transition-colors duration-200",
-                          isActive ? "text-white" : isCompleted ? "text-emerald-300" : "text-[var(--muted-lead)]"
-                        )}>
-                          {step.title}
-                        </h3>
-                        {isCompleted && !isActive && (
-                          <p className="text-xs text-emerald-400/80 mt-0.5 flex items-center gap-1">
-                            <CheckCircle2 size={12} />
-                            {step.id === 1 && isTableBased && `${selectedServices.length} ${terminology.capacityUnitLabel.toLowerCase()} seçildi`}
-                            {step.id === 1 && !isTableBased && `${selectedServices.length} hizmet`}
-                            {step.id === 2 && hasStaffStep && salon.staff.find(s => s.id === selectedStaffId)?.name}
-                            {step.id === dateTimeStepId && `${selectedDate} - ${selectedTime}`}
-                            {step.id === contactStepId && 'Tamamlandı'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronDown 
-                      size={20} 
-                      className={cn(
-                        "transition-all duration-300",
-                        isActive ? "rotate-180 text-purple-300" : "text-[var(--muted-lead)]"
-                      )} 
-                    />
-                  </div>
-                </button>
-
-                  <AnimatePresence>
-                    {isActive && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="overflow-hidden relative z-20"
-                      >
-                        <div className="px-4 pb-4 space-y-3">
+        return (
+          <WizardStep
+            key={step.id}
+            id={step.id}
+            title={step.title}
+            subtitle={subtitle}
+            icon={Icon}
+            gradient={step.gradient}
+            isActive={isActive}
+            isCompleted={isCompleted}
+            canAccess={canAccess}
+            onClick={() => canAccess && setActiveStep(step.id)}
+          >
+            <div className="space-y-3 lg:space-y-4">
                           {step.id === 1 && (
                             <>
                               {salon.services.map((service) => {
@@ -492,29 +432,29 @@ export function SlotBookingWizard() {
                                   
                                   {/* 🆕 Restoran için kişi sayısı seçici */}
                                   {isRestaurant && selectedServices.length > 0 && (
-                                    <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20">
-                                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-3">
+                                    <div className="p-4 lg:p-5 rounded-2xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20">
+                                      <h4 className="font-heading font-bold text-sm lg:text-base text-[var(--chrome-white)] mb-3">
                                         Kaç Kişilik Rezervasyon?
                                       </h4>
-                                      <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03]">
-                                        <span className="text-sm text-[var(--chrome-white)]">Kişi Sayısı</span>
+                                      <div className="flex items-center justify-between p-3 lg:p-4 rounded-xl bg-white/[0.03]">
+                                        <span className="text-sm lg:text-base text-[var(--chrome-white)]">Kişi Sayısı</span>
                                         <div className="flex items-center gap-3">
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setGuestCount(prev => Math.max(1, prev - 1));
                                             }}
-                                            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-[var(--chrome-white)] font-bold transition-all active:scale-95"
+                                            className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-white/10 hover:bg-white/20 text-[var(--chrome-white)] font-bold transition-all active:scale-95"
                                           >
                                             −
                                           </button>
-                                          <span className="w-8 text-center font-bold text-[var(--chrome-white)]">{guestCount}</span>
+                                          <span className="w-8 lg:w-10 text-center font-bold text-base lg:text-lg text-[var(--chrome-white)]">{guestCount}</span>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setGuestCount(prev => prev + 1);
                                             }}
-                                            className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-[var(--chrome-white)] font-bold transition-all active:scale-95"
+                                            className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-[var(--chrome-white)] font-bold transition-all active:scale-95"
                                           >
                                             +
                                           </button>
@@ -524,7 +464,7 @@ export function SlotBookingWizard() {
                                       {selectedServices[0] && (() => {
                                         const capacity = getTableCapacity(selectedServices[0]); // 🔥 Tek kaynak
                                         return guestCount > capacity ? (
-                                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                                          <div className="mt-2 p-2 lg:p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs lg:text-sm text-amber-300">
                                             ⚠️ Seçili masa {capacity} kişiliktir. Daha büyük masa seçmeniz önerilir.
                                           </div>
                                         ) : null;
@@ -533,7 +473,10 @@ export function SlotBookingWizard() {
                                   )}
                                   
                                   {/* 🔥 UX FIX: Kapasite aşıldığında butonu devre dışı bırak */}
-                                  <button
+                                  <WizardButton
+                                    variant="primary"
+                                    size="md"
+                                    fullWidth
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       // Kapasite kontrolü - kullanıcıya net feedback
@@ -547,55 +490,52 @@ export function SlotBookingWizard() {
                                       handleStepComplete(1);
                                     }}
                                     disabled={isRestaurant && selectedServices.length > 0 && guestCount > getTableCapacity(selectedServices[0])}
-                                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-500 hover:shadow-2xl hover:shadow-purple-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                   >
                                     Devam Et
-                                  </button>
+                                  </WizardButton>
                                 </>
                               )}
                             </>
                           )}
 
                           {step.id === 2 && hasStaffStep && (
-                            <>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {salon.staff.map((staff) => {
-                                  const avatarUrl = getStaffAvatarUrl(staff.photo, staff.name);
-                                  return (
-                                    <button
-                                      key={staff.id}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStaffSelect(staff.id); // 🔥 Yeni fonksiyon kullan
-                                        handleStepComplete(2);
-                                      }}
-                                      className={cn(
-                                        "p-4 rounded-2xl border text-center transition-all duration-200",
-                                        selectedStaffId === staff.id
-                                          ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
-                                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
-                                      )}
-                                    >
-                                      <img
-                                        src={avatarUrl}
-                                        alt={staff.name}
-                                        className="w-16 h-16 rounded-2xl mx-auto mb-3 object-cover ring-2 ring-white/10"
-                                      />
-                                      <h4 className="font-heading font-bold text-sm text-[var(--chrome-white)] mb-1">
-                                        {staff.name}
-                                      </h4>
-                                      <p className="text-xs text-[var(--muted-lead)]">{staff.title || 'Çalışan'}</p>
-                                      {selectedStaffId === staff.id && (
-                                        <div className="mt-2 flex items-center justify-center gap-1 text-emerald-400">
-                                          <CheckCircle2 size={14} />
-                                          <span className="text-xs font-semibold">Seçildi</span>
-                                        </div>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+                              {salon.staff.map((staff) => {
+                                const avatarUrl = getStaffAvatarUrl(staff.photo, staff.name);
+                                return (
+                                  <button
+                                    key={staff.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStaffSelect(staff.id); // 🔥 Yeni fonksiyon kullan
+                                      handleStepComplete(2);
+                                    }}
+                                    className={cn(
+                                      "p-4 lg:p-5 rounded-2xl border text-center transition-all duration-200",
+                                      selectedStaffId === staff.id
+                                        ? "border-purple-500/50 bg-gradient-to-br from-purple-500/10 to-pink-500/5 shadow-lg"
+                                        : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.98]"
+                                    )}
+                                  >
+                                    <img
+                                      src={avatarUrl}
+                                      alt={staff.name}
+                                      className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl mx-auto mb-3 object-cover ring-2 ring-white/10"
+                                    />
+                                    <h4 className="font-heading font-bold text-sm lg:text-base text-[var(--chrome-white)] mb-1">
+                                      {staff.name}
+                                    </h4>
+                                    <p className="text-xs lg:text-sm text-[var(--muted-lead)]">{staff.title || 'Çalışan'}</p>
+                                    {selectedStaffId === staff.id && (
+                                      <div className="mt-2 flex items-center justify-center gap-1 text-emerald-400">
+                                        <CheckCircle2 size={14} className="lg:w-4 lg:h-4" />
+                                        <span className="text-xs lg:text-sm font-semibold">Seçildi</span>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           )}
 
                           {step.id === dateTimeStepId && (
@@ -660,15 +600,17 @@ export function SlotBookingWizard() {
                                 />
                               </div>
                               {selectedDate && selectedTime && (
-                                <button
+                                <WizardButton
+                                  variant="primary"
+                                  size="md"
+                                  fullWidth
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleStepComplete(dateTimeStepId); // 🔥 Tek kaynak kullan
+                                    handleStepComplete(dateTimeStepId);
                                   }}
-                                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:shadow-2xl hover:shadow-cyan-500/40 text-[var(--chrome-white)] font-heading font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                 >
                                   Devam Et
-                                </button>
+                                </WizardButton>
                               )}
                             </>
                           )}
@@ -779,43 +721,33 @@ export function SlotBookingWizard() {
                                 className="w-full px-4 py-3 rounded-2xl bg-white/[0.05] border border-white/[0.08] text-[var(--chrome-white)] text-sm placeholder:text-[var(--ash)] outline-none focus:border-purple-500/50 focus:bg-white/[0.08] transition-all resize-none"
                               />
                               {totalPrice > 0 && (
-                                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                                <div className="p-4 lg:p-5 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-sm text-[var(--muted-lead)]">Toplam Tutar</span>
-                                    <span className="font-bold text-2xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                                    <span className="text-sm lg:text-base text-[var(--muted-lead)]">Toplam Tutar</span>
+                                    <span className="font-bold text-2xl lg:text-3xl bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
                                       {totalPrice}₺
                                     </span>
                                   </div>
                                 </div>
                               )}
-                              <button
+                              <WizardButton
+                                variant="primary"
+                                size="lg"
+                                fullWidth
+                                isLoading={isSubmitting}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSubmit();
                                 }}
-                                disabled={isSubmitting}
-                                className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:shadow-2xl hover:shadow-emerald-500/40 text-[var(--chrome-white)] font-heading font-bold text-lg transition-all duration-200 disabled:opacity-50 active:scale-[0.98]"
                               >
-                                {isSubmitting ? (
-                                  <div className="flex items-center justify-center gap-2">
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Oluşturuluyor...</span>
-                                  </div>
-                                ) : (
-                                  terminology.actionVerb
-                                )}
-                              </button>
+                                {terminology.actionVerb}
+                              </WizardButton>
                             </div>
                           )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-              </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
+          </WizardStep>
+        );
+      })}
+    </WizardContainer>
   );
 }

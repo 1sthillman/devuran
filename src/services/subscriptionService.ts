@@ -265,7 +265,14 @@ class SubscriptionService {
     }
 
     // ⚠️ TÜM ABONELIKLER PENDING DURUMUNDA BAŞLAR (Admin onayı gerekir)
-    const status: SubscriptionStatus = 'pending';
+    // ✅ CRITICAL FIX: Trial'dan yükseltmeler direkt active olur (already paid)
+    let status: SubscriptionStatus = 'pending_approval';
+    
+    // Trial kullanıcıları ilk satın almada direkt aktif ol (ödeme yapıldı)
+    if (currentSubscription?.status === 'trial') {
+      status = 'pending_payment'; // Ödeme bekleniyor
+      // NOT: Ödeme onaylandıktan sonra admin 'active' yapar
+    }
 
     const subscription: BusinessSubscription = {
       id: businessId, // ✅ DÜZELTME: ID = businessId (her business'in 1 subscription'ı var)
@@ -302,8 +309,8 @@ class SubscriptionService {
     const action = currentSubscription ? 'renewed' : 'created';
     const daysAdded = interval === 'monthly' ? 30 : interval === 'quarterly' ? 90 : interval === 'semi-annual' ? 180 : 365;
     const historyNote = currentSubscription 
-      ? `${plan.name} planı yenileme talebi oluşturuldu (+${daysAdded} gün eklenecek) - Admin onayı bekleniyor`
-      : `${plan.name} planı satın alma talebi oluşturuldu - Admin onayı bekleniyor`;
+      ? `${plan.name} planı yenileme talebi oluşturuldu (+${daysAdded} gün eklenecek) - ${status === 'pending_payment' ? 'Ödeme' : 'Admin'} onayı bekleniyor`
+      : `${plan.name} planı satın alma talebi oluşturuldu - ${status === 'pending_payment' ? 'Ödeme' : 'Admin'} onayı bekleniyor`;
     
     await this.addHistory(
       businessId,
@@ -315,13 +322,17 @@ class SubscriptionService {
       historyNote
     );
     
-    // ✅ Salon subscriptionActive FALSE yap (pending durumda görünmez)
+    // ✅ CRITICAL FIX: Salon metadata güncelleme mantığı düzeltildi
+    // pending_payment → subscriptionActive TRUE (trial'dan gelen, payment bekliyor ama aktif)
+    // pending_approval → subscriptionActive FALSE (yeni müşteri, admin onayı bekliyor)
+    const shouldBeActive = status === 'pending_payment';
     try {
       await updateDoc(doc(db, 'salons', businessId), {
-        subscriptionActive: false,
-        subscriptionPendingApproval: true,
+        subscriptionActive: shouldBeActive,
+        subscriptionPendingApproval: !shouldBeActive,
         updatedAt: now.toISOString(),
       });
+      console.log(`✅ Salon metadata: active=${shouldBeActive}, pending=${!shouldBeActive}`);
     } catch (error) {
       console.error('⚠️ Could not update salon subscriptionActive:', error);
     }

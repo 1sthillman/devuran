@@ -4,15 +4,14 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// Firebase config - environment variables kullanılamaz, hardcoded olmalı
-// NOT: Bu değerleri .env dosyanızdan alın ve buraya yapıştırın
+// Firebase config - Production values
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDsX4JDds6Jj38TGO06J2DBPYr8ud2hQT8",
+  authDomain: "ruloposs.firebaseapp.com",
+  projectId: "ruloposs",
+  storageBucket: "ruloposs.firebasestorage.app",
+  messagingSenderId: "1035590394749",
+  appId: "1:1035590394749:web:5a5e603e069749eee56214"
 });
 
 const messaging = firebase.messaging();

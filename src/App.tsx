@@ -26,6 +26,7 @@ const KVKKPolicy = lazy(() => import('@/pages/KVKKPolicy').then(m => ({ default:
 const About = lazy(() => import('@/pages/About').then(m => ({ default: m.default })));
 const DistanceSalesAgreement = lazy(() => import('@/pages/DistanceSalesAgreement').then(m => ({ default: m.default })));
 const BusinessSetup = lazy(() => import('@/pages/BusinessSetup').then(m => ({ default: m.BusinessSetup })));
+const NotificationTest = lazy(() => import('@/pages/NotificationTest').then(m => ({ default: m.NotificationTest })));
 
 // Loading component
 function PageLoader() {
@@ -234,6 +235,14 @@ export default function App() {
               element={
                 <AnimatedRoute>
                   <BusinessSetup />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/notification-test"
+              element={
+                <AnimatedRoute>
+                  <NotificationTest />
                 </AnimatedRoute>
               }
             />

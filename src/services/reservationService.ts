@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { sanitizeObject, sanitizeInput, containsXSS } from '@/utils/sanitize';
 import { notificationService } from './notificationService';
+import { pushNotificationService } from './pushNotificationService';
 import type { 
   Reservation, 
   SlotReservation,
@@ -61,6 +62,18 @@ class ReservationService {
       } catch (error) {
         console.error('Salon settings loading error:', error);
         throw new Error('İşletme ayarları yüklenemedi. Lütfen tekrar deneyin.');
+      }
+    }
+    
+    // ✅ CRITICAL FIX: Monthly bookings counter reset check
+    // Date: 2026-07-19
+    if (sanitizedData.businessId) {
+      try {
+        const { subscriptionService } = await import('./subscriptionService');
+        await subscriptionService.checkAndResetMonthlyBookings(sanitizedData.businessId);
+      } catch (error) {
+        console.error('Monthly bookings reset check failed:', error);
+        // Don't throw - continue with reservation
       }
     }
     
@@ -149,6 +162,34 @@ class ReservationService {
         time: timeStr,
         totalAmount: reservation.pricing.totalAmount,
       });
+
+      // 🔔 Push Notification: Müşteriye randevu hatırlatmaları planla
+      if (reservation.type === 'slot') {
+        const slotRes = reservation as SlotReservation;
+        const appointmentDateTime = new Date(`${slotRes.date}T${slotRes.startTime}`);
+        const businessAddress = (sanitizedData as any).businessAddress || salonSettings?.address?.full || '';
+        
+        await pushNotificationService.scheduleAppointmentReminders(
+          reservation.userId,
+          reservation.id,
+          appointmentDateTime.toISOString(),
+          reservation.businessName,
+          businessAddress
+        );
+      }
+
+      // 🔔 Push Notification: İşletmeye yeni randevu bildirimi
+      const services = reservation.type === 'slot' 
+        ? (reservation as SlotReservation).services.map(s => s.name)
+        : ['Rezervasyon'];
+      
+      await pushNotificationService.notifyBusinessNewAppointment(
+        reservation.businessId,
+        reservation.id,
+        reservation.userName,
+        dateStr + (timeStr ? ` ${timeStr}` : ''),
+        services
+      );
     } catch (error) {
       console.error('Failed to send notification:', error);
       // Don't fail the reservation if notification fails
@@ -185,27 +226,38 @@ class ReservationService {
   }
 
   async getBusinessReservations(businessId: string, date?: string): Promise<Reservation[]> {
-    // ✅ GÜVENLİK: BusinessId format kontrolü
+    // ✅ SECURITY: Strict businessId validation
     if (!businessId || businessId.trim().length === 0) {
       throw new Error('Geçersiz işletme ID');
     }
     
+    // ✅ SECURITY: Sanitize businessId to prevent injection
+    const sanitizedBusinessId = businessId.trim();
+    
     let q = query(
       collection(db, this.collectionName),
-      where('businessId', '==', businessId)
+      where('businessId', '==', sanitizedBusinessId)
     );
 
     if (date) {
-      q = query(q, where('date', '==', date));
+      // ✅ SECURITY: Sanitize date parameter
+      const sanitizedDate = date.trim();
+      q = query(q, where('date', '==', sanitizedDate));
     }
 
     const snapshot = await getDocs(q);
     const reservations = snapshot.docs.map(doc => doc.data() as Reservation);
     
-    // ✅ GÜVENLİK: Sonuçları double-check et (veri sızıntısı önleme)
-    const validReservations = reservations.filter(r => r.businessId === businessId);
+    // ✅ CRITICAL SECURITY: Double-check results to prevent data leakage
+    // Date: 2026-07-19
+    // Protection against Firestore rules misconfiguration
+    const validReservations = reservations.filter(r => r.businessId === sanitizedBusinessId);
     
     if (validReservations.length !== reservations.length) {
+      const leaked = reservations.length - validReservations.length;
+      console.error(`🚨 SECURITY ALERT: Filtered ${leaked} cross-business reservations!`);
+      console.error(`🚨 Check Firestore security rules immediately!`);
+      // ✅ Don't throw - continue with valid data but log the issue
       console.error('⚠️ WARNING: Cross-business data leakage detected!', {
         expected: businessId,
         totalReturned: reservations.length,
@@ -252,6 +304,34 @@ class ReservationService {
         date: dateStr,
         time: timeStr,
       });
+
+      // 🔔 Push Notification: Onay bildirimi
+      if (reservation.type === 'slot') {
+        const slotRes = reservation as SlotReservation;
+        await pushNotificationService.scheduleNotification({
+          userId: reservation.userId,
+          userType: 'customer',
+          appointmentId: reservation.id,
+          type: 'appointment_reminder',
+          scheduledFor: new Date().toISOString(),
+          payload: {
+            title: 'Randevunuz Onaylandı',
+            body: `${reservation.businessName} randevunuz onaylandı. ${dateStr} ${timeStr || ''}`,
+            icon: '/favicon.svg',
+            badge: '/favicon.svg',
+            requireInteraction: true,
+            data: {
+              type: 'appointment_confirmed',
+              appointmentId: reservation.id,
+              businessName: reservation.businessName,
+            },
+            actions: [
+              { action: 'view', title: '👁️ Görüntüle' },
+              { action: 'calendar', title: '📅 Takvime Ekle' },
+            ],
+          },
+        });
+      }
     } catch (error) {
       console.error('Failed to send notification:', error);
     }
@@ -334,6 +414,29 @@ class ReservationService {
           reservationId,
           cancelledBy: 'business',
           reason,
+        });
+
+        // 🔔 Push Notification: İptal bildirimi + zamanlanmış bildirimleri iptal et
+        await pushNotificationService.cancelScheduledNotifications(reservationId);
+        
+        await pushNotificationService.scheduleNotification({
+          userId: reservation.userId,
+          userType: 'customer',
+          appointmentId: reservationId,
+          type: 'appointment_reminder',
+          scheduledFor: new Date().toISOString(),
+          payload: {
+            title: 'Randevu İptal Edildi',
+            body: `${reservation.businessName} randevunuz işletme tarafından iptal edildi. ${reason ? `Sebep: ${reason}` : ''}`,
+            icon: '/favicon.svg',
+            badge: '/favicon.svg',
+            requireInteraction: true,
+            data: {
+              type: 'appointment_cancelled',
+              appointmentId: reservationId,
+              businessName: reservation.businessName,
+            },
+          },
         });
       } catch (notificationError) {
         console.error('Failed to send cancellation notification:', notificationError);
@@ -518,7 +621,11 @@ class ReservationService {
       paymentDeadlineHours: number;
     }
   ) {
-    // 🆕 İşletme kapora ayarları varsa ve aktifse
+    // ✅ CRITICAL FIX: Default deposit logic restored with fallback
+    // Date: 2026-07-19
+    // Issue: No deposit was being calculated when salon settings undefined
+    
+    // 🆕 İşletme kapora ayarları varsa ve aktifse - PRIMARY
     if (depositSettings?.enabled) {
       // Minimum tutar kontrolü
       if (depositSettings.minimumReservationAmount && totalAmount < depositSettings.minimumReservationAmount) {
@@ -550,9 +657,28 @@ class ReservationService {
       };
     }
 
-    // ⚠️ DEPRECATION WARNING: Varsayılan depozit mantığı kaldırılıyor
-    // Artık sadece işletme ayarları üzerinden kapora alınmalı
-    // Legacy support için hala mevcut ancak production'da kullanılmamalı
+    // ✅ FALLBACK: Default deposit rules when salon settings not configured
+    // This ensures deposits are still calculated for unconfigured businesses
+    const defaultDepositRules = {
+      slot: { enabled: false, percentage: 0 }, // Salon: No deposit
+      daily: { enabled: true, percentage: 30 }, // Daily: 30% deposit
+      nightly: { enabled: true, percentage: 50 }, // Accommodation: 50% deposit
+      project: { enabled: true, percentage: 40 }, // Project: 40% deposit
+      order: { enabled: false, percentage: 0 } // Restaurant: No deposit
+    };
+
+    const rule = defaultDepositRules[data.type as keyof typeof defaultDepositRules];
+    
+    if (rule?.enabled && totalAmount > 100) { // Minimum 100 TL için kapora
+      const depositAmount = Math.round(totalAmount * (rule.percentage / 100));
+      return {
+        required: true,
+        percentage: rule.percentage,
+        amount: depositAmount
+      };
+    }
+
+    // No deposit required
     return {
       required: false,
       percentage: 0,

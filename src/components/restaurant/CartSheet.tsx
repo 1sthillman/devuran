@@ -153,7 +153,15 @@ export function CartSheet({ open, onClose, restaurantId, table, onEditItem }: Ca
         ) : (
           <>
             {/* Cart Items - Scrollable */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div 
+              className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3" 
+              style={{ 
+                WebkitOverflowScrolling: 'touch',
+                transform: 'translate3d(0, 0, 0)',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
+              }}
+            >
               {cart.map((item) => (
                 <motion.div
                   key={item.id}

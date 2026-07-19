@@ -1,7 +1,15 @@
 // Abonelik Paket Tipleri
 export type SubscriptionPlanType = 'starter' | 'professional' | 'business' | 'enterprise' | 'custom';
 export type SubscriptionInterval = 'monthly' | 'quarterly' | 'semi-annual' | 'annual';
-export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled' | 'suspended' | 'pending';
+export type SubscriptionStatus = 
+  | 'trial' 
+  | 'active' 
+  | 'expired' 
+  | 'cancelled' 
+  | 'suspended' 
+  | 'pending_approval'  // ✅ NEW: Yeni müşteri, admin onayı bekliyor
+  | 'pending_payment'   // ✅ NEW: Trial'dan geçiş, ödeme onayı bekliyor
+  | 'pending';          // ⚠️ DEPRECATED: backward compatibility için
 
 // Özellik Limitleri
 export interface PlanFeatures {

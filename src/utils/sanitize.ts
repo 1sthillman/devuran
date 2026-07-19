@@ -49,23 +49,33 @@ export function sanitizeInput(input: string): string {
 }
 
 /**
- * Sanitize phone number - only digits
+ * Sanitize phone number - preserves international format
+ * Supports Turkish phone numbers (starts with 0 or +90)
  */
 export function sanitizePhone(phone: string): string {
   if (!phone) return '';
   
-  // Remove all non-digit characters
-  const cleaned = phone.replace(/\D/g, '');
+  // Remove all non-digit and non-plus characters
+  let cleaned = phone.replace(/[^\d+]/g, '');
   
-  // Remove leading 0 if present
-  const normalized = cleaned.startsWith('0') ? cleaned.slice(1) : cleaned;
-  
-  // Limit to 10 digits
-  return normalized.slice(0, 10);
+  // Handle different formats
+  if (cleaned.startsWith('+90')) {
+    // International format: +905331234567 → keep as is
+    return cleaned.slice(0, 13); // +90 + 10 digits
+  } else if (cleaned.startsWith('90') && cleaned.length > 10) {
+    // 905331234567 → add +
+    return '+' + cleaned.slice(0, 12);
+  } else if (cleaned.startsWith('0')) {
+    // Turkish format: 05331234567 → keep 0
+    return cleaned.slice(0, 11); // 0 + 10 digits
+  } else {
+    // Just digits: 5331234567 → keep as is
+    return cleaned.slice(0, 10);
+  }
 }
 
 /**
- * Sanitize email address
+ * Sanitize email address - preserves + symbol for Gmail tags
  */
 export function sanitizeEmail(email: string): string {
   if (!email) return '';
@@ -73,11 +83,14 @@ export function sanitizeEmail(email: string): string {
   // Convert to lowercase
   let sanitized = email.toLowerCase().trim();
   
-  // Remove dangerous characters
-  sanitized = sanitized.replace(/[<>()[\]\\,;:\s@"]/g, (match) => {
-    if (match === '@') return '@';
-    return '';
-  });
+  // Remove dangerous characters but keep + for Gmail tags
+  sanitized = sanitized.replace(/[<>()[\]\\,;:\s"]/g, '');
+  
+  // Validate basic email format
+  const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+  if (!emailRegex.test(sanitized)) {
+    return ''; // Invalid email format
+  }
   
   // Limit length
   if (sanitized.length > 254) {
@@ -185,10 +198,29 @@ export function sanitizeJSON(input: string): any {
 }
 
 /**
- * Check if string contains potential XSS
+ * Check if string contains potential XSS - includes unicode detection
  */
 export function containsXSS(input: string): boolean {
   if (!input) return false;
+  
+  // Decode unicode escapes first
+  let decoded = input;
+  try {
+    // Decode \uXXXX patterns
+    decoded = decoded.replace(/\\u([0-9a-fA-F]{4})/g, (match, code) => 
+      String.fromCharCode(parseInt(code, 16))
+    );
+    // Decode &#xXX; patterns
+    decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (match, code) => 
+      String.fromCharCode(parseInt(code, 16))
+    );
+    // Decode &#XX; patterns
+    decoded = decoded.replace(/&#(\d+);/g, (match, code) => 
+      String.fromCharCode(parseInt(code, 10))
+    );
+  } catch (e) {
+    // If decoding fails, continue with original
+  }
   
   const xssPatterns = [
     /<script/i,
@@ -200,10 +232,12 @@ export function containsXSS(input: string): boolean {
     /eval\(/i,
     /expression\(/i,
     /vbscript:/i,
-    /data:text\/html/i
+    /data:text\/html/i,
+    /<img[^>]*src[^>]*onerror/i,
+    /<svg[^>]*onload/i
   ];
   
-  return xssPatterns.some(pattern => pattern.test(input));
+  return xssPatterns.some(pattern => pattern.test(input) || pattern.test(decoded));
 }
 
 /**

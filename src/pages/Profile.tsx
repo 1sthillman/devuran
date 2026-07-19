@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { LogOut, User, Mail, Phone, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { NotificationSetup } from '@/components/settings/NotificationSetup';
 
 export function Profile() {
   const { user, logout, isLoading: authLoading } = useAuthStore();
@@ -73,6 +74,15 @@ export function Profile() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Notification Settings */}
+        <div className="mb-6">
+          <NotificationSetup 
+            userId={user.uid} 
+            userType={user.role === 'owner' ? 'owner' : 'customer'}
+            businessId={user.salonId}
+          />
         </div>
 
         {/* Actions */}

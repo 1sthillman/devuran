@@ -2,14 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 import { ChromaticButton } from '@/components/ui/ChromaticButton';
-import { categoryGroups, type CategoryId } from '@/config/categories';
 
 interface OnboardingModalProps {
   isOpen: boolean;
   onComplete: (data: {
     phone: string;
     role: 'customer' | 'owner';
-    businessCategory?: CategoryId;
     acceptedTerms: boolean;
   }) => void;
   userName: string;
@@ -19,7 +17,6 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
   const [step, setStep] = useState(1);
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'customer' | 'owner' | null>(null);
-  const [businessCategory, setBusinessCategory] = useState<CategoryId | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   
@@ -53,14 +50,13 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
     }
   }, [isOpen, showTerms]);
 
-  const totalSteps = role === 'owner' ? 4 : 3;
+  const totalSteps = 3; // Same for both roles now
 
   const handleComplete = () => {
     if (phone && role && acceptedTerms) {
       onComplete({ 
         phone, 
-        role, 
-        businessCategory: businessCategory || undefined,
+        role,
         acceptedTerms 
       });
     }
@@ -220,96 +216,7 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                   </motion.div>
                 )}
 
-                {step === 2 && role === 'owner' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.4 }}
-                    className="space-y-6 max-w-4xl mx-auto"
-                  >
-                    <div className="text-center mb-8">
-                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 mb-4">
-                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                        <span className="text-sm font-semibold text-amber-300">İşletme Bilgileri</span>
-                      </div>
-                      <h3 className="font-heading font-bold text-2xl sm:text-3xl text-[var(--chrome-white)] mb-3">
-                        İşletme Kategorin
-                      </h3>
-                      <p className="font-body text-base sm:text-lg text-[var(--muted-lead)]">
-                        Kategorine göre özel yönetim paneli ve rezervasyon sistemi hazırlayacağız
-                      </p>
-                    </div>
-                    
-                    <div 
-                      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
-                      role="radiogroup"
-                      aria-label="İşletme kategorisi seçimi"
-                    >
-                      {categoryGroups.map((group, index) => {
-                        const Icon = group.icon;
-                        const isSelected = businessCategory && group.categories.includes(businessCategory);
-                        
-                        return (
-                          <motion.button
-                            key={group.id}
-                            ref={index === 0 ? firstFocusableRef : undefined}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: index * 0.05 }}
-                            onClick={() => setBusinessCategory(group.categories[0])}
-                            className={`relative p-5 sm:p-6 rounded-2xl border-2 transition-all text-center group hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-purple-500/50 overflow-hidden ${
-                              isSelected
-                                ? 'border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent shadow-xl shadow-purple-500/20'
-                                : 'border-white/[0.08] bg-white/[0.02] hover:border-purple-500/30'
-                            }`}
-                            role="radio"
-                            aria-checked={isSelected}
-                          >
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                            )}
-                            <div className="relative flex flex-col items-center gap-3">
-                              <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                                isSelected 
-                                  ? `bg-gradient-to-br ${group.color} shadow-lg scale-110` 
-                                  : 'bg-white/5 group-hover:bg-white/10'
-                              }`}>
-                                <Icon size={28} className={isSelected ? "text-white" : "text-[var(--muted-lead)]"} />
-                              </div>
-                              <div>
-                                <p className="font-heading font-semibold text-base text-[var(--chrome-white)]">
-                                  {group.name}
-                                </p>
-                                <p className="font-body text-xs text-[var(--muted-lead)] mt-1 line-clamp-2">
-                                  {group.description}
-                                </p>
-                              </div>
-                            </div>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-4 mt-12 max-w-2xl mx-auto">
-                      <button
-                        onClick={() => setStep(1)}
-                        className="flex-1 h-14 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50 active:scale-[0.98]"
-                      >
-                        ← Geri
-                      </button>
-                      <ChromaticButton
-                        onClick={() => setStep(3)}
-                        disabled={!businessCategory}
-                        className="flex-1 h-14 text-base font-semibold"
-                      >
-                        Devam Et →
-                      </ChromaticButton>
-                    </div>
-                  </motion.div>
-                )}
-
-                {((step === 2 && role === 'customer') || (step === 3 && role === 'owner')) && (
+                {step === 2 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -359,13 +266,13 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
 
                     <div className="flex flex-col sm:flex-row gap-4 mt-12">
                       <button
-                        onClick={() => setStep(role === 'owner' ? 2 : 1)}
+                        onClick={() => setStep(1)}
                         className="flex-1 h-14 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50 active:scale-[0.98]"
                       >
                         ← Geri
                       </button>
                       <ChromaticButton
-                        onClick={() => setStep(role === 'owner' ? 4 : 3)}
+                        onClick={() => setStep(3)}
                         disabled={!phone || phone.length < 10}
                         className="flex-1 h-14 text-base font-semibold"
                       >
@@ -375,7 +282,7 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                   </motion.div>
                 )}
 
-                {((step === 3 && role === 'customer') || (step === 4 && role === 'owner')) && (
+                {step === 3 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -429,28 +336,9 @@ export function OnboardingModal({ isOpen, onComplete, userName }: OnboardingModa
                       </label>
                     </div>
 
-                    {role === 'owner' && businessCategory && (
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="p-6 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20"
-                      >
-                        <div className="flex items-center justify-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                            <Check size={20} className="text-white" />
-                          </div>
-                          <p className="font-body text-base text-[var(--chrome-white)]">
-                            <span className="font-bold">
-                              {categoryGroups.find(g => g.categories.includes(businessCategory))?.name}
-                            </span> kategorisi için özel panel hazırlanacak
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
-
                     <div className="flex flex-col sm:flex-row gap-4 mt-12">
                       <button
-                        onClick={() => setStep(role === 'owner' ? 3 : 2)}
+                        onClick={() => setStep(2)}
                         className="flex-1 h-14 rounded-2xl border-2 border-white/[0.08] font-heading font-semibold text-base text-[var(--silver-frost)] hover:border-white/20 hover:bg-white/[0.03] transition-all focus:outline-none focus:ring-4 focus:ring-purple-500/50 active:scale-[0.98]"
                       >
                         ← Geri

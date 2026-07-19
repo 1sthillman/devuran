@@ -124,7 +124,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
     staff: salon?.staff || [],
     settings: salon?.settings || {
       advanceBookingDays: 30,
-      minOrderDays: 0, // Varsayılan olarak anında sipariş alabilir
+      minOrderDays: 0,
       autoConfirm: true,
       allowCancellation: true,
       cancellationHours: 24,
@@ -132,6 +132,7 @@ export function SalonSetupForm({ salon, onSave, onClose }: SalonSetupFormProps) 
       autoConfirmQueue: true,
     },
   });
+  const [snapshotVersion] = useState((salon as any)?.updatedAt || Date.now()); // 🔒 Optimistic lock
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);

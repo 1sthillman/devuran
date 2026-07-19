@@ -8,8 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "preview:prod": "vite preview --port 4173 --host",
     "deploy": "vercel --prod",
     "deploy:preview": "vercel",
+    "deploy:firebase": "npm run build && firebase deploy --only hosting",
     "migrate:images": "tsx src/scripts/migrateImagesToR2.ts",
     "sync:services": "tsx src/scripts/syncServicesToCollection.ts"
   },

@@ -17,9 +17,18 @@ import { determineBookingType, getBookingTypeFromCategory } from '@/utils/bookin
 // - Access-Control-Allow-Methods: POST, OPTIONS
 // - Access-Control-Allow-Headers: Content-Type, Authorization
 // 
-// Date: 2026-07-10
+// ⚠️ CRITICAL SECURITY ISSUE: Backend price validation DISABLED
+// Date: 2026-07-10 (Updated: 2026-07-19)
 // Issue: CORS - No 'Access-Control-Allow-Origin' header
-const USE_BACKEND_VALIDATION = false; // 🔴 TEMPORARILY DISABLED
+// Risk: Client-side price manipulation possible via browser console
+// Impact: Financial loss, fraudulent bookings
+// 
+// TODO - HIGH PRIORITY:
+// 1. Configure Firebase Functions CORS headers
+// 2. Test backend validation endpoint
+// 3. Set USE_BACKEND_VALIDATION = true
+// 4. Remove client-side price calculation fallback
+const USE_BACKEND_VALIDATION = false; // 🔴 TEMPORARILY DISABLED - SECURITY RISK
 
 interface BookingState {
   // Ortak alanlar
@@ -304,8 +313,10 @@ export const useBookingStore = create<BookingState>()(
       
       // Salon bilgilerini kullan (fresh data)
       const salonData = freshSalon;
+      
+      // ✅ TYPE SAFETY: Proper type casting with fallback
       const whatsappNumber = (salonData as any).whatsapp || salonData.phone || '';
-      const salonCover = (salonData as any).cover || salonData.coverImage || '';
+      const salonCover = salonData.coverImage || '';
       const salonAddress = typeof salonData.address === 'string' 
         ? salonData.address 
         : salonData.address?.full || '';

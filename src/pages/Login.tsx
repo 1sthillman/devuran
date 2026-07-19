@@ -90,15 +90,14 @@ export function Login() {
   const handleOnboardingComplete = async (data: {
     phone: string;
     role: 'customer' | 'owner';
-    businessCategory?: string;
     acceptedTerms: boolean;
   }) => {
     setLoading(true);
-    const success = await completeOnboarding(data.phone, data.role, data.businessCategory);
+    const success = await completeOnboarding(data.phone, data.role);
     if (success) {
       setShowOnboarding(false);
-      // İşletme sahibi ise ve kategori seçtiyse, doğrudan işletme oluşturma ekranına yönlendir
-      if (data.role === 'owner' && data.businessCategory) {
+      // İşletme sahibi ise BusinessSetupWizard açılacak
+      if (data.role === 'owner') {
         navigate('/owner-dashboard', { replace: true });
       } else {
         navigate(from, { replace: true });
