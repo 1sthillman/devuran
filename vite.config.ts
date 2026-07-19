@@ -9,11 +9,9 @@ export default defineConfig({
   plugins: [inspectAttr(), react()],
   server: {
     port: 3000,
-    historyApiFallback: true, // ✅ SPA routing için
   },
   preview: {
     port: 4173,
-    historyApiFallback: true, // ✅ Preview için de
   },
   resolve: {
     alias: {
