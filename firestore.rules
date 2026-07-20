@@ -3,13 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Helper function for Super Admin
-    // ✅ GÜVENLİK: Custom claims + fallback email kontrolü
-    // Date: 2026-07-03
-    // Issue: CRITICAL #10 - Email-based admin control migration
+    // ✅ GÜVENLİK: Custom claims ONLY - email listesi güvenlik riski nedeniyle kaldırıldı
+    // Date: 2026-07-20
+    // Issue: CRITICAL - Public email exposure removed
     function isSuperAdmin() {
-      return request.auth != null && 
-             (request.auth.token.admin == true ||
-              request.auth.token.email in ['adistow@gmail.com', 'admin@restoqr.com', 'minif@restoqr.com', 'minifinise@gmail.com']);
+      return request.auth != null && request.auth.token.admin == true;
     }
     
     // Helper function to check admin custom claim
@@ -106,18 +104,15 @@ service cloud.firestore {
                         (request.resource.data.userId == 'system-block' && 
                          isSalonOwner(request.resource.data.businessId)));
       
-      // Customers can update their own reservations (status, cancellation)
+      // ✅ KRİTİK: Sadece sahip veya işletme sahibi güncelleyebilir - auth kontrolü eklendi
+      // Pricing alanı update listesinden ÇIKARILDI - fiyat manipülasyonu önlendi
+      // Date: 2026-07-20
       allow update: if request.auth != null && 
                        (resource.data.userId == request.auth.uid || 
-                        isSalonOwner(resource.data.businessId));
-      
-      // Salon owners can update reservations for their business (deposit confirmation, status, date/time changes)
-      allow update: if request.auth != null && isSalonOwner(resource.data.businessId);
-      
-      // Allow status, payment updates, and date/time changes
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                        isSalonOwner(resource.data.businessId)) &&
+                       request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason', 
-                                'pricing', 'updatedAt', 'date', 'startTime', 'endTime', 
+                                'updatedAt', 'date', 'startTime', 'endTime', 
                                 'eventDate', 'checkIn', 'deliveryDate', 'deliveryTime']);
       
       // ✅ OPERASYON: İşletme sahibi kendi işletmesinin rezervasyonlarını silebilir (iptal edebilir)
@@ -125,6 +120,22 @@ service cloud.firestore {
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();
+    }
+    
+    // --- RESERVATION LOCKS COLLECTION (Double-booking prevention) ---
+    // ✅ KRİTİK: Slot bazlı kilit mekanizması - çifte rezervasyon önleme
+    // Date: 2026-07-20
+    match /reservationLocks/{lockId} {
+      // Kilit belgelerini sadece sistem okuyabilir
+      allow read: if request.auth != null;
+      
+      // Sadece authenticated kullanıcılar kilit oluşturabilir (transaction içinde)
+      // Aynı lockId'ye ikinci create Firestore tarafından otomatik reddedilir
+      allow create: if request.auth != null && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Kilitleri sadece sistem (Cloud Functions) veya admin güncelleyebilir/silebilir
+      allow update, delete: if isSuperAdmin();
     }
     
     // --- APPOINTMENTS COLLECTION (same as reservations) ---
@@ -135,16 +146,11 @@ service cloud.firestore {
       // Anyone can create appointments (anonymous bookings)
       allow create: if true;
       
-      // Customers can update their own appointments
+      // ✅ KRİTİK: Sadece sahip veya işletme sahibi güncelleyebilir - çakışan kurallar birleştirildi
+      // Date: 2026-07-20
       allow update: if request.auth != null && 
                        (resource.data.userId == request.auth.uid || 
-                        isSalonOwner(resource.data.salonId));
-      
-      // Salon owners can update appointments for their business
-      allow update: if request.auth != null && isSalonOwner(resource.data.salonId);
-      
-      // Allow status updates, cancellations, and review flags
-      allow update: if request.auth != null &&
+                        isSalonOwner(resource.data.salonId)) &&
                        request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancellationReason', 
                                 'hasReview', 'reviewId', 'updatedAt']);
@@ -181,8 +187,15 @@ service cloud.firestore {
       // Public read access
       allow read: if true;
       
-      // Customers can create reviews
-      allow create: if true;
+      // ✅ KRİTİK: Rezervasyon doğrulaması eklendi - sahte yorum önlendi
+      // Date: 2026-07-20
+      // Kural: Sadece tamamlanmış rezervasyona sahip kullanıcı yorum yapabilir
+      allow create: if request.auth != null &&
+                       request.resource.data.userId == request.auth.uid &&
+                       exists(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)) &&
+                       get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+                       get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.status == 'completed' &&
+                       !get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.hasReview;
       
       // Users can update/delete their own reviews
       allow update, delete: if request.auth != null && 
@@ -301,8 +314,13 @@ service cloud.firestore {
     
     // --- ANALYTICS COLLECTION ---
     match /analytics/{document=**} {
-      // Salon owners can read their own analytics
-      allow read: if request.auth != null;
+      // ✅ KRİTİK: Sadece kendi salon sahibi kendi analitiklerini görebilir - competitor data leak önlendi
+      // Date: 2026-07-20
+      allow read: if request.auth != null && 
+                     (isSuperAdmin() ||
+                      (resource != null && 
+                       exists(/databases/$(database)/documents/salons/$(resource.data.salonId)) &&
+                       get(/databases/$(database)/documents/salons/$(resource.data.salonId)).data.ownerId == request.auth.uid));
       
       // Only salon owners can write analytics for their salon
       allow write: if request.auth != null && 
@@ -315,8 +333,15 @@ service cloud.firestore {
     
     // --- CUSTOMERS COLLECTION ---
     match /customers/{customerId} {
-      // Anyone authenticated can read customers (they're computed from appointments)
-      allow read: if request.auth != null;
+      // ✅ KRİTİK: Sadece kendi salon sahibi müşteri listesini görebilir - competitor data leak önlendi
+      // Date: 2026-07-20
+      allow read: if request.auth != null && 
+                     (isSuperAdmin() ||
+                      (resource.data.salonId is string &&
+                       ((exists(/databases/$(database)/documents/salons/$(resource.data.salonId)) &&
+                         get(/databases/$(database)/documents/salons/$(resource.data.salonId)).data.ownerId == request.auth.uid) ||
+                        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.salonId == resource.data.salonId))));
       
       // Salon owners can write customer data (notes, tags, ratings, ban status)
       // Document ID format: {salonId}_{userId}
@@ -391,29 +416,35 @@ service cloud.firestore {
     }
     
     // --- SUBSCRIPTIONS COLLECTION ---
-    // ✅ TEMPLİK AÇIK - TEST İÇİN
+    // ✅ GÜVENLİK: Sadece sahip ve admin erişebilir - payment manipulation önlendi
+    // Date: 2026-07-20
     match /subscriptions/{subscriptionId} {
-      // Herkes okuyabilir (test için)
-      allow read: if request.auth != null;
+      // Sadece kendi aboneliğini veya salon sahibi olarak erişebilir
+      allow read: if request.auth != null &&
+                     (subscriptionId == request.auth.uid ||
+                      (exists(/databases/$(database)/documents/salons/$(subscriptionId)) &&
+                       get(/databases/$(database)/documents/salons/$(subscriptionId)).data.ownerId == request.auth.uid) ||
+                      isSuperAdmin());
       
-      // Herkes oluşturabilir (test için)
-      allow create: if request.auth != null;
+      // Sadece admin oluşturabilir (backend webhook üzerinden)
+      allow create: if isSuperAdmin();
       
-      // Herkes güncelleyebilir (test için)
-      allow update: if request.auth != null;
+      // Sadece admin güncelleyebilir (payment webhook üzerinden)
+      allow update: if isSuperAdmin();
       
       // Admin silebilir
       allow delete: if isSuperAdmin();
     }
     
     // --- SUBSCRIPTION HISTORY COLLECTION ---
-    // ✅ TEMPLİK AÇIK - TEST İÇİN
+    // ✅ GÜVENLİK: Sadece admin erişebilir
+    // Date: 2026-07-20
     match /subscriptionHistory/{historyId} {
-      // Herkes okuyabilir
-      allow read: if request.auth != null;
+      // Sadece admin okuyabilir
+      allow read: if isSuperAdmin();
       
-      // Herkes oluşturabilir
-      allow create: if request.auth != null;
+      // Sadece admin oluşturabilir
+      allow create: if isSuperAdmin();
       
       // Admin silebilir/güncelleyebilir
       allow update, delete: if isSuperAdmin();
@@ -622,8 +653,10 @@ service cloud.firestore {
     
     // Siparişler
     match /orders/{orderId} {
-      // Müşteriler kendi siparişlerini görebilir
-      allow read: if true;
+      // ✅ KRİTİK: Sadece restoran sahibi kendi siparişlerini görebilir - data leak önlendi
+      // Date: 2026-07-20
+      allow read: if request.auth != null && 
+                     (isSalonOwner(resource.data.restaurantId) || isSuperAdmin());
       
       // Müşteriler sipariş oluşturabilir
       allow create: if true;
@@ -643,9 +676,10 @@ service cloud.firestore {
       // Müşteriler bildirim oluşturabilir (garson çağır, hesap iste vb.)
       allow create: if true;
       
-      // Herkes güncelleyebilir ve silebilir (authenticated olmayan garsonlar için)
-      // TODO: Production'da authentication eklenince kısıtla
-      allow update, delete: if true;
+      // ✅ KRİTİK: Sadece restoran sahibi/personeli güncelleyebilir - anonymous sabotage önlendi
+      // Date: 2026-07-20
+      allow update, delete: if request.auth != null && 
+                               (isSalonOwner(resource.data.restaurantId) || isSuperAdmin());
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();
@@ -672,6 +706,20 @@ service cloud.firestore {
       // Restoran sahibi personeli yönetebilir
       allow write: if request.auth != null && 
                       (resource == null || isSalonOwner(resource.data.restaurantId));
+      
+      // Super admins can do anything
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // --- RATE LIMITS COLLECTION ---
+    // ✅ KRİTİK: Cloud Functions rate limiting için
+    // Date: 2026-07-20
+    match /rateLimits/{userId} {
+      // Kullanıcılar kendi rate limit durumlarını görebilir
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Sadece Cloud Functions yazabilir (admin SDK)
+      allow write: if false;
       
       // Super admins can do anything
       allow read, write: if isSuperAdmin();

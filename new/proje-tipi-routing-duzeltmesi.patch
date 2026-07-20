@@ -1,0 +1,113 @@
+diff --git a/src/types/businessCapabilities.ts b/src/types/businessCapabilities.ts
+index f8566df..2282490 100644
+--- a/src/types/businessCapabilities.ts
++++ b/src/types/businessCapabilities.ts
+@@ -47,6 +47,7 @@ export type BookingModel =
+   | 'order'          // Sipariş: ürün/yemek/hediye siparişi (çiçekçi, pastane, e-ticaret)
+   | 'walk-in-queue'  // Sırayla: kuyruk / bekleme listesi (kuyumcu, banka, servis)
+   | 'rental'         // Kiralama: tarih aralığı bazlı ekipman/araç/kıyafet kiralama
++  | 'project'        // Proje/danışmanlık: sabit fiziksel kapasite yok, bütçe+teklif bazlı (düğün/etkinlik organizasyonu, kurumsal danışmanlık)
+   | 'none';          // Booking yok: sadece tanıtım / vitrin amaçlı
+ 
+ /** Kapasitenin ölçü birimi — dashboard'daki listeleme mantığını belirler */
+@@ -143,6 +144,7 @@ const BOOKING_MODEL_PRIORITY: BookingModel[] = [
+   'appointment',
+   'reservation',
+   'rental',
++  'project',
+   'order',
+   'walk-in-queue',
+   'none',
+@@ -174,6 +176,13 @@ export function deriveTerminology(cap: BusinessCapabilities): BusinessTerminolog
+       capacityUnitLabel: cap.tableTerminology || 'Araç',
+       serviceUnitLabel: 'Paket',
+     },
++    project: {
++      bookingUnit: 'Talep',
++      bookingUnitPlural: 'Talepler',
++      actionVerb: 'Teklif Al',
++      capacityUnitLabel: 'Kapasite',
++      serviceUnitLabel: 'Paket',
++    },
+     order: {
+       bookingUnit: 'Sipariş',
+       bookingUnitPlural: 'Siparişler',
+@@ -371,16 +380,44 @@ export const CATEGORY_PRESETS: CategoryPreset[] = [
+     },
+   },
+   {
++    // Fiziksel bir salon/alanı GÜNLÜK kiraya veren işletme (düğün salonu, davet
++    // bahçesi vb.). Tarih aralığı check-in/check-out DEĞİL, TEK GÜNLÜK
++    // kiralamadır — bu yüzden 'rental' kullanır (→ DailyRentalWizard).
++    // Önceden 'reservation' + isDateRangeBased:true idi; bu determineBookingType()
++    // içinde 'nightly'e (otel tipi konaklama sihirbazı) düşüyor ve check-in/
++    // check-out + oda tipi + mealPlan gibi düğün salonuyla alakasız alanlar
++    // gösteriyordu. Bkz. WIZARD_ENGINEERING_AUDIT.md.
+     id: 'etkinlik-mekan',
+-    name: 'Etkinlik Mekanı / Organizasyon',
++    name: 'Etkinlik Mekanı (Düğün Salonu / Davet Alanı)',
+     icon: PartyPopper,
+     capabilities: {
+       ...base,
+-      bookingModels: ['reservation'],
++      bookingModels: ['rental'],
+       hasStaff: false,
+       hasTables: true,
+       tableTerminology: 'Salon',
+-      isDateRangeBased: true,
++      capacityUnit: 'unit',
++      isDateRangeBased: false,
++      requiresDeposit: true,
++    },
++  },
++  {
++    // Kendi mekanı OLMAYAN, müşterinin etkinliğini uçtan uca planlayan/yöneten
++    // organizasyon şirketi (düğün planlayıcı, kurumsal etkinlik ajansı vb.).
++    // Sabit fiziksel kapasitesi yoktur; bütçe aralığı + teklif akışı gerekir
++    // → 'project' modeli, ProjectBookingWizard'a yönlendirir.
++    id: 'dugun-etkinlik-organizasyonu',
++    name: 'Düğün / Etkinlik Organizasyon Şirketi',
++    icon: Sparkles,
++    capabilities: {
++      ...base,
++      bookingModels: ['project'],
++      hasStaff: false,
++      hasTables: false,
++      isMobileService: true,
++      capacityUnit: 'unlimited',
++      isDurationBased: false,
++      isDateRangeBased: false,
+       requiresDeposit: true,
+     },
+   },
+diff --git a/src/utils/bookingTypeResolver.ts b/src/utils/bookingTypeResolver.ts
+index e1dbfac..586a48b 100644
+--- a/src/utils/bookingTypeResolver.ts
++++ b/src/utils/bookingTypeResolver.ts
+@@ -60,6 +60,10 @@ export function determineBookingType(capabilities?: BusinessCapabilities): Booki
+     supportedTypes.push('daily');
+   }
+ 
++  if (models.includes('project')) {
++    supportedTypes.push('project');
++  }
++
+   // Multi-model kontrolü
+   const isMultiModel = supportedTypes.length > 1;
+   
+@@ -196,6 +200,15 @@ export function getBookingTerminology(capabilities?: BusinessCapabilities) {
+     };
+   }
+ 
++  if (models.includes('project')) {
++    return {
++      singular: 'Talep',
++      plural: 'Talepler',
++      action: 'Teklif Al',
++      unit: 'proje',
++    };
++  }
++
+   // Default: appointment
+   return {
+     singular: 'Randevu',

@@ -2,6 +2,34 @@
 
 Modern, profesyonel ve kapsamlı rezervasyon yönetim platformu.
 
+## 🔒 GÜVENLİK DÜZELTMELERİ (20 Temmuz 2026)
+
+**KRİTİK GÜVENLIK AÇIKLARI KAPATILDI** - Detaylar için `KRITIK_GUVENLIK_DUZELTMELERI.md` dosyasına bakın.
+
+### Yapılan Düzeltmeler
+- ✅ Firestore Rules: Auth kontrolsüz rezervasyon güncelleme kapatıldı
+- ✅ Fiyat Doğrulama: Backend validation aktif (price manipulation önlendi)
+- ✅ Çifte Rezervasyon: Atomic slot lock mekanizması eklendi
+- ✅ Veri Sızıntısı: Rakip müşteri/analytics verilerine erişim kapatıldı
+- ✅ Abonelik Bypass: Sadece admin (webhook) subscription değiştirebilir
+- ✅ Admin Güvenlik: Public email exposure kaldırıldı
+
+### ⚠️ ACİL: Deploy Gerekli
+```bash
+# 1. Firestore Rules Deploy (EN ÖNEMLİ)
+firebase deploy --only firestore:rules
+
+# 2. Hosting Deploy
+npm run build
+vercel --prod
+```
+
+### 🔐 ACİL: 2FA Aktif Edin
+Admin hesapları için Firebase Console'dan 2FA açın:
+- adistow@gmail.com
+- admin@restoqr.com
+- minif@restoqr.com
+
 ## Özellikler
 
 ### Kategoriler
@@ -65,6 +93,14 @@ Modern, profesyonel ve kapsamlı rezervasyon yönetim platformu.
 ```bash
 npm install
 npm run dev
+```
+
+### Firebase Functions (Backend Validation için)
+```bash
+cd functions
+npm install
+npm run build
+firebase deploy --only functions
 ```
 
 ## Deployment

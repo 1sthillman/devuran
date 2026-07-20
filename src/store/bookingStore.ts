@@ -7,28 +7,15 @@ import { rateLimiter } from '@/utils/rateLimiter';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '@/utils/sanitize';
 import { determineBookingType, getBookingTypeFromCategory } from '@/utils/bookingTypeResolver';
 
-// ⚠️ GÜVENLİK: Backend validation TEMPORARILY DISABLED
+// ✅ KRİTİK GÜVENLİK: Backend validation ACTIVE
+// Date: 2026-07-20
+// Issue: CRITICAL - Price manipulation prevention
 // 
-// CORS hatası nedeniyle geçici olarak kapatıldı.
-// Cloud Function'a CORS header'ları eklendikten sonra tekrar aktif edilecek.
+// Backend validation aktif - tüm fiyat hesaplamaları Cloud Functions'ta doğrulanıyor
+// Client-side hesaplamalar sadece UI preview için kullanılıyor
 // 
-// TODO: Cloud Function'da CORS ayarları:
-// - Access-Control-Allow-Origin: production domain
-// - Access-Control-Allow-Methods: POST, OPTIONS
-// - Access-Control-Allow-Headers: Content-Type, Authorization
-// 
-// ⚠️ CRITICAL SECURITY ISSUE: Backend price validation DISABLED
-// Date: 2026-07-10 (Updated: 2026-07-19)
-// Issue: CORS - No 'Access-Control-Allow-Origin' header
-// Risk: Client-side price manipulation possible via browser console
-// Impact: Financial loss, fraudulent bookings
-// 
-// TODO - HIGH PRIORITY:
-// 1. Configure Firebase Functions CORS headers
-// 2. Test backend validation endpoint
-// 3. Set USE_BACKEND_VALIDATION = true
-// 4. Remove client-side price calculation fallback
-const USE_BACKEND_VALIDATION = false; // 🔴 TEMPORARILY DISABLED - SECURITY RISK
+// ⚠️ UYARI: Bu bayrak FALSE yapılırsa ciddi güvenlik riski oluşur!
+const USE_BACKEND_VALIDATION = true; // ✅ ENABLED - SECURITY ENFORCED
 
 interface BookingState {
   // Ortak alanlar

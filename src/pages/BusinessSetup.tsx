@@ -4,7 +4,6 @@
 
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { BusinessSetupWizard } from '@/components/business/BusinessSetupWizard';
 import { useEffect, useState } from 'react';
 import { salonsService } from '@/services/firebaseService';
 import { Loader2, AlertCircle, Settings } from 'lucide-react';
@@ -99,6 +98,21 @@ export function BusinessSetup() {
     );
   }
 
-  // Create new business
-  return <BusinessSetupWizard />;
+  // ✅ KRİTİK FIX: Dashboard wizard'ını kullan (salonId user profile'a yazılıyor)
+  // Date: 2026-07-20
+  // Issue: Bu component BusinessSetupWizard'ı import etmemeli
+  // Dashboard'daki BusinessSetupWizard zaten doğru akışa sahip
+  if (user) {
+    window.location.href = `/dashboard?show_setup=true&user_category=${user.businessCategory || ''}`;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[var(--primary)] via-[var(--accent)] to-[var(--primary)]">
+        <div className="text-center">
+          <Loader2 size={48} className="mx-auto text-purple-400 animate-spin mb-4" />
+          <p className="text-white/80">Yönlendiriliyor...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return <Navigate to="/login" replace />;
 }

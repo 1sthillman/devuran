@@ -38,6 +38,9 @@ import {
   GraduationCap,
   Dog,
   HelpCircle,
+  Heart, // ✅ Evlilik teklifi için
+  Cake, // ✅ Doğum günü için
+  Briefcase, // ✅ Kurumsal etkinlik için
 } from 'lucide-react';
 
 /** İşletmenin müşteriyle çalışma biçimi. Birden fazlası aynı anda geçerli olabilir */
@@ -47,6 +50,7 @@ export type BookingModel =
   | 'order'          // Sipariş: ürün/yemek/hediye siparişi (çiçekçi, pastane, e-ticaret)
   | 'walk-in-queue'  // Sırayla: kuyruk / bekleme listesi (kuyumcu, banka, servis)
   | 'rental'         // Kiralama: tarih aralığı bazlı ekipman/araç/kıyafet kiralama
+  | 'consultation'   // ✅ Danışmanlık/Proje: Etkinlik organizasyonu, proje bazlı (düğün, kurumsal)
   | 'none';          // Booking yok: sadece tanıtım / vitrin amaçlı
 
 /** Kapasitenin ölçü birimi — dashboard'daki listeleme mantığını belirler */
@@ -104,6 +108,9 @@ export interface BusinessCapabilities {
 
   /** Yeni randevu/rezervasyon/sipariş varsayılan olarak otomatik onaylansın mı */
   autoConfirmDefault: boolean;
+  
+  /** Danışma/proje bazlı işler için ön görüşme gerekiyor mu (etkinlik, düğün org) */
+  requiresConsultation?: boolean;
 }
 
 export const DEFAULT_CAPABILITIES: BusinessCapabilities = {
@@ -140,6 +147,7 @@ export interface BusinessTerminology {
 }
 
 const BOOKING_MODEL_PRIORITY: BookingModel[] = [
+  'consultation',
   'appointment',
   'reservation',
   'rental',
@@ -180,6 +188,13 @@ export function deriveTerminology(cap: BusinessCapabilities): BusinessTerminolog
       actionVerb: 'Sipariş Ver',
       capacityUnitLabel: 'Stok',
       serviceUnitLabel: 'Ürün',
+    },
+    consultation: {
+      bookingUnit: 'Proje',
+      bookingUnitPlural: 'Projeler',
+      actionVerb: 'Teklif Al',
+      capacityUnitLabel: 'Danışman',
+      serviceUnitLabel: 'Paket',
     },
     'walk-in-queue': {
       bookingUnit: 'Sıra',
@@ -382,6 +397,75 @@ export const CATEGORY_PRESETS: CategoryPreset[] = [
       tableTerminology: 'Salon',
       isDateRangeBased: true,
       requiresDeposit: true,
+    },
+  },
+  // ✅ KRİTİK: Düğün/Etkinlik organizasyon presets eksikti
+  // Date: 2026-07-20
+  // Issue: Bu kategoriler yanlış wizard'a yönlendiriliyordu
+  {
+    id: 'dugun-organizasyon',
+    name: 'Düğün Organizasyonu',
+    icon: PartyPopper,
+    capabilities: {
+      ...base,
+      bookingModels: ['consultation'], // Proje bazlı
+      hasStaff: true,
+      isDurationBased: false,
+      isDateRangeBased: false,
+      requiresDeposit: true,
+      requiresConsultation: true,
+    },
+  },
+  {
+    id: 'nisan-organizasyon',
+    name: 'Nişan Organizasyonu',
+    icon: PartyPopper,
+    capabilities: {
+      ...base,
+      bookingModels: ['consultation'],
+      hasStaff: true,
+      isDurationBased: false,
+      requiresDeposit: true,
+      requiresConsultation: true,
+    },
+  },
+  {
+    id: 'evlilik-teklifi',
+    name: 'Evlilik Teklifi Organizasyonu',
+    icon: Heart,
+    capabilities: {
+      ...base,
+      bookingModels: ['consultation'],
+      hasStaff: true,
+      isDurationBased: false,
+      requiresDeposit: true,
+      requiresConsultation: true,
+    },
+  },
+  {
+    id: 'dogum-gunu',
+    name: 'Doğum Günü Organizasyonu',
+    icon: Cake,
+    capabilities: {
+      ...base,
+      bookingModels: ['consultation'],
+      hasStaff: true,
+      isDurationBased: false,
+      requiresDeposit: true,
+      requiresConsultation: true,
+    },
+  },
+  {
+    id: 'kurumsal-etkinlik',
+    name: 'Kurumsal Etkinlik Organizasyonu',
+    icon: Briefcase,
+    capabilities: {
+      ...base,
+      bookingModels: ['consultation'],
+      hasStaff: true,
+      isDurationBased: false,
+      requiresDeposit: true,
+      requiresConsultation: true,
     },
   },
   {

@@ -13,6 +13,7 @@
     "deploy:preview": "vercel",
     "deploy:firebase": "npm run build && firebase deploy --only hosting",
     "migrate:images": "tsx src/scripts/migrateImagesToR2.ts",
+    "migrate:appointments": "tsx src/scripts/migrateAppointmentsToReservations.ts",
     "sync:services": "tsx src/scripts/syncServicesToCollection.ts"
   },
   "dependencies": {

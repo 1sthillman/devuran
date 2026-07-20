@@ -18,19 +18,71 @@ const db = admin.firestore();
  * 
  * ✅ GÜVENLİK:
  * - Auth kontrolü
+ * - App Check kontrolü (bot koruması)
+ * - Rate limiting (spam koruması)
  * - Fiyat backend'de hesaplanır
  * - Client-side fiyat manipülasyonu engellenir
+ * 
+ * @updated 2026-07-20
  */
 export const createReservationWithValidation = functions
   .region('europe-west1')
-  .runWith({ memory: '512MB', timeoutSeconds: 60 })
+  .runWith({ 
+    memory: '512MB', 
+    timeoutSeconds: 60,
+    // ✅ KRİTİK: App Check zorunlu kıl (bot koruması)
+    enforceAppCheck: true,
+  })
   .https.onCall(async (data: any, context) => {
     // ✅ 1. AUTH KONTROLÜ
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kullanıcı girişi gerekli');
     }
 
-    // ✅ 2. USER ID DOĞRULAMA
+    // ✅ 2. APP CHECK KONTROLÜ (zaten enforceAppCheck ile zorunlu ama log için)
+    if (!context.app) {
+      console.error('🔴 App Check verification failed for user:', context.auth.uid);
+      throw new functions.https.HttpsError('failed-precondition', 'App Check verification failed');
+    }
+
+    // ✅ 3. RATE LIMITING (Firestore tabanlı basit rate limiter)
+    const userId = context.auth.uid;
+    const rateLimitRef = db.collection('rateLimits').doc(userId);
+    const rateLimitDoc = await rateLimitRef.get();
+    
+    if (rateLimitDoc.exists) {
+      const data = rateLimitDoc.data();
+      const lastRequest = data?.lastReservationRequest || 0;
+      const requestCount = data?.reservationCount || 0;
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000;
+      
+      // 1 saat içinde 10'dan fazla rezervasyon denemesi
+      if (now - lastRequest < oneHour && requestCount >= 10) {
+        console.warn('🚫 Rate limit exceeded:', { userId, count: requestCount });
+        throw new functions.https.HttpsError(
+          'resource-exhausted',
+          'Çok fazla rezervasyon denemesi. Lütfen 1 saat sonra tekrar deneyin.'
+        );
+      }
+      
+      // Sayacı güncelle
+      await rateLimitRef.set({
+        lastReservationRequest: now,
+        reservationCount: (now - lastRequest < oneHour) ? requestCount + 1 : 1,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // İlk istek
+      await rateLimitRef.set({
+        lastReservationRequest: Date.now(),
+        reservationCount: 1,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // ✅ 4. USER ID DOĞRULAMA
     if (data.userId !== context.auth.uid) {
       throw new functions.https.HttpsError('permission-denied', 'Yetkiniz yok');
     }
@@ -38,7 +90,7 @@ export const createReservationWithValidation = functions
     try {
       let validatedPrice = 0;
       
-      // ✅ 3. FİYAT DOĞRULAMA - TİP BAZLI
+      // ✅ 5. FİYAT DOĞRULAMA - TİP BAZLI
       switch (data.type) {
         case 'slot': {
           // Servis ID'lerinden fiyatları çek

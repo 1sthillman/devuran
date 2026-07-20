@@ -47,7 +47,10 @@ import { SystemSettings } from '@/components/admin/SystemSettings';
 import { SecurityLogs } from '@/components/admin/SecurityLogs';
 import { AdminPermissions } from '@/components/admin/AdminPermissions';
 
-const SUPER_ADMIN_EMAIL = 'minifinise@gmail.com';
+// ✅ KRİTİK GÜVENLİK: Hardcoded email kaldırıldı
+// Date: 2026-07-20
+// Issue: Admin email public bundle'da expose ediliyordu
+// Çözüm: Custom claims kullanılıyor
 
 type AdminTab = 
   | 'dashboard'
@@ -99,8 +102,9 @@ export function SuperAdminDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pendingSubscriptionsCount, setPendingSubscriptionsCount] = useState(0);
 
-  // Sadece minifinise@gmail.com erişebilir
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
+  // ✅ KRİTİK: Custom claims ile admin kontrolü (email yerine)
+  // Date: 2026-07-20
+  const isSuperAdmin = (user as any)?.customClaims?.admin === true;
 
   // Pending subscriptions sayısını yükle
   useEffect(() => {

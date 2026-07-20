@@ -165,7 +165,14 @@ export function BusinessSetupWizard() {
       const salonData = buildSalon(user.uid, user.uid);
       
       // Firebase'e kaydet
-      const salonId = await salonsService.create(salonData);
+      const result = await salonsService.create(salonData);
+      const salonId = result.id;
+
+      // ✅ KRİTİK FIX: salonId'yi user profile'a yaz
+      // Date: 2026-07-20
+      // Issue: analiz4.md BULGU #1 - User profile'da salonId eksikti, dashboard "işletme yok" gösteriyordu
+      const { authService } = await import('@/services/authService');
+      await authService.updateUserProfile(user.uid, { salonId });
 
       // Session storage'ı temizle
       sessionStorage.removeItem('businessSetup');

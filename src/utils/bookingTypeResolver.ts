@@ -59,6 +59,13 @@ export function determineBookingType(capabilities?: BusinessCapabilities): Booki
   if (models.includes('rental')) {
     supportedTypes.push('daily');
   }
+  
+  // ✅ KRİTİK: Consultation (proje/etkinlik) model eksikti
+  // Date: 2026-07-20
+  // Issue: Düğün/etkinlik organizasyonları yanlış wizard'a yönlendiriliyor
+  if (models.includes('consultation')) {
+    supportedTypes.push('project');
+  }
 
   // Multi-model kontrolü
   const isMultiModel = supportedTypes.length > 1;

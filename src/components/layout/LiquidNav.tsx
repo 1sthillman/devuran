@@ -32,7 +32,8 @@ export function LiquidNav() {
   const isOwner = user?.role === 'owner' || user?.role === 'admin';
   const hasSalon = !!user?.salonId; // Check if user has a salon
   const canAccessDashboard = isOwner; // İşletme sahibiyse panele erişsin (salon olsun veya olmasın)
-  const isSuperAdmin = user?.email === 'minifinise@gmail.com';
+  // ✅ KRİTİK: Custom claims kullan (hardcoded email kaldırıldı)
+  const isSuperAdmin = (user as any)?.customClaims?.admin === true;
   const isOnDashboard = location.pathname === '/dashboard';
 
   const allLinks = canAccessDashboard

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Globe, Bell, Shield, Database, Zap, Save, ToggleLeft, ToggleRight } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuthStore } from '@/store/authStore';
 
 interface SystemConfig {
   maintenance: {
@@ -41,7 +42,7 @@ export function SystemSettings() {
     maintenance: {
       enabled: false,
       message: 'Sistem bakımda. Lütfen daha sonra tekrar deneyin.',
-      allowedEmails: ['minifinise@gmail.com'],
+      allowedEmails: [], // ✅ Admin emails kaldırıldı - custom claims kullan
     },
     features: {
       userRegistration: true,
@@ -93,10 +94,11 @@ export function SystemSettings() {
   const handleSave = async () => {
     try {
       setSaving(true);
+      const { user } = useAuthStore.getState();
       await setDoc(doc(db, 'systemConfig', 'main'), {
         ...config,
         updatedAt: new Date().toISOString(),
-        updatedBy: 'minifinise@gmail.com',
+        updatedBy: user?.uid || 'system', // ✅ UID kullan (email yerine)
       });
     } catch (error) {
       console.error('Save config error:', error);

@@ -19,5 +19,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // 🔇 Production'da console.log kullanmayı engelle
+      // Development'ta warning, production build'de hata
+      'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
+      
+      // TypeScript any kullanımını azaltmak için warning
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
   },
 ])

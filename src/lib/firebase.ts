@@ -26,18 +26,28 @@ if (missingFields.length > 0) {
 const app = initializeApp(firebaseConfig);
 
 // SECURITY: Initialize Firebase App Check for bot protection
-// This prevents unauthorized access from bots and automated scripts
-if (import.meta.env.PROD && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+// ✅ KRİTİK: App Check her zaman aktif (production requirement)
+// Date: 2026-07-20
+// Issue: Bot koruması ve rate limiting enforcement
+let appCheck;
+if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
   try {
-    const appCheck = initializeAppCheck(app, {
+    appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
       isTokenAutoRefreshEnabled: true
     });
+    console.log('✅ App Check initialized');
   } catch (error) {
-    // App Check initialization failed - log only in development
-    if (import.meta.env.DEV) {
-      console.warn('App Check initialization failed:', error);
+    console.error('❌ App Check initialization failed:', error);
+    // Production'da hata fırlat - App Check olmadan devam etme
+    if (import.meta.env.PROD) {
+      throw new Error('App Check is required in production but initialization failed');
     }
+  }
+} else {
+  console.warn('⚠️ App Check disabled - VITE_RECAPTCHA_SITE_KEY not configured');
+  if (import.meta.env.PROD) {
+    console.error('🔴 CRITICAL: App Check must be enabled in production!');
   }
 }
 

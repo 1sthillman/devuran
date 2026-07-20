@@ -5,6 +5,7 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  sendEmailVerification,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
@@ -44,6 +45,17 @@ export const authService = {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
+      // ✅ KRİTİK: Email doğrulama gönder
+      // Date: 2026-07-20
+      // Issue: Sahte hesap önleme ve email doğrulama
+      try {
+        await sendEmailVerification(user);
+        console.log('✅ Email verification sent to:', user.email);
+      } catch (verifyError) {
+        console.error('❌ Email verification error:', verifyError);
+        // Email gönderiminde hata olsa bile kayıt devam etsin
+      }
 
       // Update profile
       await updateProfile(user, { displayName });

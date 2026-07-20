@@ -10,9 +10,9 @@ import { useAuthStore } from '@/store/authStore';
 import { getStaffAvatarUrl } from '@/utils/avatarHelpers';
 import { cn, formatDateToString } from '@/lib/utils';
 import { isSalonTableBased, getSalonTerminology, getServiceStepTitle } from '@/utils/businessHelpers';
-import { WizardContainer } from '@/components/wizard/WizardContainer';
-import { WizardStep } from '@/components/wizard/WizardStep';
-import { WizardButton } from '@/components/wizard/WizardButton';
+import { WizardContainer } from '@/components/booking/shared/WizardContainer';
+import { WizardStep } from '@/components/booking/shared/WizardStep';
+import { WizardButton } from '@/components/booking/shared/WizardButton';
 
 export function SlotBookingWizard() {
   const navigate = useNavigate();
@@ -330,12 +330,12 @@ export function SlotBookingWizard() {
     }
   ];
 
+  const TOTAL_STEPS = steps.length;
+
   return (
     <WizardContainer
-      title={salon.name}
-      subtitle={terminology.actionVerb}
-      badge={terminology.bookingUnit}
-      maxWidth="lg"
+      currentStep={activeStep - 1}
+      totalSteps={TOTAL_STEPS}
     >
       {steps.map((step) => {
         const Icon = step.icon;
@@ -354,20 +354,8 @@ export function SlotBookingWizard() {
         }
 
         return (
-          <WizardStep
-            key={step.id}
-            id={step.id}
-            title={step.title}
-            subtitle={subtitle}
-            icon={Icon}
-            gradient={step.gradient}
-            isActive={isActive}
-            isCompleted={isCompleted}
-            canAccess={canAccess}
-            onClick={() => canAccess && setActiveStep(step.id)}
-          >
-            <div className="space-y-3 lg:space-y-4">
-                          {step.id === 1 && (
+          <div key={step.id} className="space-y-3 lg:space-y-4">
+            {step.id === 1 && (
                             <>
                               {salon.services.map((service) => {
                                 
@@ -476,7 +464,7 @@ export function SlotBookingWizard() {
                                   <WizardButton
                                     variant="primary"
                                     size="md"
-                                    fullWidth
+                                    className="w-full"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       // Kapasite kontrolü - kullanıcıya net feedback
@@ -603,7 +591,7 @@ export function SlotBookingWizard() {
                                 <WizardButton
                                   variant="primary"
                                   size="md"
-                                  fullWidth
+                                  className="w-full"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleStepComplete(dateTimeStepId);
@@ -733,7 +721,7 @@ export function SlotBookingWizard() {
                               <WizardButton
                                 variant="primary"
                                 size="lg"
-                                fullWidth
+                                className="w-full"
                                 isLoading={isSubmitting}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -745,7 +733,6 @@ export function SlotBookingWizard() {
                             </div>
                           )}
             </div>
-          </WizardStep>
         );
       })}
     </WizardContainer>

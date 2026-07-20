@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shield, Users, Plus, Edit, Trash2, Save, X } from 'lucide-react';
-import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface Permission {
@@ -87,18 +87,29 @@ export function AdminPermissions() {
       ];
       setRoles(defaultRoles);
 
-      // Load admin users
-      const defaultAdminUsers: AdminUser[] = [
-        {
-          id: '1',
-          email: 'minifinise@gmail.com',
-          name: 'Super Admin',
-          role: 'super_admin',
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        },
-      ];
-      setAdminUsers(defaultAdminUsers);
+      // ✅ KRİTİK: Admin users Firestore'dan yüklenecek (hardcoded kaldırıldı)
+      // Date: 2026-07-20
+      // TODO: Firebase Authentication'dan custom claims = admin olan kullanıcıları çek
+      const adminUsersSnapshot = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('role', '==', 'admin')
+        )
+      );
+      
+      const loadedAdminUsers: AdminUser[] = adminUsersSnapshot.docs.map(docSnap => {
+        const data = docSnap.data() as { email: string; displayName?: string; role: string; createdAt: string; lastLogin?: string };
+        return {
+          id: docSnap.id,
+          email: data.email,
+          name: data.displayName || 'Admin User',
+          role: 'admin',
+          createdAt: data.createdAt,
+          lastLogin: data.lastLogin || data.createdAt,
+        };
+      });
+      
+      setAdminUsers(loadedAdminUsers);
     } catch (error) {
       console.error('Load data error:', error);
     } finally {

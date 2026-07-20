@@ -324,7 +324,14 @@ export const BUSINESS_PRESETS: Record<string, BusinessCapabilities> = {
 
 /**
  * Preset ID'sinden capabilities al
+ * ✅ KRİTİK FIX: Deep clone ile döndür - mutation önlendi
+ * Date: 2026-07-20
+ * Issue: analiz4.md BULGU #3 - Shallow copy yüzünden bookingModels array'i mutasyona uğruyordu
  */
 export function getPresetCapabilities(presetId: string): BusinessCapabilities | null {
-  return BUSINESS_PRESETS[presetId] || null;
+  const preset = BUSINESS_PRESETS[presetId];
+  if (!preset) return null;
+  
+  // Deep clone ile döndür - orijinal preset korunur
+  return structuredClone(preset);
 }

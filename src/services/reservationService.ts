@@ -113,32 +113,49 @@ class ReservationService {
       cancellationPolicy
     } as Reservation;
 
-    // ✅ CRITICAL FIX #1: Availability check + atomic write
-    // Issue: CRITICAL #1 - Race condition double booking prevention
-    // Date: 2026-07-03
-    // Note: Firestore transactions don't support queries, so we do optimistic locking
+    // ✅ CRITICAL FIX: Atomic slot lock with deterministic document ID
+    // Issue: CRITICAL - Race condition double booking prevention
+    // Date: 2026-07-20
+    // Solution: Use slot-based document ID as a lock mechanism
+    // Firestore guarantees only one create with same ID will succeed
     await runTransaction(db, async (transaction) => {
-      // ✅ Slot reservation için çakışma kontrolü
+      // ✅ Slot reservation için çakışma kontrolü ve atomic lock
       if (sanitizedData.type === 'slot') {
         const dateStr = (sanitizedData as any).date;
         const staffId = (sanitizedData as any).staffId;
+        const startTime = (sanitizedData as any).startTime;
         
-        if (dateStr && staffId) {
-          // Double check availability (race condition still possible but minimized)
-          const existingReservations = await this.getStaffReservationsForDate(staffId, dateStr);
+        if (dateStr && staffId && startTime) {
+          // Create deterministic lock document ID
+          const lockId = `${staffId}_${dateStr}_${startTime.replace(':', '')}`;
+          const lockRef = doc(db, 'reservationLocks', lockId);
           
-          const hasConflict = existingReservations.some(res => 
-            this.timesOverlap(
-              (sanitizedData as any).startTime,
-              (sanitizedData as any).endTime,
-              res.startTime,
-              res.endTime
-            )
-          );
+          // Try to get lock document (within transaction for atomicity)
+          const lockSnap = await transaction.get(lockRef);
           
-          if (hasConflict) {
-            throw new Error('Bu saat aralığı artık müsait değil. Lütfen başka bir saat seçin.');
+          if (lockSnap.exists()) {
+            const lockData = lockSnap.data();
+            const lockCreatedAt = lockData?.createdAt || 0;
+            const now = Date.now();
+            
+            // Lock timeout: 5 minutes (in case of failed transactions)
+            const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+            
+            if (now - lockCreatedAt < LOCK_TIMEOUT_MS) {
+              throw new Error('Bu saat aralığı artık müsait değil. Lütfen başka bir saat seçin.');
+            }
+            // Lock expired, we can overwrite
           }
+          
+          // Create/update lock atomically
+          transaction.set(lockRef, {
+            reservationId,
+            staffId,
+            date: dateStr,
+            startTime,
+            createdAt: Date.now(),
+            userId: sanitizedData.userId
+          });
         }
       }
       

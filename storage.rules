@@ -15,6 +15,13 @@ service firebase.storage {
       return request.resource.size < 10 * 1024 * 1024; // 10MB
     }
     
+    // ✅ KRİTİK: Firestore'dan sahiplik kontrolü
+    // Date: 2026-07-20
+    function isSalonOwner(salonId) {
+      return request.auth != null &&
+             firestore.get(/databases/(default)/documents/salons/$(salonId)).data.ownerId == request.auth.uid;
+    }
+    
     // Public folders - anyone can read, authenticated users can write
     match /logos/{allPaths=**} {
       allow read: if true;
@@ -46,16 +53,26 @@ service firebase.storage {
       allow write: if isAuthenticated() && isValidImageType() && isValidImageSize();
     }
     
-    // Salon specific folders
+    // ✅ KRİTİK: Salon specific folders - sadece salon sahibi yazabilir
+    // Date: 2026-07-20
+    // Issue: Başka birinin salonuna dosya yükleme engellendi
     match /salons/{salonId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidImageType() && isValidImageSize();
+      allow write: if isAuthenticated() && 
+                      isValidImageType() && 
+                      isValidImageSize() &&
+                      isSalonOwner(salonId);
     }
     
-    // User profile images
+    // ✅ KRİTİK: User profile images - sadece kendi profili
+    // Date: 2026-07-20
+    // Issue: Başka birinin profil klasörüne dosya yükleme engellendi
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidImageType() && isValidImageSize();
+      allow write: if isAuthenticated() && 
+                      request.auth.uid == userId &&
+                      isValidImageType() && 
+                      isValidImageSize();
     }
   }
 }
